@@ -1564,4 +1564,15 @@
         <item quantity="one">%d was not started (app went to the background)</item>
         <item quantity="other">%d were not started (app went to the background)</item>
     </plurals>
+    <plurals name="scope_redo_offer_rule">
+        <item quantity="one">Redo %d existing file with this rule?</item>
+        <item quantity="other">Redo %d existing files with this rule?</item>
+    </plurals>
+    <plurals name="scope_redo_offer_new_setting">
+        <item quantity="one">Redo %d existing file with the new setting?</item>
+        <item quantity="other">Redo %d existing files with the new setting?</item>
+    </plurals>
+    <string name="scope_redo_offer_redo">Redo</string>
+    <string name="scope_redo_offer_not_now">Not now</string>
+    <string name="scope_redo_busy">Another batch is already running</string>
 </resources>

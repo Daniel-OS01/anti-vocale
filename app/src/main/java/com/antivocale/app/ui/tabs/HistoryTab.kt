@@ -820,6 +820,8 @@ fun HistoryTab(
     // Bulk redo: the picker is tab-local; the prepare/summary/done flow is the VM's.
     var showBulkRedoPicker by remember { mutableStateOf(false) }
     val bulkRedoState by viewModel.bulkRedoState.collectAsState()
+    val scopeRedoOffer by viewModel.scopeRedoOffer.collectAsState()
+    val scopeRedoBusy by viewModel.scopeRedoBusy.collectAsState()
     // The bar lives in the non-empty branch: an emptied history must not
     // leave an invisible mode holding the Back key.
     LaunchedEffect(selectionMode, logs.isEmpty()) {
@@ -995,6 +997,33 @@ fun HistoryTab(
         onConfirm = viewModel::confirmBulkRedo,
         onCancel = viewModel::cancelBulkRedo,
     )
+    // After a folder or subfolder rule save: redo the rows it now governs.
+    scopeRedoOffer?.let { offer ->
+        val count = offer.rowIds.size
+        AlertDialog(
+            onDismissRequest = viewModel::dismissScopeRedo,
+            text = {
+                Text(
+                    pluralStringResource(
+                        if (offer.ruleRemoved) R.plurals.scope_redo_offer_new_setting
+                        else R.plurals.scope_redo_offer_rule,
+                        count,
+                        count,
+                    )
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { viewModel.confirmScopeRedo(offer.id) }) {
+                    Text(stringResource(R.string.scope_redo_offer_redo))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = viewModel::dismissScopeRedo) {
+                    Text(stringResource(R.string.scope_redo_offer_not_now))
+                }
+            },
+        )
+    }
 
     // Long-audio advisory (TASK-432): renders only after the retranscribe gate
     // decides a warning is warranted; state lives in the view model so
@@ -1047,6 +1076,13 @@ fun HistoryTab(
         ).joinToString(" · ")
         if (message.isNotEmpty()) snackbarHostState.showSnackbar(message)
         viewModel.consumeBulkDeleteResult()
+    }
+    // A confirmed scope redo offer found another batch running.
+    val scopeRedoBusyMessage = stringResource(R.string.scope_redo_busy)
+    LaunchedEffect(scopeRedoBusy) {
+        if (!scopeRedoBusy) return@LaunchedEffect
+        snackbarHostState.showSnackbar(scopeRedoBusyMessage)
+        viewModel.consumeScopeRedoBusy()
     }
     // Bulk redo outcome: queued, plus the requests that could not start,
     // the one waiting on a tap-to-start notification, and those never started.

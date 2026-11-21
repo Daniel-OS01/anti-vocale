@@ -1406,4 +1406,15 @@
         <item quantity="one">%d n\'a pas été lancée (l\'app est passée en arrière-plan)</item>
         <item quantity="other">%d n\'ont pas été lancées (l\'app est passée en arrière-plan)</item>
     </plurals>
+    <plurals name="scope_redo_offer_rule">
+        <item quantity="one">Refaire %d fichier existant avec cette règle ?</item>
+        <item quantity="other">Refaire %d fichiers existants avec cette règle ?</item>
+    </plurals>
+    <plurals name="scope_redo_offer_new_setting">
+        <item quantity="one">Refaire %d fichier existant avec le nouveau réglage ?</item>
+        <item quantity="other">Refaire %d fichiers existants avec le nouveau réglage ?</item>
+    </plurals>
+    <string name="scope_redo_offer_redo">Refaire</string>
+    <string name="scope_redo_offer_not_now">Plus tard</string>
+    <string name="scope_redo_busy">Un autre lot est déjà en cours</string>
 </resources>

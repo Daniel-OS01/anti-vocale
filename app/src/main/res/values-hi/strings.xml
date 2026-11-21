@@ -1537,4 +1537,15 @@
         <item quantity="one">%d शुरू नहीं की गई (ऐप बैकग्राउंड में चला गया)</item>
         <item quantity="other">%d शुरू नहीं की गईं (ऐप बैकग्राउंड में चला गया)</item>
     </plurals>
+    <plurals name="scope_redo_offer_rule">
+        <item quantity="one">इस नियम से %d मौजूदा फ़ाइल फिर से करें?</item>
+        <item quantity="other">इस नियम से %d मौजूदा फ़ाइलें फिर से करें?</item>
+    </plurals>
+    <plurals name="scope_redo_offer_new_setting">
+        <item quantity="one">नई सेटिंग से %d मौजूदा फ़ाइल फिर से करें?</item>
+        <item quantity="other">नई सेटिंग से %d मौजूदा फ़ाइलें फिर से करें?</item>
+    </plurals>
+    <string name="scope_redo_offer_redo">फिर से करें</string>
+    <string name="scope_redo_offer_not_now">अभी नहीं</string>
+    <string name="scope_redo_busy">एक और बैच पहले से चल रहा है</string>
 </resources>

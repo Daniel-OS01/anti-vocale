@@ -2,6 +2,7 @@ package com.antivocale.app.ui.viewmodel
 
 import android.content.Context
 import android.net.Uri
+import com.antivocale.app.data.ScopeProfileSource
 import com.antivocale.app.data.SourceKind
 import com.antivocale.app.data.VoiceNoteDuplicateGuard
 import com.antivocale.app.data.local.LogEntity
@@ -80,7 +81,7 @@ class LogsViewModelBatchIntakeTest : ViewModelTeardownTest() {
             scheduledFolderStore = mockk(relaxed = true),
             profileOutcomeSource = mockk(relaxed = true),
             scopeProfileStore = mockk(relaxed = true),
-            historyBulkRedo = mockk(relaxed = true),
+            historyBulkRedo = mockk(relaxed = true), scopeProfileSource = mockk<ScopeProfileSource>(relaxed = true),
             appScope = appScope,
         ))
     }

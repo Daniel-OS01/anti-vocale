@@ -1566,4 +1566,17 @@
         <item quantity="two">%d לא הופעלו (האפליקציה עברה לרקע)</item>
         <item quantity="other">%d לא הופעלו (האפליקציה עברה לרקע)</item>
     </plurals>
+    <plurals name="scope_redo_offer_rule">
+        <item quantity="one">לתמלל מחדש %d קובץ קיים עם הכלל הזה?</item>
+        <item quantity="two">לתמלל מחדש %d קבצים קיימים עם הכלל הזה?</item>
+        <item quantity="other">לתמלל מחדש %d קבצים קיימים עם הכלל הזה?</item>
+    </plurals>
+    <plurals name="scope_redo_offer_new_setting">
+        <item quantity="one">לתמלל מחדש %d קובץ קיים עם ההגדרה החדשה?</item>
+        <item quantity="two">לתמלל מחדש %d קבצים קיימים עם ההגדרה החדשה?</item>
+        <item quantity="other">לתמלל מחדש %d קבצים קיימים עם ההגדרה החדשה?</item>
+    </plurals>
+    <string name="scope_redo_offer_redo">תמלול מחדש</string>
+    <string name="scope_redo_offer_not_now">לא עכשיו</string>
+    <string name="scope_redo_busy">אצווה אחרת כבר פועלת</string>
 </resources>

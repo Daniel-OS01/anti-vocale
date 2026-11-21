@@ -1554,4 +1554,15 @@
         <item quantity="one">%d is niet gestart (app ging naar de achtergrond)</item>
         <item quantity="other">%d zijn niet gestart (app ging naar de achtergrond)</item>
     </plurals>
+    <plurals name="scope_redo_offer_rule">
+        <item quantity="one">%d bestaand bestand opnieuw doen met deze regel?</item>
+        <item quantity="other">%d bestaande bestanden opnieuw doen met deze regel?</item>
+    </plurals>
+    <plurals name="scope_redo_offer_new_setting">
+        <item quantity="one">%d bestaand bestand opnieuw doen met de nieuwe instelling?</item>
+        <item quantity="other">%d bestaande bestanden opnieuw doen met de nieuwe instelling?</item>
+    </plurals>
+    <string name="scope_redo_offer_redo">Opnieuw</string>
+    <string name="scope_redo_offer_not_now">Niet nu</string>
+    <string name="scope_redo_busy">Er loopt al een andere batch</string>
 </resources>

@@ -1600,4 +1600,19 @@
         <item quantity="many">Не запущено (застосунок перейшов у фон): %d</item>
         <item quantity="other">Не запущено (застосунок перейшов у фон): %d</item>
     </plurals>
+    <plurals name="scope_redo_offer_rule">
+        <item quantity="one">Повторити %d наявний файл із цим правилом?</item>
+        <item quantity="few">Повторити %d наявні файли з цим правилом?</item>
+        <item quantity="many">Повторити %d наявних файлів із цим правилом?</item>
+        <item quantity="other">Повторити %d наявного файлу з цим правилом?</item>
+    </plurals>
+    <plurals name="scope_redo_offer_new_setting">
+        <item quantity="one">Повторити %d наявний файл із новим налаштуванням?</item>
+        <item quantity="few">Повторити %d наявні файли з новим налаштуванням?</item>
+        <item quantity="many">Повторити %d наявних файлів із новим налаштуванням?</item>
+        <item quantity="other">Повторити %d наявного файлу з новим налаштуванням?</item>
+    </plurals>
+    <string name="scope_redo_offer_redo">Повторити</string>
+    <string name="scope_redo_offer_not_now">Не зараз</string>
+    <string name="scope_redo_busy">Інший пакет уже виконується</string>
 </resources>

@@ -1598,4 +1598,19 @@
         <item quantity="many">Nie uruchomiono (aplikacja przeszła w tło): %d</item>
         <item quantity="other">Nie uruchomiono (aplikacja przeszła w tło): %d</item>
     </plurals>
+    <plurals name="scope_redo_offer_rule">
+        <item quantity="one">Powtórzyć %d istniejący plik z tą regułą?</item>
+        <item quantity="few">Powtórzyć %d istniejące pliki z tą regułą?</item>
+        <item quantity="many">Powtórzyć %d istniejących plików z tą regułą?</item>
+        <item quantity="other">Powtórzyć %d istniejącego pliku z tą regułą?</item>
+    </plurals>
+    <plurals name="scope_redo_offer_new_setting">
+        <item quantity="one">Powtórzyć %d istniejący plik z nowym ustawieniem?</item>
+        <item quantity="few">Powtórzyć %d istniejące pliki z nowym ustawieniem?</item>
+        <item quantity="many">Powtórzyć %d istniejących plików z nowym ustawieniem?</item>
+        <item quantity="other">Powtórzyć %d istniejącego pliku z nowym ustawieniem?</item>
+    </plurals>
+    <string name="scope_redo_offer_redo">Powtórz</string>
+    <string name="scope_redo_offer_not_now">Nie teraz</string>
+    <string name="scope_redo_busy">Inna partia jest już w toku</string>
 </resources>

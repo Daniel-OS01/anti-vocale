@@ -1499,4 +1499,23 @@
         <item quantity="many">لم يُبدأ %d (انتقل التطبيق إلى الخلفية)</item>
         <item quantity="other">لم يُبدأ %d (انتقل التطبيق إلى الخلفية)</item>
     </plurals>
+    <plurals name="scope_redo_offer_rule">
+        <item quantity="zero">إعادة %d ملف موجود بهذه القاعدة؟</item>
+        <item quantity="one">إعادة %d ملف موجود بهذه القاعدة؟</item>
+        <item quantity="two">إعادة %d ملفين موجودين بهذه القاعدة؟</item>
+        <item quantity="few">إعادة %d ملفات موجودة بهذه القاعدة؟</item>
+        <item quantity="many">إعادة %d ملفًا موجودًا بهذه القاعدة؟</item>
+        <item quantity="other">إعادة %d ملف موجود بهذه القاعدة؟</item>
+    </plurals>
+    <plurals name="scope_redo_offer_new_setting">
+        <item quantity="zero">إعادة %d ملف موجود بالإعداد الجديد؟</item>
+        <item quantity="one">إعادة %d ملف موجود بالإعداد الجديد؟</item>
+        <item quantity="two">إعادة %d ملفين موجودين بالإعداد الجديد؟</item>
+        <item quantity="few">إعادة %d ملفات موجودة بالإعداد الجديد؟</item>
+        <item quantity="many">إعادة %d ملفًا موجودًا بالإعداد الجديد؟</item>
+        <item quantity="other">إعادة %d ملف موجود بالإعداد الجديد؟</item>
+    </plurals>
+    <string name="scope_redo_offer_redo">إعادة</string>
+    <string name="scope_redo_offer_not_now">ليس الآن</string>
+    <string name="scope_redo_busy">هناك دفعة أخرى قيد التشغيل بالفعل</string>
 </resources>
