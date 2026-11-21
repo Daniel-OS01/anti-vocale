@@ -1,0 +1,36 @@
+{
+  "name": "Hebrew Zipformer2 66M Streaming",
+  "family": "TRANSDUCER",
+  "modelType": "",
+  "languages": [
+    "he"
+  ],
+  "streaming": true,
+  "options": {},
+  "files": [
+    {
+      "name": "encoder.int8.onnx",
+      "url": "https://huggingface.co/ivrit-ai/zipformer2-66m-streaming-he/resolve/ee769a2a13b887f91572eec349458bfb0fe79e7a/sherpa-onnx/encoder.int8.onnx",
+      "sha256": "6c6febcb74a09435315a1d872a6539f6e7fc2c333533f14c74edc0e85c49ffcd",
+      "size": 70478964
+    },
+    {
+      "name": "decoder.int8.onnx",
+      "url": "https://huggingface.co/ivrit-ai/zipformer2-66m-streaming-he/resolve/ee769a2a13b887f91572eec349458bfb0fe79e7a/sherpa-onnx/decoder.int8.onnx",
+      "sha256": "feb03e7c8aa761593a9284a6fa1e91259be3702de75f630062256c1a59c5a906",
+      "size": 1049105
+    },
+    {
+      "name": "joiner.int8.onnx",
+      "url": "https://huggingface.co/ivrit-ai/zipformer2-66m-streaming-he/resolve/ee769a2a13b887f91572eec349458bfb0fe79e7a/sherpa-onnx/joiner.int8.onnx",
+      "sha256": "1d2c6d8e6dabc5eb52de52e95718e9bdfbffbfe7ead3808fb5ffd74e83bd9cae",
+      "size": 771805
+    },
+    {
+      "name": "tokens.txt",
+      "url": "https://huggingface.co/ivrit-ai/zipformer2-66m-streaming-he/resolve/ee769a2a13b887f91572eec349458bfb0fe79e7a/sherpa-onnx/tokens.txt",
+      "sha256": "e4ebb5e72a6aeef47437a55fa2308ebbedb7c51c557de7a89bf965c23ea9af4a",
+      "size": 17086
+    }
+  ]
+}

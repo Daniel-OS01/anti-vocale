@@ -1,0 +1,13 @@
+{
+    "entries": [
+        {
+            "name": "Hebrew Zipformer2 66M Streaming",
+            "languages": [
+                "he"
+            ],
+            "family": "TRANSDUCER",
+            "streaming": true,
+            "entryUrl": "https://raw.githubusercontent.com/Daniel-OS01/anti-vocale/main/app/src/main/assets/external-catalog/zipformer-hebrew.json"
+        }
+    ]
+}

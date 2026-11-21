@@ -32,6 +32,8 @@ class ExternalCatalogRepositoryTest {
          "entryUrl": "https://example.org/alt.json"}
     ]}"""
 
+    private val forkExtraNames = listOf(HEBREW)
+
     private fun tempDir(): java.io.File = Files.createTempDirectory("catalog").toFile()
 
     private fun repo(
@@ -51,7 +53,7 @@ class ExternalCatalogRepositoryTest {
         val dir = tempDir()
         val remote = mutableMapOf(defaultUrl to index)
         val result = repo(defaultUrl, remote, dir).load().getOrThrow()
-        assertEquals(1, result.entries.size)
+        assertEquals(listOf("Swiss German") + forkExtraNames, result.entries.map { it.name })
         assertTrue(result.source is ExternalCatalogRepository.Source.Remote)
         assertFalse((result.source as ExternalCatalogRepository.Source.Remote).isOverride)
         // the good copy is cached on disk
@@ -67,11 +69,54 @@ class ExternalCatalogRepositoryTest {
         // now the network dies: same-url cache is used
         val cached = repo(defaultUrl, mutableMapOf(), dir).load().getOrThrow()
         assertTrue(cached.source is ExternalCatalogRepository.Source.Cached)
-        assertEquals(1, cached.entries.size)
+        assertEquals(listOf("Swiss German") + forkExtraNames, cached.entries.map { it.name })
         // no cache at all (fresh dir) and offline: bundled asset for the DEFAULT url
         val asset = repo(defaultUrl, mutableMapOf(), tempDir()).load().getOrThrow()
         assertTrue(asset.source is ExternalCatalogRepository.Source.BundledAsset)
         assertTrue(asset.entries.isNotEmpty())
+        assertTrue(forkExtraNames.all { it in asset.entries.map { e -> e.name } })
+    }
+
+    @Test
+    fun `fork extras are not appended to an override list`() = runTest {
+        val first = repo(altUrl, mutableMapOf(altUrl to altIndex), tempDir()).load().getOrThrow()
+        assertEquals(listOf("Alt Model"), first.entries.map { it.name })
+    }
+
+    @Test
+    fun `an index entry with an extra's name wins over the extra`() = runTest {
+        val dup = """{"entries": [
+            {"name": "$HEBREW", "languages": ["he"], "family": "WHISPER",
+             "entryUrl": "https://example.org/own-hebrew.json"}
+        ]}"""
+        val result = repo(defaultUrl, mutableMapOf(defaultUrl to dup), tempDir()).load().getOrThrow()
+        val matching = result.entries.filter { it.name == HEBREW }
+        assertEquals(1, matching.size)
+        assertEquals("https://example.org/own-hebrew.json", matching.single().entryUrl)
+    }
+
+    @Test
+    fun `malformed fork extras leave the main index intact`() = runTest {
+        val ctx = org.robolectric.RuntimeEnvironment.getApplication()
+        // A context whose asset read of the extras file throws must still
+        // return the main list.
+        val throwing = object : android.content.ContextWrapper(ctx) {
+            override fun getAssets(): android.content.res.AssetManager =
+                throw java.io.IOException("assets unavailable")
+        }
+        val result = repo(defaultUrl, mutableMapOf(defaultUrl to index), tempDir(), throwing)
+            .load().getOrThrow()
+        assertEquals(listOf("Swiss German"), result.entries.map { it.name })
+    }
+
+    @Test
+    fun `bundled fork extras parse into a streaming Hebrew transducer entry`() {
+        val text = File("src/main/assets/external-catalog/fork-extras.json").readText()
+        val entry = ExternalCatalog.parseIndex(text).single()
+        assertEquals(HEBREW, entry.name)
+        assertEquals(ModelFamily.TRANSDUCER, entry.family)
+        assertTrue(entry.streaming)
+        assertEquals(listOf("he"), entry.languages)
     }
 
     @Test
@@ -101,5 +146,9 @@ class ExternalCatalogRepositoryTest {
         val r = repo(defaultUrl, remote, dir)
         assertTrue(r.validateOverride(altUrl))
         assertFalse(r.validateOverride("https://example.org/missing.json"))
+    }
+
+    private companion object {
+        const val HEBREW = "Hebrew Zipformer2 66M Streaming"
     }
 }
