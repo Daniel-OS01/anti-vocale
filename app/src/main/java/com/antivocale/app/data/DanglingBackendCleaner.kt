@@ -52,6 +52,25 @@ class DanglingBackendCleaner(
         if (isDanglingExternal(preferencesManager.voiceNoteBusinessBackendId.first())) {
             preferencesManager.saveVoiceNoteBusinessBackendId("")
         }
+        // R6: folder profiles, subfolder rules, sender profiles and the
+        // language-model map. Scrubbed only when the RECORD is gone: a
+        // record whose files a storage cleaner wiped is repairable
+        // (ExternalImportRepairer), the resolver already degrades its pins
+        // per request, and keeping them means a repair restores every rule
+        // with no capture of these maps (the single-preference pins above
+        // need the capture because they are reset on dir loss too).
+        val referenced = ScheduledFolderStore.referencedBackendIdsIn(preferencesManager) +
+            ScopeProfileStore.referencedBackendIdsIn(preferencesManager)
+        val externalIds = referenced.filter { it.startsWith(ExternalModelRecord.BACKEND_ID_PREFIX) }
+        if (externalIds.isNotEmpty()) {
+            val recordIds = externalModelStore.records().mapTo(mutableSetOf()) { it.id }
+            externalIds
+                .filter { it.removePrefix(ExternalModelRecord.BACKEND_ID_PREFIX) !in recordIds }
+                .forEach { gone ->
+                    ScheduledFolderStore.scrubBackendIn(preferencesManager, gone)
+                    ScopeProfileStore.scrubBackendIn(preferencesManager, gone)
+                }
+        }
     }
 
     /** byId resolves valid records only (dir must exist), matching what the
