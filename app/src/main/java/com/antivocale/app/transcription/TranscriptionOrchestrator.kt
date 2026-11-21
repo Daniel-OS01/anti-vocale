@@ -223,13 +223,16 @@ class TranscriptionOrchestrator @Inject constructor(
     private val runMutex = Mutex()
 
     /**
-     * Whether the LAST request run kept its [processRequest] backendOverride
-     * model resident (keepBackendLoaded). Reset at every request start, so it
-     * is set only while that kept model is still the resident one; a later
-     * global-model request clears it and leaves the keep-alive timer in
-     * charge of its own model. Guarded by [runMutex].
+     * The override backend id the LAST finished request kept resident
+     * (keepBackendLoaded), recorded only when that id really became the
+     * active backend (a subtitle request that never loaded its override
+     * records nothing). Not reset at request start: a next request cancelled
+     * before its own cleanup must leave the record for the drain. Every
+     * release re-checks identity against the active backend, so a stale
+     * record can never unload a different (e.g. the global) model.
+     * Guarded by [runMutex].
      */
-    private var keptOverrideResident = false
+    private var keptOverrideId: String? = null
 
     /**
      * Unloads the override model the last request kept resident, if any, and
@@ -241,8 +244,9 @@ class TranscriptionOrchestrator @Inject constructor(
      */
     suspend fun releaseKeptOverride() {
         runMutex.withLock {
-            if (!keptOverrideResident) return@withLock
-            keptOverrideResident = false
+            val kept = keptOverrideId ?: return@withLock
+            keptOverrideId = null
+            if (backendManager.activeBackendId.value != kept) return@withLock
             try {
                 backendManager.unloadActiveBackend()
             } catch (_: Exception) {
@@ -340,7 +344,6 @@ class TranscriptionOrchestrator @Inject constructor(
         // subtitle arms never seed (verified: no savePartial in their
         // scopes) so their stay inside the span is a no-op.
         return runMutex.withLock {
-            keptOverrideResident = false
             withSeedHeartbeat {
                 processRequestInner(
                     taskId, requestType, prompt, filePath, source, sourcePackage,
@@ -876,7 +879,9 @@ class TranscriptionOrchestrator @Inject constructor(
             }
             // Recorded so the drain can release it if the request it was
             // kept for never runs (cancelled or cleared after the peek).
-            keptOverrideResident = backendOverride != null && keepBackendLoaded
+            keptOverrideId = backendOverride?.takeIf {
+                keepBackendLoaded && backendManager.activeBackendId.value == it
+            }
         }
     }
 
