@@ -23,6 +23,7 @@ import com.antivocale.app.data.CallRecordingFilenames
 import com.antivocale.app.data.SourceKind
 import com.antivocale.app.data.FileSnapshot
 import com.antivocale.app.data.FolderScanPlanner
+import com.antivocale.app.data.FolderWatchTaskIds
 import com.antivocale.app.data.FolderWalk
 import com.antivocale.app.data.OriginFacts
 import com.antivocale.app.data.ScheduledFolderStore
@@ -291,17 +292,13 @@ class ScheduledFolderWorker @AssistedInject constructor(
             folderName: String,
             profile: ResolvedProfile? = null,
         ): Intent =
-            // TASK-776: the shared audio-request factory; the taskId stays
-            // local because its derivation is this worker's contract.
+            // TASK-776: the shared audio-request factory.
             AudioRequestIntent.make(
                 context,
                 InferenceService.SOURCE_FOLDER_WATCH,
-                // The tree uri rides the id: two folders holding a
-                // same-named file scanned in the same millisecond must not
-                // collide (the service drops duplicate task ids silently). The
-                // RELATIVE PATH is hashed, not the basename, for the same reason
-                // across two subfolders of one tree.
-                "fwatch_${treeUri.hashCode().toUInt()}_${System.currentTimeMillis()}_${relativePath.hashCode().toUInt()}",
+                // The id shape (tree + relative-path hashes) is owned by
+                // FolderWatchTaskIds; see its KDoc for why both ride it.
+                FolderWatchTaskIds.mint(treeUri, relativePath, System.currentTimeMillis()),
                 localPath,
                 senderName = CallRecordingFilenames.callerFromFileName(FolderScanPlanner.baseNameOf(relativePath)),
                 sourceKind = SourceKind.FOLDER_WATCH,

@@ -1,5 +1,6 @@
 package com.antivocale.app.work
 
+import com.antivocale.app.data.FolderWatchTaskIds
 import com.antivocale.app.data.SourceKind
 import com.antivocale.app.receiver.TaskerRequestReceiver
 import com.antivocale.app.service.InferenceService
@@ -82,6 +83,16 @@ class ScheduledFolderWorkerScanNowTest {
         val idB = checkNotNull(b.getStringExtra(TaskerRequestReceiver.EXTRA_TASK_ID))
         // The trailing hash is the per-file part; the timestamp may coincide.
         assertTrue(idA.substringAfterLast('_') != idB.substringAfterLast('_'))
+    }
+
+    @Test
+    fun `the task id carries the tree and relative-path hashes a redo parses back`() {
+        val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
+        val tree = "content://tree/primary%3ARecordings"
+        val intent = ScheduledFolderWorker.buildServiceIntent(context, "/data/a.m4a", "Calls/2026/rec.m4a", tree, "Recordings")
+        val id = checkNotNull(intent.getStringExtra(TaskerRequestReceiver.EXTRA_TASK_ID))
+        assertEquals("Calls/2026/rec.m4a".hashCode().toUInt(), FolderWatchTaskIds.relPathHashOf(id))
+        assertEquals(tree.hashCode().toUInt(), FolderWatchTaskIds.treeHashOf(id))
     }
 
     @Test
