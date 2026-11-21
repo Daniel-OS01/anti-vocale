@@ -1264,4 +1264,15 @@
     <string name="voice_note_model_title">Malli</string>
     <string name="voice_note_model_default">Aktiivinen malli (oletus)</string>
     <string name="voice_note_model_single_pass_hint">Kaksivaiheinen tila on pois päältä tälle lähteelle</string>
+    <string name="scope_rule_language_label">Kieli</string>
+    <string name="scope_rule_language_inherit">Ei sääntöä (peri)</string>
+    <string name="scope_rule_language_auto">Tunnista automaattisesti (ei kiinnitystä)</string>
+    <string name="scope_rule_advanced_pin">Lisäasetus: kiinnitä malli</string>
+    <string name="scope_rule_model_default">Käytä kielen mallia/oletusta</string>
+    <string name="scope_rule_outcome">Nämä tiedostot: %1$s</string>
+    <string name="scope_rule_outcome_two_pass_off">Nämä tiedostot: %1$s · kaksivaiheinen pois</string>
+    <string name="scope_rule_unsupported">Tämä malli ei osaa litteroida kieltä: %1$s</string>
+    <string name="scope_rule_set_language_model">Valitse malli tälle kielelle</string>
+    <string name="scope_rule_remove">Poista sääntö</string>
+    <string name="scope_rule_model_unknown">Oletusmalli</string>
 </resources>

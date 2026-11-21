@@ -1292,4 +1292,15 @@
     <string name="voice_note_model_title">Modelo</string>
     <string name="voice_note_model_default">Modelo ativo (padrão)</string>
     <string name="voice_note_model_single_pass_hint">A passagem dupla está desativada para esta fonte</string>
+    <string name="scope_rule_language_label">Idioma</string>
+    <string name="scope_rule_language_inherit">Sem regra (herdar)</string>
+    <string name="scope_rule_language_auto">Detectar automaticamente (sem fixar)</string>
+    <string name="scope_rule_advanced_pin">Avançado: fixar um modelo</string>
+    <string name="scope_rule_model_default">Usar idioma/padrão</string>
+    <string name="scope_rule_outcome">Estes arquivos: %1$s</string>
+    <string name="scope_rule_outcome_two_pass_off">Estes arquivos: %1$s · duas passagens desativadas</string>
+    <string name="scope_rule_unsupported">Este modelo não transcreve este idioma: %1$s</string>
+    <string name="scope_rule_set_language_model">Definir um modelo para este idioma</string>
+    <string name="scope_rule_remove">Remover regra</string>
+    <string name="scope_rule_model_unknown">Modelo padrão</string>
 </resources>

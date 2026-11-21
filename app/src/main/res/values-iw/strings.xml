@@ -1437,4 +1437,15 @@
     <string name="voice_note_model_title">מודל</string>
     <string name="voice_note_model_default">המודל הפעיל (ברירת מחדל)</string>
     <string name="voice_note_model_single_pass_hint">מצב שני מעברים כבוי עבור מקור זה</string>
+    <string name="scope_rule_language_label">שפה</string>
+    <string name="scope_rule_language_inherit">ללא כלל (ירושה)</string>
+    <string name="scope_rule_language_auto">זיהוי אוטומטי (ללא קיבוע)</string>
+    <string name="scope_rule_advanced_pin">מתקדם: קיבוע מודל</string>
+    <string name="scope_rule_model_default">לפי השפה/ברירת מחדל</string>
+    <string name="scope_rule_outcome">קבצים אלה: %1$s</string>
+    <string name="scope_rule_outcome_two_pass_off">קבצים אלה: %1$s · שני מעברים כבוי</string>
+    <string name="scope_rule_unsupported">המודל הזה לא יכול לתמלל את השפה: %1$s</string>
+    <string name="scope_rule_set_language_model">בחירת מודל לשפה הזו</string>
+    <string name="scope_rule_remove">הסרת הכלל</string>
+    <string name="scope_rule_model_unknown">מודל ברירת המחדל</string>
 </resources>

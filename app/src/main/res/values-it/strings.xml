@@ -1430,4 +1430,15 @@
     <string name="voice_note_model_title">Modello</string>
     <string name="voice_note_model_default">Modello attivo (predefinito)</string>
     <string name="voice_note_model_single_pass_hint">Il doppio passaggio è disattivato per questa fonte</string>
+    <string name="scope_rule_language_label">Lingua</string>
+    <string name="scope_rule_language_inherit">Nessuna regola (eredita)</string>
+    <string name="scope_rule_language_auto">Rilevamento automatico (non fissare)</string>
+    <string name="scope_rule_advanced_pin">Avanzate: fissa un modello</string>
+    <string name="scope_rule_model_default">Usa lingua/predefinito</string>
+    <string name="scope_rule_outcome">Questi file: %1$s</string>
+    <string name="scope_rule_outcome_two_pass_off">Questi file: %1$s · doppio passaggio disattivato</string>
+    <string name="scope_rule_unsupported">Questo modello non può trascrivere questa lingua: %1$s</string>
+    <string name="scope_rule_set_language_model">Imposta un modello per questa lingua</string>
+    <string name="scope_rule_remove">Rimuovi regola</string>
+    <string name="scope_rule_model_unknown">Modello predefinito</string>
 </resources>

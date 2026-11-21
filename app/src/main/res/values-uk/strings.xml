@@ -1456,4 +1456,15 @@
     <string name="voice_note_model_title">Модель</string>
     <string name="voice_note_model_default">Активна модель (за замовчуванням)</string>
     <string name="voice_note_model_single_pass_hint">Двопрохідний режим для цього джерела вимкнено</string>
+    <string name="scope_rule_language_label">Мова</string>
+    <string name="scope_rule_language_inherit">Без правила (успадкувати)</string>
+    <string name="scope_rule_language_auto">Автовизначення (не закріплювати)</string>
+    <string name="scope_rule_advanced_pin">Додатково: закріпити модель</string>
+    <string name="scope_rule_model_default">За мовою/типово</string>
+    <string name="scope_rule_outcome">Ці файли: %1$s</string>
+    <string name="scope_rule_outcome_two_pass_off">Ці файли: %1$s · два проходи вимк.</string>
+    <string name="scope_rule_unsupported">Ця модель не розпізнає мову: %1$s</string>
+    <string name="scope_rule_set_language_model">Вибрати модель для цієї мови</string>
+    <string name="scope_rule_remove">Видалити правило</string>
+    <string name="scope_rule_model_unknown">Типова модель</string>
 </resources>

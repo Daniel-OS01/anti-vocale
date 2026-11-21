@@ -1455,4 +1455,15 @@
     <string name="voice_note_model_title">Модель</string>
     <string name="voice_note_model_default">Активная модель (по умолчанию)</string>
     <string name="voice_note_model_single_pass_hint">Двухпроходный режим для этого источника отключён</string>
+    <string name="scope_rule_language_label">Язык</string>
+    <string name="scope_rule_language_inherit">Без правила (наследовать)</string>
+    <string name="scope_rule_language_auto">Автоопределение (не закреплять)</string>
+    <string name="scope_rule_advanced_pin">Дополнительно: закрепить модель</string>
+    <string name="scope_rule_model_default">По языку/по умолчанию</string>
+    <string name="scope_rule_outcome">Эти файлы: %1$s</string>
+    <string name="scope_rule_outcome_two_pass_off">Эти файлы: %1$s · два прохода выкл.</string>
+    <string name="scope_rule_unsupported">Эта модель не распознаёт язык: %1$s</string>
+    <string name="scope_rule_set_language_model">Выбрать модель для этого языка</string>
+    <string name="scope_rule_remove">Удалить правило</string>
+    <string name="scope_rule_model_unknown">Модель по умолчанию</string>
 </resources>

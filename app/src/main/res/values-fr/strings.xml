@@ -1292,4 +1292,15 @@
     <string name="voice_note_model_title">Modèle</string>
     <string name="voice_note_model_default">Modèle actif (par défaut)</string>
     <string name="voice_note_model_single_pass_hint">Le mode en deux passes est désactivé pour cette source</string>
+    <string name="scope_rule_language_label">Langue</string>
+    <string name="scope_rule_language_inherit">Aucune règle (hériter)</string>
+    <string name="scope_rule_language_auto">Détection automatique (sans forcer)</string>
+    <string name="scope_rule_advanced_pin">Avancé : forcer un modèle</string>
+    <string name="scope_rule_model_default">Utiliser la langue/par défaut</string>
+    <string name="scope_rule_outcome">Ces fichiers : %1$s</string>
+    <string name="scope_rule_outcome_two_pass_off">Ces fichiers : %1$s · double passe désactivée</string>
+    <string name="scope_rule_unsupported">Ce modèle ne peut pas transcrire cette langue : %1$s</string>
+    <string name="scope_rule_set_language_model">Choisir un modèle pour cette langue</string>
+    <string name="scope_rule_remove">Supprimer la règle</string>
+    <string name="scope_rule_model_unknown">Modèle par défaut</string>
 </resources>

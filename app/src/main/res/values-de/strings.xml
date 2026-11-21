@@ -1424,4 +1424,15 @@
     <string name="voice_note_model_title">Modell</string>
     <string name="voice_note_model_default">Aktives Modell (Standard)</string>
     <string name="voice_note_model_single_pass_hint">Zweipassig ist für diese Quelle aus</string>
+    <string name="scope_rule_language_label">Sprache</string>
+    <string name="scope_rule_language_inherit">Keine Regel (erben)</string>
+    <string name="scope_rule_language_auto">Automatisch erkennen (nicht festlegen)</string>
+    <string name="scope_rule_advanced_pin">Erweitert: Modell festlegen</string>
+    <string name="scope_rule_model_default">Sprachmodell/Standard verwenden</string>
+    <string name="scope_rule_outcome">Diese Dateien: %1$s</string>
+    <string name="scope_rule_outcome_two_pass_off">Diese Dateien: %1$s · Zwei-Durchgang aus</string>
+    <string name="scope_rule_unsupported">Dieses Modell kann diese Sprache nicht transkribieren: %1$s</string>
+    <string name="scope_rule_set_language_model">Modell für diese Sprache festlegen</string>
+    <string name="scope_rule_remove">Regel entfernen</string>
+    <string name="scope_rule_model_unknown">Standardmodell</string>
 </resources>

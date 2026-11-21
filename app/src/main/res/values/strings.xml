@@ -1450,4 +1450,15 @@
     <string name="voice_note_model_title">Model</string>
     <string name="voice_note_model_default">Active model (default)</string>
     <string name="voice_note_model_single_pass_hint">Two-pass is off for this source</string>
+    <string name="scope_rule_language_label">Language</string>
+    <string name="scope_rule_language_inherit">No rule (inherit)</string>
+    <string name="scope_rule_language_auto">Auto-detect (don\'t pin)</string>
+    <string name="scope_rule_advanced_pin">Advanced: pin a model</string>
+    <string name="scope_rule_model_default">Use language/default</string>
+    <string name="scope_rule_outcome">These files: %1$s</string>
+    <string name="scope_rule_outcome_two_pass_off">These files: %1$s · two-pass off</string>
+    <string name="scope_rule_unsupported">This model can\'t transcribe %1$s</string>
+    <string name="scope_rule_set_language_model">Set a model for this language</string>
+    <string name="scope_rule_remove">Remove rule</string>
+    <string name="scope_rule_model_unknown">Default model</string>
 </resources>

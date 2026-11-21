@@ -1325,4 +1325,15 @@
     <string name="voice_note_model_title">النموذج</string>
     <string name="voice_note_model_default">النموذج النشط (الافتراضي)</string>
     <string name="voice_note_model_single_pass_hint">التمرير المزدوج متوقف لهذا المصدر</string>
+    <string name="scope_rule_language_label">اللغة</string>
+    <string name="scope_rule_language_inherit">بلا قاعدة (وراثة)</string>
+    <string name="scope_rule_language_auto">كشف تلقائي (بلا تثبيت)</string>
+    <string name="scope_rule_advanced_pin">متقدم: تثبيت نموذج</string>
+    <string name="scope_rule_model_default">استخدام نموذج اللغة/الافتراضي</string>
+    <string name="scope_rule_outcome">هذه الملفات: %1$s</string>
+    <string name="scope_rule_outcome_two_pass_off">هذه الملفات: %1$s · المرحلتان معطّلتان</string>
+    <string name="scope_rule_unsupported">لا يستطيع هذا النموذج تفريغ اللغة: %1$s</string>
+    <string name="scope_rule_set_language_model">تعيين نموذج لهذه اللغة</string>
+    <string name="scope_rule_remove">إزالة القاعدة</string>
+    <string name="scope_rule_model_unknown">النموذج الافتراضي</string>
 </resources>

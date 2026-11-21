@@ -1424,4 +1424,15 @@
     <string name="voice_note_model_title">Model</string>
     <string name="voice_note_model_default">Etkin model (varsayılan)</string>
     <string name="voice_note_model_single_pass_hint">Bu kaynak için iki geçişli mod kapalı</string>
+    <string name="scope_rule_language_label">Dil</string>
+    <string name="scope_rule_language_inherit">Kural yok (devral)</string>
+    <string name="scope_rule_language_auto">Otomatik algıla (sabitleme)</string>
+    <string name="scope_rule_advanced_pin">Gelişmiş: model sabitle</string>
+    <string name="scope_rule_model_default">Dil modeli/varsayılan</string>
+    <string name="scope_rule_outcome">Bu dosyalar: %1$s</string>
+    <string name="scope_rule_outcome_two_pass_off">Bu dosyalar: %1$s · iki geçiş kapalı</string>
+    <string name="scope_rule_unsupported">Bu model bu dili yazıya dökemez: %1$s</string>
+    <string name="scope_rule_set_language_model">Bu dil için model seç</string>
+    <string name="scope_rule_remove">Kuralı kaldır</string>
+    <string name="scope_rule_model_unknown">Varsayılan model</string>
 </resources>

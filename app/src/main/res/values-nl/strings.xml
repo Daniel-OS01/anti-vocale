@@ -1440,4 +1440,15 @@
     <string name="voice_note_model_title">Model</string>
     <string name="voice_note_model_default">Actief model (standaard)</string>
     <string name="voice_note_model_single_pass_hint">Twee-pass staat uit voor deze bron</string>
+    <string name="scope_rule_language_label">Taal</string>
+    <string name="scope_rule_language_inherit">Geen regel (overnemen)</string>
+    <string name="scope_rule_language_auto">Automatisch detecteren (niet vastzetten)</string>
+    <string name="scope_rule_advanced_pin">Geavanceerd: model vastzetten</string>
+    <string name="scope_rule_model_default">Taalmodel/standaard gebruiken</string>
+    <string name="scope_rule_outcome">Deze bestanden: %1$s</string>
+    <string name="scope_rule_outcome_two_pass_off">Deze bestanden: %1$s · twee rondes uit</string>
+    <string name="scope_rule_unsupported">Dit model kan deze taal niet transcriberen: %1$s</string>
+    <string name="scope_rule_set_language_model">Model voor deze taal instellen</string>
+    <string name="scope_rule_remove">Regel verwijderen</string>
+    <string name="scope_rule_model_unknown">Standaardmodel</string>
 </resources>

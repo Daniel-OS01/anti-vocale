@@ -1292,4 +1292,15 @@
     <string name="voice_note_model_title">Modelo</string>
     <string name="voice_note_model_default">Modelo activo (predeterminado)</string>
     <string name="voice_note_model_single_pass_hint">El doble paso está desactivado para esta fuente</string>
+    <string name="scope_rule_language_label">Idioma</string>
+    <string name="scope_rule_language_inherit">Sin regla (heredar)</string>
+    <string name="scope_rule_language_auto">Detección automática (sin fijar)</string>
+    <string name="scope_rule_advanced_pin">Avanzado: fijar un modelo</string>
+    <string name="scope_rule_model_default">Usar idioma/predeterminado</string>
+    <string name="scope_rule_outcome">Estos archivos: %1$s</string>
+    <string name="scope_rule_outcome_two_pass_off">Estos archivos: %1$s · doble pasada desactivada</string>
+    <string name="scope_rule_unsupported">Este modelo no puede transcribir este idioma: %1$s</string>
+    <string name="scope_rule_set_language_model">Elegir un modelo para este idioma</string>
+    <string name="scope_rule_remove">Quitar regla</string>
+    <string name="scope_rule_model_unknown">Modelo predeterminado</string>
 </resources>
