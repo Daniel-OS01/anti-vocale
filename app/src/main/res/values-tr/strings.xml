@@ -1230,6 +1230,10 @@
     <string name="refinement_description">Hızlı modelle anında önizleme göster, sonra arka planda seçili modelle rafine et</string>
     <string name="refinement_description_dynamic">%1$s ile anında önizleme göster, sonra arka planda %2$s ile rafine et</string>
     <string name="refinement_locked_reason">İki aşamalı transkripsiyonu etkinleştirmek için ikinci bir model indirin</string>
+    <string name="preview_model_title">Önizleme modeli</string>
+    <string name="preview_model_description">İlk geçişin anlık önizleme için kullandığı hızlı model. Uygulamanın seçmesi için otomatik bırakın.</string>
+    <string name="preview_model_automatic">Otomatik</string>
+    <string name="refinement_locked_choose_preview">Bir önizleme modeli seçin</string>
     <string name="curated_why_distil_it">İtalyanca için ince ayarlı: en isabetli seçim</string>
     <string name="curated_why_parakeet">Çok hızlı (yaklaşık 17 kat) ve yine de çok isabetli</string>
     <string name="curated_why_german_whisper">Almanca için ince ayarlı: en isabetli seçenek</string>

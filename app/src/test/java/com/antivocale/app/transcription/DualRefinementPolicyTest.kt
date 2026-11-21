@@ -53,6 +53,28 @@ class DualRefinementPolicyTest {
     }
 
     @Test
+    fun `an imported fast arm equal to the imported refine pin is degenerate`() {
+        // The GH #176 guard holds for external ids too: a preview arm that
+        // resolved to the refinement target never pairs with itself.
+        assertNull(kotlinx.coroutines.runBlocking {
+            DualRefinementPolicy.fastBackendFor(
+                requestType = "audio", backendOverride = null, refinementEnabled = true,
+                selectedBackendId = "external:zip-stream", fastArm = { "external:whisper-big" },
+                refineOverride = "external:whisper-big")
+        })
+    }
+
+    @Test
+    fun `an imported streaming fast arm pairs with an imported refine pin`() {
+        assertEquals("external:zip-stream", kotlinx.coroutines.runBlocking {
+            DualRefinementPolicy.fastBackendFor(
+                requestType = "audio", backendOverride = null, refinementEnabled = true,
+                selectedBackendId = "external:zip-stream", fastArm = { "external:zip-stream" },
+                refineOverride = "external:whisper-big")
+        })
+    }
+
+    @Test
     fun `a pinned remote offload backend is excluded like a selected one`() {
         // TASK-681 hazard: a local first pass must never mask server-side
         // failures behind local text, pin or no pin.

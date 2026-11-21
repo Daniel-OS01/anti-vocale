@@ -65,7 +65,9 @@ def builtin_dirnames() -> dict[str, set[str]]:
 def external_variants() -> set[str]:
     out = set()
     for path in sorted(EXTERNAL_CATALOG_DIR.glob("*.json")):
-        if path.name.startswith("index"):
+        # Index files (the upstream indexes and the fork-extras index) list
+        # entries; they are not entry manifests themselves.
+        if path.name.startswith("index") or path.name == "fork-extras.json":
             continue
         entry = json.loads(path.read_text(encoding="utf-8"))
         out.add(sanitize_dir_name(entry["name"]))

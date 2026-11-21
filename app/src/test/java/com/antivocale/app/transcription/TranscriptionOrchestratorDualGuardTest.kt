@@ -69,6 +69,7 @@ class TranscriptionOrchestratorDualGuardTest : TranscriptionOrchestratorTestBase
         pin: String? = null,
         scope: kotlinx.coroutines.CoroutineScope,
         refinement: Boolean = true,
+        previewPin: String? = null,
     ): Result<String> {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val variantDir = File(context.filesDir, "nemotron/nemotron-3.5-asr-streaming-0.6b-1120ms-int8")
@@ -86,6 +87,9 @@ class TranscriptionOrchestratorDualGuardTest : TranscriptionOrchestratorTestBase
             // The credit's display-name derivation reads the pin's saved
             // path (the same relaxed-Flow trap as the fast model's).
             every { preferencesManager.sherpaModelPath(pin) } returns flowOf("")
+        }
+        if (previewPin != null) {
+            every { preferencesManager.previewModelBackendId } returns flowOf(previewPin)
         }
         // The F8 display-name credit resolves the fast model's saved path
         // (a relaxed Flow explodes on first(), the base's documented trap).
@@ -208,6 +212,40 @@ class TranscriptionOrchestratorDualGuardTest : TranscriptionOrchestratorTestBase
             runTwoPassF4(taskId = "dual-lazy", scope = this@runTest, refinement = false)
             coVerify(exactly = 0) {
                 SherpaModelManager.installedFastEntryId(any(), any())
+            }
+        }
+    }
+
+    @Test
+    fun `the runtime fast arm resolves through TwoPassArms with the preview pin`() = runTest {
+        // The preview pin reaches the shared resolver next to the accurate
+        // side (the refine pin), the same inputs the Settings gate passes.
+        mockkObject(TwoPassArms) {
+            coEvery { TwoPassArms.fastBackendId(any(), any(), any(), any(), any()) } returns null
+            runTwoPassF4(
+                taskId = "dual-preview-pin", pin = "gigaam", scope = this@runTest,
+                previewPin = "external:zip-stream")
+            coVerify {
+                TwoPassArms.fastBackendId(any(), eq("external:zip-stream"), eq("gigaam"), any(), any())
+            }
+        }
+    }
+
+    @Test
+    fun `with only imports installed the runtime resolver receives the loadable streaming import`() = runTest {
+        // No built-in arm resolves; the loadable streaming import in the
+        // store is the zero-configuration fast arm (the GH imports-only
+        // report). The real resolver runs; only the built-in probe is stubbed.
+        val streamingImport = externalRecord("zip-stream", "/models/external/zip-stream")
+            .copy(streaming = true)
+        fakeStore.add(streamingImport)
+        mockkObject(SherpaModelManager.Companion, TwoPassArms) {
+            coEvery { SherpaModelManager.installedFastEntryId(any(), any()) } returns null
+            runTwoPassF4(taskId = "dual-imports-only", pin = "gigaam", scope = this@runTest)
+            coVerify {
+                TwoPassArms.fastBackendId(any(), eq(""), eq("gigaam"),
+                    match { list -> list.any { it.backendId == streamingImport.backendId } },
+                    any())
             }
         }
     }

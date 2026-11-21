@@ -29,6 +29,11 @@ interface PreferencesManager {
     /** GH #43: two-pass transcription (fast streaming preview, then refine). */
     val refinementEnabled: Flow<Boolean>
 
+    /** Synchronous snapshot for the first frame, before the flow is collected. */
+    val cachedDisclosureState: Map<String, Boolean>
+    val disclosureState: Flow<Map<String, Boolean>>
+    suspend fun setDisclosure(id: String, open: Boolean)
+
     /**
      * TASK-588.1: whether the TRANSCRIPTION section's advanced card block
      * is expanded (the persisted progressive-disclosure reveal state).
@@ -64,6 +69,14 @@ interface PreferencesManager {
      */
     val refinementModelBackendId: Flow<String>
     suspend fun saveRefinementModelBackendId(backendId: String)
+
+    /**
+     * The backend the two-pass PREVIEW (fast first) phase loads, empty
+     * (blank) = automatic (TwoPassArms resolves one). Only consulted when
+     * the two-pass refinement actually runs.
+     */
+    val previewModelBackendId: Flow<String>
+    suspend fun savePreviewModelBackendId(backendId: String)
     /**
      * Saved model-path preference for a built-in sherpa-onnx catalog entry,
      * keyed by the entry id (BackendRegistry descriptors delegate to this).
@@ -330,6 +343,10 @@ interface PreferencesManager {
     /** TASK-963: the refinement-pin half of the same snapshot. */
     val wipedRepairCapturedPin: Flow<String>
     suspend fun saveWipedRepairCapturedPin(backendId: String)
+
+    /** The preview-pin (two-pass first pass) half of the same snapshot. */
+    val wipedRepairCapturedPreviewPin: Flow<String>
+    suspend fun saveWipedRepairCapturedPreviewPin(backendId: String)
 
     suspend fun saveSherpaModelPath(entryId: String, path: String)
     suspend fun clearSherpaModelPath(entryId: String)

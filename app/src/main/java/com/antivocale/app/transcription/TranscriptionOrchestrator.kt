@@ -2082,12 +2082,19 @@ class TranscriptionOrchestrator @Inject constructor(
         // them can drift here (a future condition only ever lands in the
         // policy).
         val selectedBackendId = preferencesManager.transcriptionBackend.first()
+        // The preview (first-pass) pin, read with the same defensive idiom
+        // as the refine pin: an unanswerable source means automatic.
+        val previewPin = runCatching {
+            preferencesManager.previewModelBackendId.first()
+        }.getOrDefault("")
         val fastId = DualRefinementPolicy.fastBackendFor(
             requestType = requestType,
             backendOverride = backendOverride,
             refinementEnabled = preferencesManager.refinementEnabled.first(),
             selectedBackendId = selectedBackendId,
-            fastArm = { installedFastBackendId(context, refinePin ?: selectedBackendId) },
+            fastArm = {
+                installedFastBackendId(context, previewPin, refinePin ?: selectedBackendId)
+            },
             refineOverride = refinePin,
         ) ?: return null
 
@@ -2383,16 +2390,28 @@ class TranscriptionOrchestrator @Inject constructor(
         )
     }
 
-    /** The fast first-pass backend id (TASK-932: the streaming entry when
-     *  installed, else the smallest installed catalog entry besides
+    /** The fast first-pass backend id (the preview pin when usable, else
+     *  the built-in choice, else a loadable streaming import, never
      *  [excludeBackendId]), or null when no candidate resolves. TASK-603 F3:
-     *  delegates to the shared owner (Settings derives the toggle's
-     *  availability from the same probe). */
+     *  delegates to the shared owner [TwoPassArms] (Settings derives the
+     *  toggle's availability from the same resolver). */
     private suspend fun installedFastBackendId(
         context: Context,
+        previewPin: String,
         excludeBackendId: String?,
     ): String? =
-        SherpaModelManager.installedFastEntryId(context, excludeBackendId)
+        TwoPassArms.fastBackendId(
+            context = context,
+            previewPin = previewPin,
+            accurate = excludeBackendId,
+            loadableExternals = runCatching { externalModelStore.validRecords() }
+                .getOrDefault(emptyList()),
+            // The loader's fallbackPath source (loadCatalogBackend), so a
+            // pin installed at a saved non-standard path resolves here too.
+            savedModelPath = { id ->
+                backendRegistry.byBackendId(id)?.modelPathFlow?.invoke(preferencesManager)?.first()
+            },
+        )
 
     /** GH #43: nests the first pass's context and the skip verdict on the
      *  delivered row's (phase 2) context; a no-op for single-model runs. */

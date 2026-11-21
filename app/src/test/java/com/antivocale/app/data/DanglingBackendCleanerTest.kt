@@ -69,6 +69,24 @@ class DanglingBackendCleanerTest {
     }
 
     @Test
+    fun `dangling preview pin is cleared to automatic`() = runTest {
+        prefs._previewModelBackendId.value = "external:gone-preview"
+        DanglingBackendCleaner(prefs, store).cleanIfNeeded()
+        assertEquals("", prefs._previewModelBackendId.value)
+    }
+
+    @Test
+    fun `valid preview pin is left in place`() = runTest {
+        val dir = java.io.File(filesRoot, "preview").apply { mkdirs() }
+        val saved = record("preview-id", dir.absolutePath)
+        store.add(saved)
+        prefs._previewModelBackendId.value = saved.backendId
+
+        DanglingBackendCleaner(prefs, store).cleanIfNeeded()
+        assertEquals(saved.backendId, prefs._previewModelBackendId.value)
+    }
+
+    @Test
     fun `external id whose record exists but directory vanished is reset to default`() = runTest {
         val dir = java.io.File(filesRoot, "vanished")
         val saved = record("half-gone", dir.absolutePath)

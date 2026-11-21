@@ -6,6 +6,14 @@ These are ideas deferred from the Daniel-OS01 fork's improvement plan. They are 
 
 The built-in Nemotron model streams live text. Imported streaming zipformers do not show partials yet. Deferred past the current plan.
 
+## Two-pass gate: a stale built-in saved path counts as installed
+
+If a built-in model's folder is deleted but its saved path remains, the two-pass gate still treats it as installed. With Parakeet stale and one Whisper import, Settings can offer "Choose a preview model" and unlock two-pass, and the refine pass then fails to load. The gate predates R2. Fix: probe the disk, with the saved path as fallback, for catalog backends in `SettingsViewModel`'s accurate-side check. Deferred from R2 review: it changes behaviour for users with only built-in models.
+
+## Automatic built-in preview choice ignores saved paths
+
+`SherpaModelManager.installedFastEntryId` probes only the standard catalog folders. A built-in model installed only at a saved path works when pinned as the preview model, but the automatic choice does not find it. Deferred from R2.
+
 ## Per-source model choice
 
 Pick a model by input source, for example WhatsApp voice notes to a zipformer and files to Whisper. Deferred past the current plan.

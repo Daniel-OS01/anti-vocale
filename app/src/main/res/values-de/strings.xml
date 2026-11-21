@@ -1230,6 +1230,10 @@
     <string name="refinement_description">Zeigt sofort eine Vorschau mit dem schnellen Modell und verfeinert sie im Hintergrund mit dem ausgewählten Modell</string>
     <string name="refinement_description_dynamic">Zeigt sofort eine Vorschau mit %1$s und verfeinert sie im Hintergrund mit %2$s</string>
     <string name="refinement_locked_reason">Lade ein zweites Modell herunter, um die zweistufige Transkription zu aktivieren</string>
+    <string name="preview_model_title">Vorschaumodell</string>
+    <string name="preview_model_description">Das schnelle Modell, das der erste Durchgang für die Sofortvorschau verwendet. Auf automatisch lassen, damit die App wählt.</string>
+    <string name="preview_model_automatic">Automatisch</string>
+    <string name="refinement_locked_choose_preview">Wähle ein Vorschaumodell</string>
     <string name="curated_why_distil_it">Für Italienisch feinabgestimmt: die genaueste Wahl</string>
     <string name="curated_why_parakeet">Sehr schnell (etwa 17x) und dennoch sehr genau</string>
     <string name="curated_why_german_whisper">Für Deutsch feinabgestimmt: die genaueste Option</string>

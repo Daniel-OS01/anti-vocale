@@ -1242,6 +1242,10 @@
     <string name="refinement_description">Mostra subito un\'anteprima col modello veloce, poi la raffina in background col modello selezionato</string>
     <string name="refinement_description_dynamic">Mostra subito un\'anteprima con %1$s, poi la raffina in background con %2$s</string>
     <string name="refinement_locked_reason">Scarica un secondo modello per attivare la trascrizione in due passate</string>
+    <string name="preview_model_title">Modello di anteprima</string>
+    <string name="preview_model_description">Il modello veloce usato dal primo passaggio per l\'anteprima istantanea. Lascia su automatico per far scegliere all\'app.</string>
+    <string name="preview_model_automatic">Automatico</string>
+    <string name="refinement_locked_choose_preview">Scegli un modello di anteprima</string>
     <string name="language_chip_setting_note">Solo i modelli Whisper e SenseVoice possono rilevare la lingua.</string>
     <string name="technical_details_title">Mostra i dettagli tecnici</string>
     <string name="technical_details_description">Mostra la riga tecnica di elaborazione (percorso di decodifica, chunk, VAD, memoria) nelle voci delle trascrizioni. Disattivo per impostazione predefinita; i dettagli sono sempre inclusi nelle segnalazioni.</string>

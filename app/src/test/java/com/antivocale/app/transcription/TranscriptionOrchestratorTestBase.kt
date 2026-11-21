@@ -216,6 +216,8 @@ abstract class TranscriptionOrchestratorTestBase {
         // TASK-740: the refinement-model pin; the default is the empty
         // (inherit-active) value.
         every { preferencesManager.refinementModelBackendId } returns flowOf("")
+        // The preview-model pin; the default is the empty (automatic) value.
+        every { preferencesManager.previewModelBackendId } returns flowOf("")
         every { preferencesManager.vadEnabled } returns flowOf(false)
         every { preferencesManager.threadCount } returns flowOf(4)
         every { preferencesManager.inferenceProvider } returns flowOf("auto")

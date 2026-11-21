@@ -3,6 +3,7 @@ package com.antivocale.app.data
 import com.antivocale.app.BuildConfig
 
 import android.content.Context
+import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -49,9 +50,31 @@ class ExternalCatalogRepository(
         File(File(filesDir(), CATALOG_DIR), url.hashCode().toString() + ".json")
 
     suspend fun load(): Result<CatalogState> = withContext(Dispatchers.IO) {
+        loadIndex().map { state ->
+            // An override list is the user's own: it never gains our extras.
+            if (state.url != PreferencesManager.DEFAULT_EXTERNAL_CATALOG_URL) state
+            else state.copy(entries = mergeForkExtras(state.entries, readForkExtras()))
+        }
+    }
+
+    /**
+     * Fork-only entries bundled as an asset, appended after whichever index
+     * loaded (remote, cache or asset). Never fails the main load: a missing or
+     * malformed asset logs and yields no extras.
+     */
+    private fun readForkExtras(): List<ExternalCatalog.CatalogEntry> =
+        runCatching {
+            val text = context.assets.open(FORK_EXTRAS_ASSET).bufferedReader().use { it.readText() }
+            ExternalCatalog.parseIndex(text)
+        }.getOrElse { e ->
+            Log.w(TAG, "catalog_fork_extras_unreadable asset=$FORK_EXTRAS_ASSET", e)
+            emptyList()
+        }
+
+    private suspend fun loadIndex(): Result<CatalogState> {
         val url = catalogUrl()
         val isOverride = url != PreferencesManager.DEFAULT_EXTERNAL_CATALOG_URL
-        runCatching {
+        return runCatching {
             val text = fetchText(url)
             val entries = parseNonEmpty(text) { "catalog index at $url carries no entries" }
             runCatching { cacheFile(url).let { f -> f.parentFile?.mkdirs(); f.writeText(text) } }  // cache is best-effort
@@ -85,7 +108,18 @@ class ExternalCatalogRepository(
     }
 
     internal companion object {
+        private const val TAG = "ExternalCatalogRepo"
         const val CATALOG_DIR = "catalog"
+        const val FORK_EXTRAS_ASSET = "external-catalog/fork-extras.json"
+
+        /** Index entries win: an extra is appended only when its name is not already listed. */
+        fun mergeForkExtras(
+            entries: List<ExternalCatalog.CatalogEntry>,
+            extras: List<ExternalCatalog.CatalogEntry>,
+        ): List<ExternalCatalog.CatalogEntry> {
+            val seen = entries.mapTo(HashSet()) { it.name }
+            return entries + extras.filter { seen.add(it.name) }
+        }
         /**
          * TASK-643: the versioned index (same name the default URL points
          * at). The repo's unsuffixed index.json stays frozen as the remote

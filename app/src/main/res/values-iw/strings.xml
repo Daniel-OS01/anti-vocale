@@ -1239,6 +1239,10 @@
     <string name="refinement_description">הצג מיד תצוגה מקדימה עם המודל המהיר, ואז חדד אותה ברקע עם המודל הנבחר</string>
     <string name="refinement_description_dynamic">הצג מיד תצוגה מקדימה עם %1$s, ואז חדד אותה ברקע עם %2$s</string>
     <string name="refinement_locked_reason">הורד מודל נוסף כדי לאפשר תמלול דו-שלבי</string>
+    <string name="preview_model_title">מודל תצוגה מקדימה</string>
+    <string name="preview_model_description">המודל המהיר שהמעבר הראשון משתמש בו לתצוגה המקדימה המיידית. השאירו על אוטומטי כדי שהאפליקציה תבחר.</string>
+    <string name="preview_model_automatic">אוטומטי</string>
+    <string name="refinement_locked_choose_preview">בחרו מודל תצוגה מקדימה</string>
     <string name="curated_why_distil_it">כוונן לאיטלקית: הבחירה המדויקת ביותר</string>
     <string name="curated_why_parakeet">מהיר מאוד (פי 17 בערך) ועדיין מדויק מאוד</string>
     <string name="curated_why_german_whisper">כוונן לגרמנית: האפשרות המדויקת ביותר</string>

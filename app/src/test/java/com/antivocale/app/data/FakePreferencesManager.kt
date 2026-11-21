@@ -123,6 +123,8 @@ internal class FakePreferencesManager : PreferencesManager {
     val _wipedRepairCapturedPin = MutableStateFlow("")
     val _wipedRepairDeadSources = MutableStateFlow(emptySet<String>())
     override val wipedRepairCapturedPin: Flow<String> get() = _wipedRepairCapturedPin
+    val _wipedRepairCapturedPreviewPin = MutableStateFlow("")
+    override val wipedRepairCapturedPreviewPin: Flow<String> get() = _wipedRepairCapturedPreviewPin
     override val wipedRepairDeadSources: Flow<Set<String>> = _wipedRepairDeadSources
     override fun sherpaModelPath(entryId: String): Flow<String?> = _sherpaModelPath(entryId)
     override val externalCatalogUrl: Flow<String> get() = _externalCatalogUrl
@@ -224,6 +226,7 @@ internal class FakePreferencesManager : PreferencesManager {
     override suspend fun saveTranscriptionBackend(backendId: String) { _transcriptionBackend.value = backendId }
     override suspend fun saveWipedRepairCapturedActive(backendId: String) { _wipedRepairCapturedActive.value = backendId }
     override suspend fun saveWipedRepairCapturedPin(backendId: String) { _wipedRepairCapturedPin.value = backendId }
+    override suspend fun saveWipedRepairCapturedPreviewPin(backendId: String) { _wipedRepairCapturedPreviewPin.value = backendId }
 
     override suspend fun saveWipedRepairDeadSources(ids: Set<String>) { _wipedRepairDeadSources.value = ids }
     override suspend fun saveSherpaModelPath(entryId: String, path: String) { _sherpaModelPath(entryId).value = path }
@@ -307,8 +310,25 @@ internal class FakePreferencesManager : PreferencesManager {
         _refinementModelBackendId.value = backendId
     }
 
+    // The two-pass preview (first-pass) model pin (empty = automatic).
+    val _previewModelBackendId = MutableStateFlow("")
+    override val previewModelBackendId: Flow<String> = _previewModelBackendId
+    override suspend fun savePreviewModelBackendId(backendId: String) {
+        _previewModelBackendId.value = backendId
+    }
+
     // TASK-588.1: the advanced-reveal state (default collapsed, like prod).
     val _transcriptionAdvancedExpanded = MutableStateFlow(false)
+    private val _disclosureState = MutableStateFlow<Map<String, Boolean>>(emptyMap())
+    override val cachedDisclosureState: Map<String, Boolean>
+        get() = _disclosureState.value
+    override val disclosureState: Flow<Map<String, Boolean>> = _disclosureState
+
+    override suspend fun setDisclosure(id: String, open: Boolean) {
+        requireDisclosureId(id)
+        _disclosureState.value = _disclosureState.value + (id to open)
+    }
+
     override val settingsTranscriptionAdvancedExpanded: Flow<Boolean> = _transcriptionAdvancedExpanded
     override suspend fun saveSettingsTranscriptionAdvancedExpanded(expanded: Boolean) {
         _transcriptionAdvancedExpanded.value = expanded

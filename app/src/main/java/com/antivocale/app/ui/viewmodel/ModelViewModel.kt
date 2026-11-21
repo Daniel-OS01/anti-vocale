@@ -1372,6 +1372,10 @@ class ModelViewModel @Inject constructor(
                         if (preferencesManager.refinementModelBackendId.first() == entryId) {
                             preferencesManager.saveRefinementModelBackendId("")
                         }
+                        // The preview pin falls back to automatic the same way.
+                        if (preferencesManager.previewModelBackendId.first() == entryId) {
+                            preferencesManager.savePreviewModelBackendId("")
+                        }
                     }
                 }
                 updateEntry(entryId) { it.copy(modelPath = activePath) }
@@ -1444,6 +1448,9 @@ class ModelViewModel @Inject constructor(
                 shareShortcutManager.refresh()
                 if (preferencesManager.refinementModelBackendId.first() == entryId) {
                     preferencesManager.saveRefinementModelBackendId("")
+                }
+                if (preferencesManager.previewModelBackendId.first() == entryId) {
+                    preferencesManager.savePreviewModelBackendId("")
                 }
             }
         }

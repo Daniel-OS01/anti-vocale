@@ -30,6 +30,9 @@ import com.antivocale.app.util.MemoryKillStartupCheck
 import com.antivocale.app.ui.DeepLinkImport
 import com.antivocale.app.ui.MainScreen
 import com.antivocale.app.ui.TestNavigation
+import com.antivocale.app.di.ApplicationScope
+import kotlinx.coroutines.CoroutineScope
+import com.antivocale.app.ui.components.DisclosurePreferencesProvider
 import com.antivocale.app.ui.theme.AntiVocaleTheme
 import com.antivocale.app.ui.theme.TextScale
 import com.antivocale.app.ui.theme.fromName
@@ -50,6 +53,7 @@ import javax.inject.Inject
 @AndroidEntryPoint
 class MainActivity : AppCompatActivity() {
 
+    @Inject @ApplicationScope lateinit var applicationScope: CoroutineScope
     @Inject lateinit var preferencesManager: PreferencesManager
     @Inject lateinit var shareShortcutManager: ShareShortcutManager
     private val logsViewModel: LogsViewModel by viewModels()
@@ -216,13 +220,15 @@ class MainActivity : AppCompatActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    MainScreen(
-                        startOnModelTab = startOnModelTab,
-                        navigateToModel = navigateToModel,
-                        isInPipMode = isInPip,
-                        activityDestination = pendingIntentDestination,
-                        onActivityDestinationConsumed = { _pendingIntentDestination.value = null }
-                    )
+                    DisclosurePreferencesProvider(preferencesManager, applicationScope) {
+                        MainScreen(
+                            startOnModelTab = startOnModelTab,
+                            navigateToModel = navigateToModel,
+                            isInPipMode = isInPip,
+                            activityDestination = pendingIntentDestination,
+                            onActivityDestinationConsumed = { _pendingIntentDestination.value = null }
+                        )
+                    }
                 }
             }
         }

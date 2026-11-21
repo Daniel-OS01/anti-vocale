@@ -28,6 +28,7 @@ class SettingsSearchRegistryTest {
         summarizeOn: Boolean = false,
         batteryExemptionOffered: Boolean = false,
         refinementOn: Boolean = false,
+        previewPickerShown: Boolean = refinementOn,
         speakerIdEnabled: Boolean = false,
         transcriptionHintRes: Int? = null,
     ) = SettingsSearchState(
@@ -39,6 +40,7 @@ class SettingsSearchRegistryTest {
         batteryExemptionOffered = batteryExemptionOffered,
         refinementOn = refinementOn,
         refinementAvailable = refinementOn,
+        previewPickerShown = previewPickerShown,
         speakerIdEnabled = speakerIdEnabled,
         transcriptionHintRes = transcriptionHintRes,
     )
@@ -112,6 +114,22 @@ class SettingsSearchRegistryTest {
     }
 
     @Test
+    fun `the preview-model card shows with the refine picker or when a preview choice is needed`() {
+        val id = SettingsSearchId.PREVIEW_MODEL
+        val card = SETTINGS_SEARCH_CARDS.first { it.id == id }
+        assertTrue(!card.advanced)
+        assertTrue(id in visibleIds(SettingsSearchSection.TRANSCRIPTION, state(refinementOn = true)))
+        // Locked toggle, but the automatic choice found nothing: the picker
+        // is the fix, so it stays reachable.
+        assertTrue(id in visibleIds(SettingsSearchSection.TRANSCRIPTION,
+            state(refinementOn = false, previewPickerShown = true)))
+        assertTrue(id !in visibleIds(SettingsSearchSection.TRANSCRIPTION, state(refinementOn = false)))
+        // The nested row's strings join the wrapping card's vocabulary.
+        assertTrue(R.string.preview_model_title in
+            res(SettingsSearchId.REFINEMENT, state(refinementOn = false, previewPickerShown = true)))
+    }
+
+    @Test
     fun `every id has exactly one registry entry`() {
         assertEquals(SettingsSearchId.entries.size, SETTINGS_SEARCH_CARDS.size)
         assertEquals(
@@ -142,7 +160,7 @@ class SettingsSearchRegistryTest {
                 SettingsSearchId.VAD, SettingsSearchId.FREEZE_PROTECTION,
                 SettingsSearchId.PROGRESSIVE,
                 SettingsSearchId.EARLY_PREVIEW, SettingsSearchId.REFINEMENT,
-                SettingsSearchId.REFINEMENT_MODEL),
+                SettingsSearchId.REFINEMENT_MODEL, SettingsSearchId.PREVIEW_MODEL),
             SettingsSearchGroup.GEMMA_TEXT to listOf(
                 SettingsSearchId.PUNCTUATION_MODE, SettingsSearchId.PUNCTUATION_PROMPT,
                 SettingsSearchId.SUMMARIZE, SettingsSearchId.SUMMARY_PROMPT,

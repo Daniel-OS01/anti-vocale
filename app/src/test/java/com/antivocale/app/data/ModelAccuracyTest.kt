@@ -256,7 +256,11 @@ class ModelAccuracyTest {
             filesRoot = { java.io.File("/tmp/unused") },
         )
         val externalVariants = repoFile("src/main/assets/external-catalog")
-            .listFiles { f -> f.name.endsWith(".json") && !f.name.startsWith("index") }
+            .listFiles { f ->
+                // Index files (upstream indexes, the fork-extras index) are not entry manifests.
+                f.name.endsWith(".json") && !f.name.startsWith("index") &&
+                    f.name != ExternalCatalogRepository.FORK_EXTRAS_ASSET.substringAfterLast('/')
+            }
             .orEmpty()
             .map { JSONObject(it.readText()).getString("name") }
             .map { importer.sanitizeDirName(it) }

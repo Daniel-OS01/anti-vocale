@@ -1287,6 +1287,10 @@
     <string name="refinement_description">Stream an instant preview with the fast model, then refine it with the selected model in the background</string>
     <string name="refinement_description_dynamic">Stream an instant preview with %1$s, then refine it with %2$s in the background</string>
     <string name="refinement_locked_reason">Download a second model to enable two-pass transcription</string>
+    <string name="preview_model_title">Preview Model</string>
+    <string name="preview_model_description">The fast model the first pass uses for the instant preview. Leave on automatic to let the app choose.</string>
+    <string name="preview_model_automatic">Automatic</string>
+    <string name="refinement_locked_choose_preview">Choose a preview model</string>
     <string name="language_chip_setting_note">Only the Whisper and SenseVoice models can detect the language.</string>
     <string name="technical_details_title">Show technical details</string>
     <string name="technical_details_description">Show the technical processing line (decode path, chunks, VAD, memory) under each transcript entry. Off by default; the details are always included in feedback reports.</string>
