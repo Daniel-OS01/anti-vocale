@@ -1348,6 +1348,7 @@
     <string name="backup_transfer_summary">تنظیمات و تاریخچه‌تان را در یک فایل ذخیره کنید یا روی دستگاه دیگری بازیابی کنید</string>
     <string name="backup_export_title">برون‌بری پشتیبان</string>
     <string name="backup_export_description">یک فایل با تنظیمات شما و تمام تاریخچهٔ رونوشت‌ها نوشته می‌شود. فایل متن ساده است: هر کس آن را داشته باشد می‌تواند هر رونوشت و هر نام فرستنده را بخواند.</string>
+    <string name="backup_export_includes_sender_rules">آرشیو شامل قانون‌های فرستنده شما (نام مخاطبان و شماره تلفن‌ها) است.</string>
     <string name="backup_export_action">ساخت فایل پشتیبان</string>
     <string name="backup_import_title">درون‌ریزی پشتیبان</string>
     <string name="backup_import_description">از یک فایل پشتیبان، تنظیمات و رونوشت‌های گذشته به این دستگاه افزوده می‌شود. آنچه از قبل دارید حفظ می‌شود.</string>
@@ -1468,5 +1469,11 @@
     <string name="scope_rule_next">بعدی</string>
     <string name="history_scope_rule_folder_title">رونویسی این پوشه به‌صورت…</string>
     <string name="history_scope_rule_subfolder_title">رونویسی این زیرپوشه به‌صورت…</string>
+    <string name="history_scope_rule_sender_title">همیشه %1$s را رونویسی کن با…</string>
     <string name="history_scope_rule_long_press_label">تنظیم قانون رونویسی</string>
+    <string name="sender_rules_title">قانون‌های فرستنده</string>
+    <string name="sender_rules_summary">رونویسی افراد انتخاب‌شده با مدل یا زبان اختصاصی خودشان</string>
+    <string name="sender_rules_note">قانون‌ها با نامی که WhatsApp نشان می‌دهد یا با تماس‌گیرنده در نام فایل ضبط مطابقت می‌یابند. تغییر نام یک مخاطب، قانون آن را از کار می‌اندازد. قانون‌ها در پشتیبان‌ها گنجانده می‌شوند.</string>
+    <string name="sender_rules_empty">هنوز قانون فرستنده‌ای وجود ندارد. روی یک فرستنده در تاریخچه فشار طولانی بدهید تا قانونی اضافه کنید.</string>
+    <string name="sender_rules_section_calls">ضبط‌های تماس</string>
 </resources>

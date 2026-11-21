@@ -1359,6 +1359,7 @@
     <string name="backup_transfer_summary">Bewaar je instellingen en geschiedenis in een bestand, of zet ze terug op een ander apparaat</string>
     <string name="backup_export_title">Back-up exporteren</string>
     <string name="backup_export_description">Schrijft één bestand met je instellingen en je volledige transcriptiegeschiedenis. Het bestand is platte tekst: wie het heeft, kan elke transcriptie en elke afzendernaam lezen.</string>
+    <string name="backup_export_includes_sender_rules">Het archief bevat je afzenderregels (contactnamen en telefoonnummers).</string>
     <string name="backup_export_action">Back-upbestand maken</string>
     <string name="backup_import_title">Back-up importeren</string>
     <string name="backup_import_description">Voegt instellingen en eerdere transcripties uit een back-upbestand toe aan dit apparaat. Wat je al hebt, blijft staan.</string>
@@ -1479,5 +1480,11 @@
     <string name="scope_rule_next">Volgende</string>
     <string name="history_scope_rule_folder_title">Deze map transcriberen als…</string>
     <string name="history_scope_rule_subfolder_title">Deze submap transcriberen als…</string>
+    <string name="history_scope_rule_sender_title">%1$s altijd transcriberen met…</string>
     <string name="history_scope_rule_long_press_label">Transcriptieregel instellen</string>
+    <string name="sender_rules_title">Afzenderregels</string>
+    <string name="sender_rules_summary">Transcribeer gekozen personen met hun eigen model of taal</string>
+    <string name="sender_rules_note">Regels komen overeen met de naam die WhatsApp toont, of met de beller in de bestandsnaam van een opname. Als je een contact hernoemt, werkt zijn regel niet meer. Regels zijn opgenomen in back-ups.</string>
+    <string name="sender_rules_empty">Nog geen afzenderregels. Houd in de Geschiedenis een afzender ingedrukt om er een toe te voegen.</string>
+    <string name="sender_rules_section_calls">Gespreksopnamen</string>
 </resources>

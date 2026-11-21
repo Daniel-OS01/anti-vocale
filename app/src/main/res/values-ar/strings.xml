@@ -1137,6 +1137,7 @@
     <string name="backup_transfer_summary">احفظ إعداداتك وسجلك في ملف، أو استعدها على جهاز آخر</string>
     <string name="backup_export_title">تصدير النسخة الاحتياطية</string>
     <string name="backup_export_description">يكتب ملفًا واحدًا يحتوي على إعداداتك وسجل النسخ الكامل. الملف بنص عادي: يمكن لأي شخص يملكه قراءة كل النصوص وأسماء المرسلين.</string>
+    <string name="backup_export_includes_sender_rules">يتضمن الأرشيف قواعد المرسلين لديك (أسماء جهات الاتصال وأرقام الهواتف).</string>
     <string name="backup_export_action">إنشاء ملف نسخة احتياطية</string>
     <string name="backup_import_title">استيراد النسخة الاحتياطية</string>
     <string name="backup_import_description">يضيف الإعدادات وعمليات النسخ السابقة من ملف النسخة الاحتياطية إلى هذا الجهاز. ويبقى ما لديك بالفعل كما هو.</string>
@@ -1364,5 +1365,11 @@
     <string name="scope_rule_next">التالي</string>
     <string name="history_scope_rule_folder_title">تفريغ هذا المجلد كـ…</string>
     <string name="history_scope_rule_subfolder_title">تفريغ هذا المجلد الفرعي كـ…</string>
+    <string name="history_scope_rule_sender_title">تفريغ %1$s دائمًا باستخدام…</string>
     <string name="history_scope_rule_long_press_label">تعيين قاعدة التفريغ</string>
+    <string name="sender_rules_title">قواعد المرسلين</string>
+    <string name="sender_rules_summary">تفريغ أشخاص محددين بنموذج أو لغة خاصة بهم</string>
+    <string name="sender_rules_note">تطابق القواعد الاسم الذي يعرضه WhatsApp، أو المتصل في اسم ملف التسجيل. إعادة تسمية جهة اتصال توقف قاعدتها. القواعد مضمّنة في النسخ الاحتياطية.</string>
+    <string name="sender_rules_empty">لا توجد قواعد مرسلين بعد. اضغط مطولًا على مرسل في السجل لإضافة قاعدة.</string>
+    <string name="sender_rules_section_calls">تسجيلات المكالمات</string>
 </resources>

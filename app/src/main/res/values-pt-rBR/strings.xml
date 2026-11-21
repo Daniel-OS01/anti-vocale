@@ -1211,6 +1211,7 @@
     <string name="backup_transfer_summary">Salve suas configurações e histórico em um arquivo, ou restaure-os em outro aparelho</string>
     <string name="backup_export_title">Exportar backup</string>
     <string name="backup_export_description">Grava um arquivo com suas configurações e todo o seu histórico de transcrições. O arquivo é texto sem criptografia: quem o tiver pode ler cada transcrição e cada nome de remetente.</string>
+    <string name="backup_export_includes_sender_rules">O arquivo inclui suas regras de remetente (nomes de contatos e números de telefone).</string>
     <string name="backup_export_action">Criar arquivo de backup</string>
     <string name="backup_import_title">Importar backup</string>
     <string name="backup_import_description">Adiciona a este aparelho configurações e transcrições anteriores de um arquivo de backup. O que você já tem é mantido.</string>
@@ -1331,5 +1332,11 @@
     <string name="scope_rule_next">Avançar</string>
     <string name="history_scope_rule_folder_title">Transcrever esta pasta como…</string>
     <string name="history_scope_rule_subfolder_title">Transcrever esta subpasta como…</string>
+    <string name="history_scope_rule_sender_title">Sempre transcrever %1$s com…</string>
     <string name="history_scope_rule_long_press_label">Definir regra de transcrição</string>
+    <string name="sender_rules_title">Regras de remetente</string>
+    <string name="sender_rules_summary">Transcreva pessoas escolhidas com o próprio modelo ou idioma</string>
+    <string name="sender_rules_note">As regras correspondem ao nome que o WhatsApp mostra ou a quem ligou, no nome do arquivo de uma gravação. Renomear um contato faz a regra dele parar de valer. As regras são incluídas nos backups.</string>
+    <string name="sender_rules_empty">Ainda não há regras de remetente. Mantenha pressionado um remetente no Histórico para adicionar uma.</string>
+    <string name="sender_rules_section_calls">Gravações de chamadas</string>
 </resources>

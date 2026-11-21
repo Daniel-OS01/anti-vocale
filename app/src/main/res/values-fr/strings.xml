@@ -1211,6 +1211,7 @@
     <string name="backup_transfer_summary">Enregistrez vos réglages et votre historique dans un fichier, ou restaurez-les sur un autre appareil</string>
     <string name="backup_export_title">Exporter la sauvegarde</string>
     <string name="backup_export_description">Écrit un fichier avec vos réglages et tout votre historique de transcriptions. Le fichier est en clair : quiconque le possède peut lire chaque transcription et chaque nom d\'expéditeur.</string>
+    <string name="backup_export_includes_sender_rules">L\'archive inclut vos règles d\'expéditeur (noms de contacts et numéros de téléphone).</string>
     <string name="backup_export_action">Créer le fichier de sauvegarde</string>
     <string name="backup_import_title">Importer une sauvegarde</string>
     <string name="backup_import_description">Ajoute à cet appareil des réglages et d\'anciennes transcriptions depuis un fichier de sauvegarde. Ce que vous avez déjà est conservé.</string>
@@ -1331,5 +1332,11 @@
     <string name="scope_rule_next">Suivant</string>
     <string name="history_scope_rule_folder_title">Transcrire ce dossier en…</string>
     <string name="history_scope_rule_subfolder_title">Transcrire ce sous-dossier en…</string>
+    <string name="history_scope_rule_sender_title">Toujours transcrire %1$s avec…</string>
     <string name="history_scope_rule_long_press_label">Définir une règle de transcription</string>
+    <string name="sender_rules_title">Règles d\'expéditeur</string>
+    <string name="sender_rules_summary">Transcrire certaines personnes avec leur propre modèle ou langue</string>
+    <string name="sender_rules_note">Les règles correspondent au nom affiché par WhatsApp, ou à l\'appelant dans le nom de fichier d\'un enregistrement. Renommer un contact désactive sa règle. Les règles sont incluses dans les sauvegardes.</string>
+    <string name="sender_rules_empty">Aucune règle d\'expéditeur pour l\'instant. Appuyez longuement sur un expéditeur dans l\'Historique pour en ajouter une.</string>
+    <string name="sender_rules_section_calls">Enregistrements d\'appels</string>
 </resources>

@@ -1372,6 +1372,7 @@
     <string name="backup_transfer_summary">Сохраните настройки и историю в файл или восстановите их на другом устройстве</string>
     <string name="backup_export_title">Экспорт резервной копии</string>
     <string name="backup_export_description">Записывает один файл с настройками и всей историей расшифровок. Файл в открытом виде: кто им владеет, может прочитать каждую расшифровку и каждое имя отправителя.</string>
+    <string name="backup_export_includes_sender_rules">Архив включает ваши правила отправителей (имена контактов и номера телефонов).</string>
     <string name="backup_export_action">Создать файл копии</string>
     <string name="backup_import_title">Импорт резервной копии</string>
     <string name="backup_import_description">Добавляет на это устройство настройки и прошлые расшифровки из файла копии. То, что уже есть, сохраняется.</string>
@@ -1494,5 +1495,11 @@
     <string name="scope_rule_next">Далее</string>
     <string name="history_scope_rule_folder_title">Распознавать эту папку как…</string>
     <string name="history_scope_rule_subfolder_title">Распознавать эту подпапку как…</string>
+    <string name="history_scope_rule_sender_title">Всегда распознавать %1$s с помощью…</string>
     <string name="history_scope_rule_long_press_label">Задать правило распознавания</string>
+    <string name="sender_rules_title">Правила отправителей</string>
+    <string name="sender_rules_summary">Распознавать выбранных людей их собственной моделью или языком</string>
+    <string name="sender_rules_note">Правила сопоставляются с именем, которое показывает WhatsApp, или с абонентом в имени файла записи. Если переименовать контакт, его правило перестаёт работать. Правила входят в резервные копии.</string>
+    <string name="sender_rules_empty">Правил отправителей пока нет. Чтобы добавить, нажмите и удерживайте отправителя в Истории.</string>
+    <string name="sender_rules_section_calls">Записи звонков</string>
 </resources>

@@ -1342,6 +1342,7 @@
     <string name="backup_transfer_summary">अपनी सेटिंग्स और इतिहास को एक फ़ाइल में सहेजें, या किसी दूसरे डिवाइस पर पुनर्स्थापित करें</string>
     <string name="backup_export_title">बैकअप निर्यात करें</string>
     <string name="backup_export_description">आपकी सेटिंग्स और पूरा ट्रांसक्रिप्शन इतिहास एक ही फ़ाइल में लिखा जाता है। फ़ाइल सादे पाठ में है: जिसके पास यह फ़ाइल है, वह हर ट्रांसक्रिप्शन और हर भेजने वाले का नाम पढ़ सकता है।</string>
+    <string name="backup_export_includes_sender_rules">आर्काइव में आपके प्रेषक नियम (संपर्कों के नाम और फ़ोन नंबर) शामिल हैं।</string>
     <string name="backup_export_action">बैकअप फ़ाइल बनाएँ</string>
     <string name="backup_import_title">बैकअप आयात करें</string>
     <string name="backup_import_description">बैकअप फ़ाइल से इस डिवाइस पर सेटिंग्स और पिछले ट्रांसक्रिप्शन जुड़ जाते हैं। आपके पास पहले से जो है, वह बना रहता है।</string>
@@ -1462,5 +1463,11 @@
     <string name="scope_rule_next">आगे</string>
     <string name="history_scope_rule_folder_title">इस फ़ोल्डर को ऐसे ट्रांसक्राइब करें…</string>
     <string name="history_scope_rule_subfolder_title">इस सबफ़ोल्डर को ऐसे ट्रांसक्राइब करें…</string>
+    <string name="history_scope_rule_sender_title">%1$s को हमेशा इसके साथ ट्रांसक्राइब करें…</string>
     <string name="history_scope_rule_long_press_label">ट्रांसक्रिप्शन नियम सेट करें</string>
+    <string name="sender_rules_title">प्रेषक नियम</string>
+    <string name="sender_rules_summary">चुने हुए लोगों को उनके अपने मॉडल या भाषा से ट्रांसक्राइब करें</string>
+    <string name="sender_rules_note">नियम उस नाम से मेल खाते हैं जो WhatsApp दिखाता है, या रिकॉर्डिंग के फ़ाइल नाम में कॉल करने वाले से। संपर्क का नाम बदलने पर उसका नियम काम करना बंद कर देता है। नियम बैकअप में शामिल होते हैं।</string>
+    <string name="sender_rules_empty">अभी कोई प्रेषक नियम नहीं है। जोड़ने के लिए इतिहास में किसी प्रेषक को देर तक दबाएँ।</string>
+    <string name="sender_rules_section_calls">कॉल रिकॉर्डिंग</string>
 </resources>

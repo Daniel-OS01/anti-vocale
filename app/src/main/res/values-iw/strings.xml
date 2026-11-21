@@ -1355,6 +1355,7 @@
     <string name="backup_transfer_summary">שמרו את ההגדרות וההיסטוריה לקובץ, או שחזרו אותם במכשיר אחר</string>
     <string name="backup_export_title">ייצוא גיבוי</string>
     <string name="backup_export_description">כותב קובץ אחד עם ההגדרות שלכם וכל היסטוריית התמלילים. הקובץ הוא טקסט גלוי: מי שמחזיק בו יכול לקרוא כל תמליל וכל שם שולח.</string>
+    <string name="backup_export_includes_sender_rules">הארכיון כולל את כללי השולח שלכם (שמות אנשי קשר ומספרי טלפון).</string>
     <string name="backup_export_action">יצירת קובץ גיבוי</string>
     <string name="backup_import_title">ייבוא גיבוי</string>
     <string name="backup_import_description">מוסיף למכשיר הזה הגדרות ותמלילים קודמים מקובץ גיבוי. מה שכבר יש לכם נשמר.</string>
@@ -1476,5 +1477,11 @@
     <string name="scope_rule_next">הבא</string>
     <string name="history_scope_rule_folder_title">תמלול התיקייה הזו כ…</string>
     <string name="history_scope_rule_subfolder_title">תמלול תיקיית המשנה הזו כ…</string>
+    <string name="history_scope_rule_sender_title">תמלול תמידי של %1$s עם…</string>
     <string name="history_scope_rule_long_press_label">הגדרת כלל תמלול</string>
+    <string name="sender_rules_title">כללי שולח</string>
+    <string name="sender_rules_summary">תמלול אנשים נבחרים עם מודל או שפה משלהם</string>
+    <string name="sender_rules_note">הכללים מותאמים לשם ש-WhatsApp מציג, או למתקשר בשם הקובץ של הקלטה. שינוי שם של איש קשר מפסיק את הכלל שלו. הכללים נכללים בגיבויים.</string>
+    <string name="sender_rules_empty">עדיין אין כללי שולח. לחצו לחיצה ארוכה על שולח בהיסטוריה כדי להוסיף כלל.</string>
+    <string name="sender_rules_section_calls">הקלטות שיחה</string>
 </resources>
