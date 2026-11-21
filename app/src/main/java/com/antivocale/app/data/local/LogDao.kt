@@ -5,8 +5,12 @@ import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Transaction
 import androidx.room.Update
 import kotlinx.coroutines.flow.Flow
+
+/** Bind-variable budget per [LogDao.deleteByIds] statement (SQLite's legacy cap is 999). */
+private const val DELETE_BY_IDS_CHUNK = 900
 
 @Dao
 interface LogDao {
@@ -19,6 +23,19 @@ interface LogDao {
 
     @Query("DELETE FROM logs WHERE id = :id")
     suspend fun deleteById(id: String): Int
+
+    /** Bulk delete's one chunk; callers go through [deleteByIds]. */
+    @Query("DELETE FROM logs WHERE id IN (:ids)")
+    suspend fun deleteByIdsChunk(ids: List<String>): Int
+
+    /**
+     * History bulk delete. Chunked so a large selection stays under
+     * SQLite's 999 bound-variable limit (older platform SQLite builds).
+     * Returns the deleted-row count.
+     */
+    @Transaction
+    suspend fun deleteByIds(ids: List<String>): Int =
+        ids.chunked(DELETE_BY_IDS_CHUNK).sumOf { deleteByIdsChunk(it) }
 
     @Query("DELETE FROM logs")
     suspend fun deleteAll()

@@ -53,6 +53,7 @@ import com.antivocale.app.transcription.TranscriptionOrchestrator
 import com.antivocale.app.transcription.TranscriptFuzzySearch
 import com.antivocale.app.transcription.TranscriptionLanguagePolicy
 import com.antivocale.app.transcription.variantAwareDisplayName
+import com.antivocale.app.ui.tabs.HistorySelection
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
@@ -760,6 +761,76 @@ class LogsViewModel @Inject constructor(
         viewModelScope.launch {
             logDao.deleteById(id)
         }
+    }
+
+    // ---- History multi-select ----
+    // The raw set holds what the user picked; [selection] is that set pruned
+    // against the live rows, so a deleted row drops out without a write-back.
+    // The search query is deliberately NOT an input: rows hidden by a query
+    // stay selected (the bar reports them), and a new row is never added.
+
+    private val _selectionMode = MutableStateFlow(false)
+    val selectionMode: StateFlow<Boolean> = _selectionMode.asStateFlow()
+
+    private val _selectedIds = MutableStateFlow<Set<String>>(emptySet())
+
+    val selection: StateFlow<Set<String>> =
+        combine(_selectedIds, logs) { sel, rows ->
+            HistorySelection.prune(sel, rows.mapTo(HashSet()) { it.id })
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
+
+    /** Enters selection mode with [id] checked (the row long-press). */
+    fun enterSelection(id: String) {
+        _selectedIds.value = setOf(id)
+        _selectionMode.value = true
+    }
+
+    /** An emptied selection keeps the mode: the user exits explicitly. */
+    fun toggleSelected(id: String) {
+        _selectedIds.value = HistorySelection.toggle(_selectedIds.value, id)
+    }
+
+    fun setGroupSelected(ids: Collection<String>, on: Boolean) {
+        _selectedIds.value = HistorySelection.setAll(_selectedIds.value, ids, on)
+    }
+
+    /** A group header's checkbox tap: a fully selected group clears, else selects. */
+    fun toggleGroupSelected(ids: Collection<String>) {
+        _selectedIds.value = HistorySelection.headerToggle(ids, _selectedIds.value)
+    }
+
+    fun exitSelection() {
+        _selectedIds.value = emptySet()
+        _selectionMode.value = false
+    }
+
+    /** What [deleteSelected] did: [skipped] rows were still in flight. */
+    data class BulkDeleteResult(val deleted: Int, val skipped: Int)
+
+    /**
+     * Deletes the selected TERMINAL rows (SUCCESS / ERROR) and exits
+     * selection mode. In-flight rows (QUEUED / PROCESSING, which also covers
+     * the legacy "PENDING" spelling via toLogEntry) are skipped: deleting a
+     * row the service is still writing would let its next status write miss.
+     */
+    fun deleteSelected(): BulkDeleteResult {
+        val rows = logs.value
+        val selected = HistorySelection.prune(_selectedIds.value, rows.mapTo(HashSet()) { it.id })
+        val (terminal, inFlight) = rows
+            .filter { it.id in selected }
+            .partition { it.status == LogEntry.Status.SUCCESS || it.status == LogEntry.Status.ERROR }
+        val ids = terminal.map { it.id }
+        // TASK-599 F3, as in deleteLog: the caches must not outlive the rows.
+        ids.forEach { id ->
+            annotatedByRow.remove(id)
+            firstPassByRow.remove(id)
+            segmentsByRow.remove(id)
+        }
+        exitSelection()
+        if (ids.isNotEmpty()) {
+            viewModelScope.launch { logDao.deleteByIds(ids) }
+        }
+        return BulkDeleteResult(deleted = ids.size, skipped = inFlight.size)
     }
 
     fun clearLogs() {
