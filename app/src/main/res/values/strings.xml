@@ -68,12 +68,21 @@
     <string name="logs_select_all">Select all</string>
     <string name="logs_deselect_all">Deselect all</string>
     <string name="logs_entries_selected">%d selected</string>
+    <string name="logs_selection_hidden_by_search">· %d hidden by search</string>
     <string name="logs_no_entries_selected">No entries selected</string>
     <string name="logs_cleared">History cleared</string>
     <string name="logs_entry_deleted">Log entry deleted</string>
     <plurals name="logs_entries_deleted">
         <item quantity="one">%d entry deleted</item>
         <item quantity="other">%d entries deleted</item>
+    </plurals>
+    <plurals name="logs_delete_selected_confirm">
+        <item quantity="one">Delete %d entry?</item>
+        <item quantity="other">Delete %d entries?</item>
+    </plurals>
+    <plurals name="logs_entries_skipped_processing">
+        <item quantity="one">%d skipped (still processing)</item>
+        <item quantity="other">%d skipped (still processing)</item>
     </plurals>
     <string name="logs_undo">Undo</string>
     <string name="logs_cancel">Cancel</string>

@@ -67,12 +67,21 @@
     <string name="logs_select_all">Alles selecteren</string>
     <string name="logs_deselect_all">Selectie opheffen</string>
     <string name="logs_entries_selected">%d geselecteerd</string>
+    <string name="logs_selection_hidden_by_search">· %d verborgen door de zoekopdracht</string>
     <string name="logs_no_entries_selected">Geen items geselecteerd</string>
     <string name="logs_cleared">Geschiedenis gewist</string>
     <string name="logs_entry_deleted">Logitem verwijderd</string>
     <plurals name="logs_entries_deleted">
         <item quantity="one">%d item verwijderd</item>
         <item quantity="other">%d items verwijderd</item>
+    </plurals>
+    <plurals name="logs_delete_selected_confirm">
+        <item quantity="one">%d item verwijderen?</item>
+        <item quantity="other">%d items verwijderen?</item>
+    </plurals>
+    <plurals name="logs_entries_skipped_processing">
+        <item quantity="one">%d overgeslagen (wordt nog verwerkt)</item>
+        <item quantity="other">%d overgeslagen (worden nog verwerkt)</item>
     </plurals>
     <string name="logs_undo">Ongedaan maken</string>
     <string name="logs_cancel">Annuleren</string>

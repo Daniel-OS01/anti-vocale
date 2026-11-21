@@ -54,6 +54,7 @@
     <string name="logs_select_all">تحديد الكل</string>
     <string name="logs_deselect_all">إلغاء تحديد الكل</string>
     <string name="logs_entries_selected">تم تحديد %d</string>
+    <string name="logs_selection_hidden_by_search">· مخفية بالبحث: %d</string>
     <string name="logs_no_entries_selected">لم يتم تحديد أي عناصر</string>
     <string name="logs_cleared">تم مسح السجل</string>
     <string name="logs_entry_deleted">تم حذف عنصر السجل</string>
@@ -1192,6 +1193,22 @@
         <item quantity="few">تم حذف %d إدخالات</item>
         <item quantity="many">تم حذف %d إدخالاً</item>
         <item quantity="other">تم حذف %d إدخال</item>
+    </plurals>
+    <plurals name="logs_delete_selected_confirm">
+        <item quantity="zero">حذف %d إدخال؟</item>
+        <item quantity="one">حذف %d إدخال؟</item>
+        <item quantity="two">حذف %d إدخالين؟</item>
+        <item quantity="few">حذف %d إدخالات؟</item>
+        <item quantity="many">حذف %d إدخالاً؟</item>
+        <item quantity="other">حذف %d إدخال؟</item>
+    </plurals>
+    <plurals name="logs_entries_skipped_processing">
+        <item quantity="zero">تم تخطي %d (قيد المعالجة)</item>
+        <item quantity="one">تم تخطي %d (قيد المعالجة)</item>
+        <item quantity="two">تم تخطي %d (قيد المعالجة)</item>
+        <item quantity="few">تم تخطي %d (قيد المعالجة)</item>
+        <item quantity="many">تم تخطي %d (قيد المعالجة)</item>
+        <item quantity="other">تم تخطي %d (قيد المعالجة)</item>
     </plurals>
     <plurals name="model_info_languages_count">
         <item quantity="zero">لا توجد لغات</item>

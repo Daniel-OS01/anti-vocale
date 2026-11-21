@@ -53,12 +53,21 @@
     <string name="logs_select_all">Seleccionar todo</string>
     <string name="logs_deselect_all">Deseleccionar todo</string>
     <string name="logs_entries_selected">%d seleccionados</string>
+    <string name="logs_selection_hidden_by_search">· %d ocultas por la búsqueda</string>
     <string name="logs_no_entries_selected">Ninguna entrada seleccionada</string>
     <string name="logs_cleared">Historial borrado</string>
     <string name="logs_entry_deleted">Entrada eliminada</string>
     <plurals name="logs_entries_deleted">
         <item quantity="one">%d entrada eliminada</item>
         <item quantity="other">%d entradas eliminadas</item>
+    </plurals>
+    <plurals name="logs_delete_selected_confirm">
+        <item quantity="one">¿Eliminar %d entrada?</item>
+        <item quantity="other">¿Eliminar %d entradas?</item>
+    </plurals>
+    <plurals name="logs_entries_skipped_processing">
+        <item quantity="one">%d omitida (aún en proceso)</item>
+        <item quantity="other">%d omitidas (aún en proceso)</item>
     </plurals>
     <string name="logs_undo">Deshacer</string>
     <string name="logs_cancel">Cancelar</string>

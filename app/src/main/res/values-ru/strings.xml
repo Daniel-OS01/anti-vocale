@@ -69,6 +69,7 @@
     <string name="logs_select_all">Выбрать все</string>
     <string name="logs_deselect_all">Снять выделение</string>
     <string name="logs_entries_selected">Выбрано: %d</string>
+    <string name="logs_selection_hidden_by_search">· скрыто поиском: %d</string>
     <string name="logs_no_entries_selected">Ничего не выбрано</string>
     <string name="logs_cleared">История очищена</string>
     <string name="logs_entry_deleted">Запись удалена</string>
@@ -77,6 +78,18 @@
         <item quantity="few">%d записи удалены</item>
         <item quantity="many">%d записей удалено</item>
         <item quantity="other">%d записей удалено</item>
+    </plurals>
+    <plurals name="logs_delete_selected_confirm">
+        <item quantity="one">Удалить %d запись?</item>
+        <item quantity="few">Удалить %d записи?</item>
+        <item quantity="many">Удалить %d записей?</item>
+        <item quantity="other">Удалить %d записи?</item>
+    </plurals>
+    <plurals name="logs_entries_skipped_processing">
+        <item quantity="one">%d пропущена (ещё обрабатывается)</item>
+        <item quantity="few">%d пропущены (ещё обрабатываются)</item>
+        <item quantity="many">%d пропущено (ещё обрабатываются)</item>
+        <item quantity="other">%d пропущено (ещё обрабатываются)</item>
     </plurals>
     <string name="logs_undo">Отменить</string>
     <string name="logs_cancel">Отмена</string>

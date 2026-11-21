@@ -70,6 +70,7 @@
     <string name="logs_select_all">Zaznacz wszystkie</string>
     <string name="logs_deselect_all">Odznacz wszystkie</string>
     <string name="logs_entries_selected">Zaznaczono: %d</string>
+    <string name="logs_selection_hidden_by_search">· ukryte przez wyszukiwanie: %d</string>
     <string name="logs_no_entries_selected">Nie zaznaczono żadnych wpisów</string>
     <string name="logs_cleared">Historia wyczyszczona</string>
     <string name="logs_entry_deleted">Wpis dziennika usunięty</string>
@@ -78,6 +79,18 @@
         <item quantity="few">Usunięto %d wpisy</item>
         <item quantity="many">Usunięto %d wpisów</item>
         <item quantity="other">Usunięto %d wpisu</item>
+    </plurals>
+    <plurals name="logs_delete_selected_confirm">
+        <item quantity="one">Usunąć %d wpis?</item>
+        <item quantity="few">Usunąć %d wpisy?</item>
+        <item quantity="many">Usunąć %d wpisów?</item>
+        <item quantity="other">Usunąć %d wpisu?</item>
+    </plurals>
+    <plurals name="logs_entries_skipped_processing">
+        <item quantity="one">Pominięto %d (nadal przetwarzany)</item>
+        <item quantity="few">Pominięto %d (nadal przetwarzane)</item>
+        <item quantity="many">Pominięto %d (nadal przetwarzanych)</item>
+        <item quantity="other">Pominięto %d (nadal przetwarzane)</item>
     </plurals>
     <string name="logs_undo">Cofnij</string>
     <string name="logs_cancel">Anuluj</string>

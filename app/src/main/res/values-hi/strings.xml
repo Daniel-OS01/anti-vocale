@@ -67,6 +67,7 @@
     <string name="logs_select_all">सभी चुनें</string>
     <string name="logs_deselect_all">सभी को चुनने से हटाएं</string>
     <string name="logs_entries_selected">%d चुनी गईं</string>
+    <string name="logs_selection_hidden_by_search">· खोज से छिपी: %d</string>
     <string name="logs_no_entries_selected">कोई एंट्री नहीं चुनी गई</string>
     <string name="logs_cleared">इतिहास साफ़ कर दिया गया</string>
     <string name="logs_entry_deleted">लॉग एंट्री मिटाई गई</string>
@@ -1095,6 +1096,14 @@
     <plurals name="logs_entries_deleted">
         <item quantity="one">%d प्रविष्टि मिटाई गई</item>
         <item quantity="other">%d प्रविष्टियां मिटाई गईं</item>
+    </plurals>
+    <plurals name="logs_delete_selected_confirm">
+        <item quantity="one">%d प्रविष्टि हटाएँ?</item>
+        <item quantity="other">%d प्रविष्टियाँ हटाएँ?</item>
+    </plurals>
+    <plurals name="logs_entries_skipped_processing">
+        <item quantity="one">%d छोड़ी गई (अभी प्रोसेस हो रही है)</item>
+        <item quantity="other">%d छोड़ी गईं (अभी प्रोसेस हो रही हैं)</item>
     </plurals>
     <plurals name="queued_count">
         <item quantity="one">%1$d क़तार में</item>

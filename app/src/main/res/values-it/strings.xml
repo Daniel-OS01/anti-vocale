@@ -67,12 +67,21 @@
     <string name="logs_select_all">Seleziona tutto</string>
     <string name="logs_deselect_all">Deseleziona tutto</string>
     <string name="logs_entries_selected">%d selezionati</string>
+    <string name="logs_selection_hidden_by_search">· %d nascoste dalla ricerca</string>
     <string name="logs_no_entries_selected">Nessuna voce selezionata</string>
     <string name="logs_cleared">Cronologia cancellata</string>
     <string name="logs_entry_deleted">Voce eliminata</string>
     <plurals name="logs_entries_deleted">
         <item quantity="one">%d voce eliminata</item>
         <item quantity="other">%d voci eliminate</item>
+    </plurals>
+    <plurals name="logs_delete_selected_confirm">
+        <item quantity="one">Eliminare %d voce?</item>
+        <item quantity="other">Eliminare %d voci?</item>
+    </plurals>
+    <plurals name="logs_entries_skipped_processing">
+        <item quantity="one">%d saltata (ancora in elaborazione)</item>
+        <item quantity="other">%d saltate (ancora in elaborazione)</item>
     </plurals>
     <string name="logs_undo">Annulla</string>
     <string name="logs_cancel">Annulla</string>

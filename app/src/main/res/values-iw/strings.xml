@@ -67,6 +67,7 @@
     <string name="logs_select_all">בחירת הכול</string>
     <string name="logs_deselect_all">ביטול הבחירה</string>
     <string name="logs_entries_selected">%d נבחרו</string>
+    <string name="logs_selection_hidden_by_search">· מוסתרות בחיפוש: %d</string>
     <string name="logs_no_entries_selected">לא נבחרו רשומות</string>
     <string name="logs_cleared">ההיסטוריה נוקתה</string>
     <string name="logs_entry_deleted">רשומת ההיסטוריה נמחקה</string>
@@ -74,6 +75,16 @@
         <item quantity="one">נמחקה רשומה אחת</item>
         <item quantity="two">נמחקו שתי רשומות</item>
         <item quantity="other">נמחקו %d רשומות</item>
+    </plurals>
+    <plurals name="logs_delete_selected_confirm">
+        <item quantity="one">למחוק %d רשומה?</item>
+        <item quantity="two">למחוק %d רשומות?</item>
+        <item quantity="other">למחוק %d רשומות?</item>
+    </plurals>
+    <plurals name="logs_entries_skipped_processing">
+        <item quantity="one">%d דולגה (עדיין בעיבוד)</item>
+        <item quantity="two">%d דולגו (עדיין בעיבוד)</item>
+        <item quantity="other">%d דולגו (עדיין בעיבוד)</item>
     </plurals>
     <string name="logs_undo">בטל</string>
     <string name="logs_cancel">ביטול</string>

@@ -72,6 +72,7 @@
     <string name="logs_select_all">Вибрати всі</string>
     <string name="logs_deselect_all">Зняти вибір</string>
     <string name="logs_entries_selected">Вибрано: %d</string>
+    <string name="logs_selection_hidden_by_search">· приховано пошуком: %d</string>
     <string name="logs_no_entries_selected">Не вибрано жодного запису</string>
     <string name="logs_cleared">Весь журнал очищено</string>
     <string name="logs_entry_deleted">Запис журналу видалено</string>
@@ -80,6 +81,18 @@
         <item quantity="few">Видалено %d записи</item>
         <item quantity="many">Видалено %d записів</item>
         <item quantity="other">Видалено %d запису</item>
+    </plurals>
+    <plurals name="logs_delete_selected_confirm">
+        <item quantity="one">Видалити %d запис?</item>
+        <item quantity="few">Видалити %d записи?</item>
+        <item quantity="many">Видалити %d записів?</item>
+        <item quantity="other">Видалити %d запису?</item>
+    </plurals>
+    <plurals name="logs_entries_skipped_processing">
+        <item quantity="one">%d пропущено (ще обробляється)</item>
+        <item quantity="few">%d пропущено (ще обробляються)</item>
+        <item quantity="many">%d пропущено (ще обробляються)</item>
+        <item quantity="other">%d пропущено (ще обробляються)</item>
     </plurals>
     <string name="logs_undo">Скасувати</string>
     <string name="logs_cancel">Скасувати</string>

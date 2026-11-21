@@ -67,6 +67,7 @@
     <string name="logs_select_all">Alle auswählen</string>
     <string name="logs_deselect_all">Auswahl aufheben</string>
     <string name="logs_entries_selected">%d ausgewählt</string>
+    <string name="logs_selection_hidden_by_search">· %d durch die Suche ausgeblendet</string>
     <string name="logs_no_entries_selected">Keine Einträge ausgewählt</string>
     <string name="logs_cleared">Verlauf gelöscht</string>
     <string name="logs_entry_deleted">Eintrag gelöscht</string>
@@ -1096,6 +1097,14 @@
     <plurals name="logs_entries_deleted">
         <item quantity="one">%d Eintrag gelöscht</item>
         <item quantity="other">%d Einträge gelöscht</item>
+    </plurals>
+    <plurals name="logs_delete_selected_confirm">
+        <item quantity="one">%d Eintrag löschen?</item>
+        <item quantity="other">%d Einträge löschen?</item>
+    </plurals>
+    <plurals name="logs_entries_skipped_processing">
+        <item quantity="one">%d übersprungen (wird noch verarbeitet)</item>
+        <item quantity="other">%d übersprungen (werden noch verarbeitet)</item>
     </plurals>
     <plurals name="queued_count">
         <item quantity="one">%1$d in der Warteschlange</item>

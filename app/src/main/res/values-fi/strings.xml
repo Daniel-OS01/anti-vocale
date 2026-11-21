@@ -54,12 +54,21 @@
     <string name="logs_select_all">Valitse kaikki</string>
     <string name="logs_deselect_all">Poista kaikki valinnat</string>
     <string name="logs_entries_selected">%d valittu</string>
+    <string name="logs_selection_hidden_by_search">· %d piilotettu haulla</string>
     <string name="logs_no_entries_selected">Ei valittuja merkintöjä</string>
     <string name="logs_cleared">Historia tyhjennetty</string>
     <string name="logs_entry_deleted">Lokimerkintä poistettu</string>
     <plurals name="logs_entries_deleted">
         <item quantity="one">%d merkintä poistettu</item>
         <item quantity="other">%d merkintää poistettu</item>
+    </plurals>
+    <plurals name="logs_delete_selected_confirm">
+        <item quantity="one">Poistetaanko %d merkintä?</item>
+        <item quantity="other">Poistetaanko %d merkintää?</item>
+    </plurals>
+    <plurals name="logs_entries_skipped_processing">
+        <item quantity="one">%d ohitettu (käsittely kesken)</item>
+        <item quantity="other">%d ohitettu (käsittely kesken)</item>
     </plurals>
     <string name="logs_undo">Kumoa</string>
     <string name="logs_cancel">Peruuta</string>

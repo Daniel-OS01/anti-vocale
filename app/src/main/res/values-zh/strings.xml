@@ -54,6 +54,7 @@
     <string name="logs_select_all">全选</string>
     <string name="logs_deselect_all">取消全选</string>
     <string name="logs_entries_selected">已选择 %d 项</string>
+    <string name="logs_selection_hidden_by_search">· %d 项被搜索隐藏</string>
     <string name="logs_no_entries_selected">未选择任何条目</string>
     <string name="logs_cleared">历史记录已清空</string>
     <string name="logs_entry_deleted">日志条目已删除</string>
@@ -1160,6 +1161,12 @@
 
     <plurals name="logs_entries_deleted">
         <item quantity="other">已删除 %d 条记录</item>
+    </plurals>
+    <plurals name="logs_delete_selected_confirm">
+        <item quantity="other">删除 %d 个条目？</item>
+    </plurals>
+    <plurals name="logs_entries_skipped_processing">
+        <item quantity="other">已跳过 %d 项（仍在处理中）</item>
     </plurals>
     <plurals name="settings_search_matches">
         <item quantity="other">%1$d 个匹配项</item>
