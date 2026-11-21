@@ -273,13 +273,20 @@ class LogsViewModelScopeRedoTest : ViewModelTeardownTest() {
     @Test
     fun `a double confirm submits the redo once`() = runBlocking {
         val gate = CompletableDeferred<PreparedBatch>()
-        coEvery { bulkRedo.prepare(any(), any(), any()) } coAnswers { gate.await() }
+        // prepare runs on Dispatchers.IO: signal entry so the call count is not
+        // read before the worker reaches the stub (CodeRabbit, PR #14).
+        val entered = CompletableDeferred<Unit>()
+        coEvery { bulkRedo.prepare(any(), any(), any()) } coAnswers {
+            entered.complete(Unit)
+            gate.await()
+        }
         viewModel.saveFolderRule(HistoryGroupScope.Subfolder(tree, "Russian"), TranscriptionProfile(language = "ru"))
         val offer = awaitOffer()
 
         viewModel.confirmScopeRedo(offer.id)
         viewModel.confirmScopeRedo(offer.id)
 
+        withTimeout(30_000) { entered.await() }
         assertFalse(viewModel.scopeRedoBusy.value)
         coVerify(exactly = 1) { bulkRedo.prepare(any(), any(), any()) }
         viewModel.cancelBulkRedo()
