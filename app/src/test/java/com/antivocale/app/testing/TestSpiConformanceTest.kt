@@ -119,6 +119,8 @@ class TestSpiConformanceTest {
                 "keepAliveTimeout" -> "keepAliveTimeoutMinutes"
                 // TASK-681: the LAN-offload key is readable only masked.
                 "remoteOmnivoiceApiKey" -> "remoteOmnivoiceApiKeyMasked"
+                // R6: sender-keyed, readable only without its keys.
+                "senderProfilesJson" -> "senderProfilesRedacted"
                 else -> prop
             }
         }.toSet() + "activeModelPath"

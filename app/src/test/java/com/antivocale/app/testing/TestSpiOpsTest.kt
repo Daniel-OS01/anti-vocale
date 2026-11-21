@@ -445,6 +445,19 @@ class TestSpiOpsTest {
     }
 
     @Test
+    fun `get never exposes sender identities from the sender profiles`() = runTest {
+        fake._senderProfilesJson.value =
+            """{"wa:com.whatsapp:Alice Cohen":{"language":"ru"},"call:+972500000000":{"backendId":"gigaam"}}"""
+
+        val response = ops.handle(TestSpiOps.OP_GET)
+
+        assertFalse("contact name leaked: $response", response.contains("Alice"))
+        assertFalse("phone number leaked: $response", response.contains("972500000000"))
+        val redacted = JSONObject(response).getJSONObject("senderProfilesRedacted")
+        assertEquals(2, redacted.getInt("count"))
+    }
+
+    @Test
     fun `get exposes the summary prompt override`() = runTest {
         fake._summaryPrompt.value = "custom"
 

@@ -9,6 +9,7 @@ import com.antivocale.app.data.ExternalModelStore
 import com.antivocale.app.data.ModelFamily
 import com.antivocale.app.transcription.ModelFamilySupport
 import com.antivocale.app.data.PreferencesManager
+import com.antivocale.app.data.TranscriptionProfileJson
 import com.antivocale.app.data.prefsOrDefault
 import com.antivocale.app.data.resetVoiceNoteWatermark
 import com.antivocale.app.data.voiceNoteDetectionEnabled
@@ -189,9 +190,11 @@ internal class TestSpiOps(
             // The per-source voice-note model pins (empty = active model).
             .put("voiceNoteBackendId", preferences.voiceNoteBackendId.first())
             .put("voiceNoteBusinessBackendId", preferences.voiceNoteBusinessBackendId.first())
-            // R6: per-sender profiles and the language->model map, raw JSON
-            // (small: one entry per configured sender / language).
-            .put("senderProfilesJson", preferences.senderProfilesJson.first())
+            // R6: per-sender profiles are keyed by sender identity (contact
+            // names, phone numbers) and TestSpiReceiver mirrors every
+            // response to logcat, so only the count and the keyless values
+            // leave the app. The language->model map holds no identity.
+            .put("senderProfilesRedacted", redactedSenderProfiles(preferences.senderProfilesJson.first()))
             .put("languageModelMapJson", preferences.languageModelMapJson.first())
             // TASK-588.1: the advanced-reveal state (the conformance test
             // pins every flow exposed, keyed by its flow name).
@@ -647,6 +650,25 @@ internal class TestSpiOps(
      * is pinned to that id set by BundledModelCatalogTest, so both checks
      * accept the same ids.
      */
+    /**
+     * `{count, profiles: [{backendId?, language?}]}` with the sender keys
+     * dropped: never a contact name or number in a get response. Malformed
+     * JSON reads as empty, like [com.antivocale.app.data.ScopeProfileStore].
+     */
+    private fun redactedSenderProfiles(raw: String): JSONObject {
+        val obj = runCatching { JSONObject(raw.ifBlank { "{}" }) }.getOrDefault(JSONObject())
+        val profiles = JSONArray()
+        obj.keys().forEach { key ->
+            TranscriptionProfileJson.fromJson(obj.optJSONObject(key))?.let { profile ->
+                profiles.put(JSONObject().apply {
+                    profile.backendId?.let { put("backendId", it) }
+                    profile.language?.let { put("language", it) }
+                })
+            }
+        }
+        return JSONObject().put("count", profiles.length()).put("profiles", profiles)
+    }
+
     private fun isKnownBackend(id: String): Boolean = BuiltInBackendIds.isSelectableBackendId(id)
 
     /** Every set error carries the full key list: a debugging tool should self-describe. */
