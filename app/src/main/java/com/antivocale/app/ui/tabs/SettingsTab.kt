@@ -494,6 +494,7 @@ fun SettingsTab(
         // refinementOn gate and the card's own if read the same pair).
         val refinementEnabled by viewModel.refinementEnabled.collectAsState()
         val refinementAvailable by viewModel.refinementAvailable.collectAsState()
+        val previewChoiceNeeded by viewModel.previewChoiceNeeded.collectAsState()
 
         // TASK-689 contract (full text on SETTINGS_SEARCH_CARDS' KDoc): every
         // gate and the count below read that ONE registry, so the match
@@ -507,6 +508,7 @@ fun SettingsTab(
             batteryExemptionOffered = offerBatteryExemption,
             refinementOn = refinementEnabled && refinementAvailable,
             refinementAvailable = refinementAvailable,
+            previewPickerShown = (refinementEnabled && refinementAvailable) || previewChoiceNeeded,
             speakerIdEnabled = speakerIdEnabled,
             transcriptionHintRes = transcriptionHintRes,
         )
@@ -913,7 +915,12 @@ fun SettingsTab(
                 }
             // TASK-932: the locked state names its own fix (the language-chip
             // note pattern: the why-unavailable line rides supportingText).
-            val refinementLockedReason = stringResource(R.string.refinement_locked_reason)
+            // When the automatic choice found nothing but another model is
+            // installed, the fix is a preview pick, not another download.
+            val refinementLockedReason = stringResource(
+                if (previewChoiceNeeded) R.string.refinement_locked_choose_preview
+                else R.string.refinement_locked_reason
+            )
             // TASK-689: the gate reads the registry; this GH #43 card had a
             // gate but no count entry under the old two-list convention.
             SearchFilterRow(searchQuery, SettingsSearchId.REFINEMENT, searchState) {
@@ -970,6 +977,49 @@ fun SettingsTab(
                             optionDisplay = { id -> labelFor(id) },
                             onOptionSelected = { viewModel.saveRefinementModelBackendId(it) },
                             label = stringResource(R.string.refinement_model_title),
+                            enabled = !uiState.isSaving
+                        )
+                    }
+                    }
+                }
+                // The preview-model picker: the model the FIRST (instant
+                // preview) pass uses. Shown with the refine picker, and also
+                // while the toggle is locked only for want of a preview
+                // choice (the automatic resolution found nothing usable).
+                if ((refinementEnabled && refinementAvailable) || previewChoiceNeeded) {
+                    SearchFilterRow(searchQuery, SettingsSearchId.PREVIEW_MODEL, searchState) {
+                    val previewCandidates by viewModel.previewCandidates.collectAsState()
+                    val previewPinned by viewModel.previewModelBackendId.collectAsState()
+                    SectionCard(
+                        icon = Icons.Default.Bolt,
+                        title = stringResource(R.string.preview_model_title),
+                        description = stringResource(R.string.preview_model_description)
+                    ) {
+                        val automaticLabel = stringResource(R.string.preview_model_automatic)
+                        val options = listOf("") + previewCandidates.map { it.backendId }
+                        // A stale pin (model deleted after pinning) falls
+                        // back to the catalog family label, never the raw
+                        // backend id (the refine picker's invariant).
+                        val staleTitleUi: com.antivocale.app.transcription.CatalogVariantUi? = remember(previewPinned) {
+                            runCatching {
+                                com.antivocale.app.transcription.CatalogVariantUi.of(previewPinned)
+                            }.getOrNull()
+                        }
+                        val staleTitle = staleTitleUi?.let {
+                            it.titleRes()
+                        } ?: automaticLabel
+                        fun labelFor(id: String) =
+                            if (id.isBlank()) automaticLabel
+                            else (previewCandidates + refinementInstalled)
+                                .firstOrNull { it.backendId == id }?.displayName
+                                ?: staleTitle
+                        SettingsDropdown(
+                            currentValue = previewPinned,
+                            options = options,
+                            currentValueDisplay = labelFor(previewPinned),
+                            optionDisplay = { id -> labelFor(id) },
+                            onOptionSelected = { viewModel.savePreviewModelBackendId(it) },
+                            label = stringResource(R.string.preview_model_title),
                             enabled = !uiState.isSaving
                         )
                     }
@@ -3950,7 +4000,7 @@ internal enum class SettingsSearchSection { TRANSCRIPTION, APPEARANCE, ADVANCED,
 internal enum class SettingsSearchId {
     // Transcription
     MODEL_STATUS, ACTIVE_MODEL, TRANSCRIPTION_LANGUAGE, AUTO_COPY, EXPORT_SETTINGS,
-    REFINEMENT, REFINEMENT_MODEL, DIARIZATION_HUB, VAD, PROGRESSIVE, EARLY_PREVIEW,
+    REFINEMENT, REFINEMENT_MODEL, PREVIEW_MODEL, DIARIZATION_HUB, VAD, PROGRESSIVE, EARLY_PREVIEW,
     INTERRUPTED_RUN_NOTIFICATIONS,
     PUNCTUATION_MODE, PUNCTUATION_PROMPT, SUMMARIZE, SUMMARY_PROMPT, SIGNATURE,
     DEFAULT_PROMPT, KEYWORD_BIASING, KEEP_ALIVE_TIMEOUT, FREEZE_PROTECTION,
@@ -4011,6 +4061,9 @@ internal data class SettingsSearchState(
     val refinementOn: Boolean,
     /** TASK-937: which description variant the two-pass card renders. */
     val refinementAvailable: Boolean,
+    /** The preview-model picker renders: two-pass on and runnable, or
+     *  locked only for want of a preview choice. */
+    val previewPickerShown: Boolean = false,
     /** The TASK-670 privacy switch: the speaker-identities card exists. */
     val speakerIdEnabled: Boolean,
     /** The one hint line the transcription-language card renders, if any. */
@@ -4149,6 +4202,15 @@ internal val SETTINGS_SEARCH_CARDS: List<SettingsSearchCard> = listOf(
                 )
             } else {
                 emptyList()
+            } + if (state.previewPickerShown) {
+                // The nested preview-model row, the same hub-union rule.
+                listOf(
+                    R.string.preview_model_title,
+                    R.string.preview_model_description,
+                    R.string.preview_model_automatic,
+                )
+            } else {
+                emptyList()
             }
         },
         group = SettingsSearchGroup.DECODING,
@@ -4163,6 +4225,16 @@ internal val SETTINGS_SEARCH_CARDS: List<SettingsSearchCard> = listOf(
         // TASK-1017: not advanced: the row renders in the basic block under
         // REFINEMENT, outside the reveal; the flag had it counted into the
         // reveal's population it does not render in.
+    ),
+    // The preview-model row (the two-pass first pass): renders under
+    // REFINEMENT in the basic block, like the refine-model row.
+    SettingsSearchCard(
+        SettingsSearchId.PREVIEW_MODEL, SettingsSearchSection.TRANSCRIPTION,
+        listOf(
+            R.string.preview_model_title, R.string.preview_model_description,
+            R.string.preview_model_automatic),
+        visible = { s -> s.previewPickerShown },
+        group = SettingsSearchGroup.DECODING,
     ),
     SettingsSearchCard(
         SettingsSearchId.PUNCTUATION_MODE, SettingsSearchSection.TRANSCRIPTION,

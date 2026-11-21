@@ -1098,6 +1098,10 @@
     <string name="refinement_description">Affiche immédiatement un aperçu avec le modèle rapide, puis l\'affine en arrière-plan avec le modèle sélectionné</string>
     <string name="refinement_description_dynamic">Affiche immédiatement un aperçu avec %1$s, puis l\'affine en arrière-plan avec %2$s</string>
     <string name="refinement_locked_reason">Téléchargez un second modèle pour activer la transcription en deux passes</string>
+    <string name="preview_model_title">Modèle d\'aperçu</string>
+    <string name="preview_model_description">Le modèle rapide utilisé par la première passe pour l\'aperçu instantané. Laissez sur automatique pour que l\'application choisisse.</string>
+    <string name="preview_model_automatic">Automatique</string>
+    <string name="refinement_locked_choose_preview">Choisissez un modèle d\'aperçu</string>
     <string name="curated_why_distil_it">Ajusté pour l\'italien : le choix le plus précis</string>
     <string name="curated_why_parakeet">Très rapide (environ 17x) et toujours très précis</string>
     <string name="curated_why_german_whisper">Ajusté pour l\'allemand : l\'option la plus précise</string>

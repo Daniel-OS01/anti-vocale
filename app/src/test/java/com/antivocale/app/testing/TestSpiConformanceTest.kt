@@ -101,7 +101,8 @@ class TestSpiConformanceTest {
             "pendingBackendLoad", // TASK-640: crash marker, write-path only
             // TASK-963: the wiped-repair pending snapshot, repair-internal
             // state (op=records shows the dangling set it names).
-            "wipedRepairCapturedActive", "wipedRepairCapturedPin", "wipedRepairDeadSources",
+            "wipedRepairCapturedActive", "wipedRepairCapturedPin",
+            "wipedRepairCapturedPreviewPin", "wipedRepairDeadSources",
             "modelPath", // rendered as activeModelPath/paths.llm
             "externalModelsJson", // op=records covers it
         )

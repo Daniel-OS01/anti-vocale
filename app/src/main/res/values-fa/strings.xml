@@ -1235,6 +1235,10 @@
     <string name="refinement_description">ابتدا پیش‌نمایش فوری با مدل سریع، سپس پالایش در پس‌زمینه با مدل انتخاب‌شده</string>
     <string name="refinement_description_dynamic">ابتدا پیش‌نمایش فوری با %1$s، سپس پالایش در پس‌زمینه با %2$s</string>
     <string name="refinement_locked_reason">برای فعال شدن رونویسی دومرحله‌ای، مدل دومی دانلود کنید</string>
+    <string name="preview_model_title">مدل پیش‌نمایش</string>
+    <string name="preview_model_description">مدل سریعی که مرحلهٔ اول برای پیش‌نمایش فوری استفاده می‌کند. روی خودکار بگذارید تا برنامه انتخاب کند.</string>
+    <string name="preview_model_automatic">خودکار</string>
+    <string name="refinement_locked_choose_preview">یک مدل پیش‌نمایش انتخاب کنید</string>
     <string name="curated_why_distil_it">تنظیم‌شده برای ایتالیایی: دقیق‌ترین انتخاب</string>
     <string name="curated_why_parakeet">بسیار سریع (حدود ۱۷ برابر) و همچنان بسیار دقیق</string>
     <string name="curated_why_german_whisper">تنظیم‌شده برای آلمانی: دقیق‌ترین گزینه</string>

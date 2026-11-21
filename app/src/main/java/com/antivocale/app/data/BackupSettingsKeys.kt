@@ -45,6 +45,7 @@ object BackupSettingsKeys {
         "memory_protection",
         "onboarding_completed",
         "refinement_model_backend_id",
+        "preview_model_backend_id",
         "remote_omnivoice_enabled",
         "open_transcribe_enabled",
         "progressive_transcription",

@@ -55,10 +55,13 @@ class PreferencesManagerImpl(
         private val THEME_MODE = stringPreferencesKey("theme_mode")
         private val TRANSCRIPTION_BACKEND = stringPreferencesKey("transcription_backend")
         private val REFINEMENT_MODEL_BACKEND_ID = stringPreferencesKey("refinement_model_backend_id")
+        private val PREVIEW_MODEL_BACKEND_ID = stringPreferencesKey("preview_model_backend_id")
         private val WIPED_REPAIR_CAPTURED_ACTIVE =
             stringPreferencesKey("wiped_repair_captured_active")
         private val WIPED_REPAIR_CAPTURED_PIN =
             stringPreferencesKey("wiped_repair_captured_pin")
+        private val WIPED_REPAIR_CAPTURED_PREVIEW_PIN =
+            stringPreferencesKey("wiped_repair_captured_preview_pin")
         // TASK-973: record ids whose source proved dead (the native set
         // form, same as DEMOTED_BACKENDS above).
         private val WIPED_REPAIR_DEAD_SOURCES =
@@ -178,6 +181,7 @@ class PreferencesManagerImpl(
         val textScale: String = PreferencesManager.DEFAULT_TEXT_SCALE,
         val transcriptionBackend: String = PreferencesManager.DEFAULT_TRANSCRIPTION_BACKEND,
         val refinementModelBackendId: String = "",
+        val previewModelBackendId: String = "",
         val sherpaModelPaths: Map<String, String?> = emptyMap(),
         val customTransducerModelPath: String? = null,
         val customTransducerModelType: String = PreferencesManager.DEFAULT_CUSTOM_TRANSDUCER_MODEL_TYPE,
@@ -254,6 +258,7 @@ class PreferencesManagerImpl(
         textScale = this[TEXT_SCALE] ?: PreferencesManager.DEFAULT_TEXT_SCALE,
         transcriptionBackend = this[TRANSCRIPTION_BACKEND] ?: PreferencesManager.DEFAULT_TRANSCRIPTION_BACKEND,
         refinementModelBackendId = this[REFINEMENT_MODEL_BACKEND_ID] ?: "",
+        previewModelBackendId = this[PREVIEW_MODEL_BACKEND_ID] ?: "",
         sherpaModelPaths = LEGACY_MODEL_PATH_KEYS.entries.associate { (entryId, legacyKey) ->
             entryId to (this[sherpaModelPathKey(entryId)] ?: this[legacyKey])
         },
@@ -485,6 +490,18 @@ class PreferencesManagerImpl(
         cache.updateAndGet { it.copy(refinementModelBackendId = backendId) }
     }
 
+    override val previewModelBackendId: Flow<String> =
+        dataStore.data.map { it[PREVIEW_MODEL_BACKEND_ID] ?: "" }
+            .onStart { emit(cache.get().previewModelBackendId) }
+            .distinctUntilChanged()
+
+    override suspend fun savePreviewModelBackendId(backendId: String) {
+        dataStore.edit { preferences ->
+            preferences[PREVIEW_MODEL_BACKEND_ID] = backendId
+        }
+        cache.updateAndGet { it.copy(previewModelBackendId = backendId) }
+    }
+
     override suspend fun saveTranscriptionBackend(backendId: String) {
         dataStore.edit { preferences ->
             preferences[TRANSCRIPTION_BACKEND] = backendId
@@ -537,6 +554,16 @@ class PreferencesManagerImpl(
     override suspend fun saveWipedRepairCapturedPin(backendId: String) {
         dataStore.edit { preferences ->
             preferences[WIPED_REPAIR_CAPTURED_PIN] = backendId
+        }
+    }
+
+    override val wipedRepairCapturedPreviewPin: Flow<String> =
+        dataStore.data.map { it[WIPED_REPAIR_CAPTURED_PREVIEW_PIN] ?: "" }
+            .distinctUntilChanged()
+
+    override suspend fun saveWipedRepairCapturedPreviewPin(backendId: String) {
+        dataStore.edit { preferences ->
+            preferences[WIPED_REPAIR_CAPTURED_PREVIEW_PIN] = backendId
         }
     }
 

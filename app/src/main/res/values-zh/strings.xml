@@ -1071,6 +1071,10 @@
     <string name="refinement_description">先用快速模型流式生成即时预览，再在后台用所选模型进行优化</string>
     <string name="refinement_description_dynamic">先用 %1$s 流式生成即时预览，再在后台用 %2$s 进行优化</string>
     <string name="refinement_locked_reason">下载第二个模型以启用两遍转写</string>
+    <string name="preview_model_title">预览模型</string>
+    <string name="preview_model_description">第一遍用于即时预览的快速模型。保持自动即可由应用选择。</string>
+    <string name="preview_model_automatic">自动</string>
+    <string name="refinement_locked_choose_preview">请选择预览模型</string>
     <string name="language_chip_setting_note">只有 Whisper 和 SenseVoice 模型能够检测语言。</string>
     <string name="technical_details_title">显示技术细节</string>
     <string name="technical_details_description">在每条转写条目下方显示技术处理信息行（解码路径、分块、VAD、内存）。默认关闭；这些细节始终会包含在反馈报告中。</string>

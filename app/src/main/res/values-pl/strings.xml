@@ -1252,6 +1252,10 @@
     <string name="refinement_description">Pokaż natychmiast podgląd szybkim modelem, a następnie ulepsz go w tle wybranym modelem</string>
     <string name="refinement_description_dynamic">Pokaż natychmiast podgląd modelem %1$s, a następnie ulepsz go w tle modelem %2$s</string>
     <string name="refinement_locked_reason">Pobierz drugi model, aby włączyć transkrypcję dwuetapową</string>
+    <string name="preview_model_title">Model podglądu</string>
+    <string name="preview_model_description">Szybki model, którego pierwszy przebieg używa do natychmiastowego podglądu. Pozostaw automatyczny, aby aplikacja wybrała.</string>
+    <string name="preview_model_automatic">Automatyczny</string>
+    <string name="refinement_locked_choose_preview">Wybierz model podglądu</string>
     <string name="curated_why_distil_it">Dostrojony do włoskiego: najdokładniejszy wybór</string>
     <string name="curated_why_parakeet">Bardzo szybki (około 17x) i wciąż bardzo dokładny</string>
     <string name="curated_why_german_whisper">Dostrojony do niemieckiego: najbardziej dokładna opcja</string>

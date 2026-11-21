@@ -30,6 +30,7 @@ class ExternalModelDeleter(
         val existed: Boolean,
         val resetActiveBackend: Boolean,
         val clearedRefinementPin: Boolean,
+        val clearedPreviewPin: Boolean = false,
     )
 
     suspend fun delete(record: ExternalModelRecord): Outcome {
@@ -45,10 +46,17 @@ class ExternalModelDeleter(
         if (clearedRefinementPin) {
             preferencesManager.saveRefinementModelBackendId("")
         }
+        // The preview pin on the deleted model falls back to automatic.
+        val clearedPreviewPin =
+            preferencesManager.previewModelBackendId.first() == record.backendId
+        if (clearedPreviewPin) {
+            preferencesManager.savePreviewModelBackendId("")
+        }
         return Outcome(
             existed = removed != null,
             resetActiveBackend = resetActiveBackend,
             clearedRefinementPin = clearedRefinementPin,
+            clearedPreviewPin = clearedPreviewPin,
         )
     }
 }

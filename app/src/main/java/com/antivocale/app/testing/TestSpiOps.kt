@@ -178,6 +178,8 @@ internal class TestSpiOps(
             .put("interruptedRunNotifications", preferences.interruptedRunNotifications.first())
             // TASK-740: the two-pass refinement model pin (empty = inherit).
             .put("refinementModelBackendId", preferences.refinementModelBackendId.first())
+            // The two-pass preview (first-pass) model pin (empty = automatic).
+            .put("previewModelBackendId", preferences.previewModelBackendId.first())
             // TASK-588.1: the advanced-reveal state (the conformance test
             // pins every flow exposed, keyed by its flow name).
             .put("settingsTranscriptionAdvancedExpanded", preferences.settingsTranscriptionAdvancedExpanded.first())
@@ -509,6 +511,17 @@ internal class TestSpiOps(
                         "'${RemoteOmnivoiceBackend.BACKEND_ID}' or '${ExternalModelRecord.BACKEND_ID_PREFIX}<record id>')"
                 }
             }
+            // The two-pass preview (first-pass) model pin. Blank = automatic
+            // (TwoPassArms resolves one); any known backend id pins phase 1.
+            putUnique("preview_model") { value, _ ->
+                if (value.isBlank() || isKnownBackend(value)) {
+                    preferences.savePreviewModelBackendId(value)
+                    null
+                } else {
+                    "unknown backend '$value' (blank, a catalog id, '${LlmTranscriptionBackend.BACKEND_ID}', " +
+                        "'${RemoteOmnivoiceBackend.BACKEND_ID}' or '${ExternalModelRecord.BACKEND_ID_PREFIX}<record id>')"
+                }
+            }
             putUnique("sherpa_path") { value, entry ->
                 if (entry == null || entry !in BuiltInBackendIds.ALL) {
                     "sherpa_path requires entry=<catalog id> " +
@@ -536,6 +549,8 @@ internal class TestSpiOps(
         "keyword_biasing",
         // TASK-740: blank is the pin's documented clear (inherit active).
         "refinement_model",
+        // Blank is the preview pin's documented clear (automatic).
+        "preview_model",
     )
 
     private suspend fun set(key: String?, value: String?, entry: String?): String {
@@ -659,13 +674,15 @@ internal class TestSpiOps(
         val record = externalModels.records().firstOrNull { it.id == id }
         val outcome = record?.let { externalModelDeleter.delete(it) }
             ?: ExternalModelDeleter.Outcome(
-                existed = false, resetActiveBackend = false, clearedRefinementPin = false)
+                existed = false, resetActiveBackend = false, clearedRefinementPin = false,
+                clearedPreviewPin = false)
         return JSONObject()
             .put("op", OP_RECORD_DELETE)
             .put("id", id)
             .put("deleted", outcome.existed)
             .put("resetActiveBackend", outcome.resetActiveBackend)
             .put("clearedRefinementPin", outcome.clearedRefinementPin)
+            .put("clearedPreviewPin", outcome.clearedPreviewPin)
             .toString()
     }
 

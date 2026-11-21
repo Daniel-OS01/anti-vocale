@@ -500,6 +500,32 @@ class SettingsViewModel @Inject constructor(
     private val _refinementTargetBackendId = MutableStateFlow<String?>(null)
     val refinementTargetBackendId: StateFlow<String?> =
         _refinementTargetBackendId.asStateFlow()
+    /** The two-pass preview (first-pass) model pin; blank = automatic. */
+    private val _previewModelBackendId = MutableStateFlow("")
+    val previewModelBackendId: StateFlow<String> = _previewModelBackendId.asStateFlow()
+
+    /** True when the automatic fast-arm choice found nothing but another
+     *  usable model is installed: the card shows the preview picker and the
+     *  locked reason asks the user to choose one. */
+    private val _previewChoiceNeeded = MutableStateFlow(false)
+    val previewChoiceNeeded: StateFlow<Boolean> = _previewChoiceNeeded.asStateFlow()
+
+    /** The preview picker's options besides Automatic (the installed
+     *  models other than the accurate side that can serve a fast pass). */
+    private val _previewCandidates = MutableStateFlow<List<InstalledBackend>>(emptyList())
+    val previewCandidates: StateFlow<List<InstalledBackend>> = _previewCandidates.asStateFlow()
+
+    fun savePreviewModelBackendId(backendId: String) {
+        viewModelScope.launch {
+            try {
+                preferencesManager.savePreviewModelBackendId(backendId)
+                _previewModelBackendId.value = backendId
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to save preview model pin", e)
+            }
+        }
+    }
+
     fun saveRefinementModelBackendId(backendId: String) {
         viewModelScope.launch {
             try {
@@ -1019,6 +1045,9 @@ class SettingsViewModel @Inject constructor(
             preferencesManager.refinementModelBackendId.collect { _refinementModelBackendId.value = it }
         }
         viewModelScope.launch {
+            preferencesManager.previewModelBackendId.collect { _previewModelBackendId.value = it }
+        }
+        viewModelScope.launch {
             activeModelRepository.installedBackendsFlow.collect { _installedBackends.value = it }
         }
         // GH #83: speaker labeling toggle
@@ -1046,44 +1075,79 @@ class SettingsViewModel @Inject constructor(
         // non-null fast arm is by construction a second model besides the
         // refinement target and no further comparison is needed.
         viewModelScope.launch(Dispatchers.Default) {
+            // The preview pin and the loadable imports are inputs too: the
+            // fast arm resolves through the SAME owner as the runtime
+            // (TwoPassArms), which reads both.
             kotlinx.coroutines.flow.combine(
                 preferencesManager.transcriptionBackend,
                 preferencesManager.refinementModelBackendId,
+                preferencesManager.previewModelBackendId,
                 activeModelRepository.installedBackendsFlow,
-            ) { selected, pin, installed -> Triple(selected, pin, installed) }
-                .collect { (selected, pin, installed) ->
+                externalRecordsProvider.records,
+            ) { selected, pin, previewPin, installed, externals ->
+                RefinementGateInputs(selected, pin, previewPin, installed, externals)
+            }
+                .collect { (selected, pin, previewPin, installed, externals) ->
                     val accurate = pin.takeIf { it.isNotBlank() } ?: selected
-                    val fastId =
-                        com.antivocale.app.transcription.SherpaModelManager
-                            .installedFastEntryId(getApplication<Application>(), accurate)
-                    // A non-blank pin must itself be a usable refinement
-                    // target: a STALE pin (recorded, model since deleted)
-                    // would otherwise leave the gate open while every run
-                    // degrades to SKIP_REFINE_LOAD_FAILED. Built-in pins
-                    // resolve through the manager's dir probe (the same
-                    // probe class the fast arm uses, so heal and delete
-                    // keep the lock truthful); any other id (LLM,
-                    // external) resolves through this combine's installed
-                    // set, which already re-probes on install/uninstall.
-                    val pinUsable = pin.isBlank() ||
-                        installed.any { it.backendId == pin } ||
-                        runCatching {
-                            com.antivocale.app.transcription.SherpaModelManager
-                                .of(pin)
-                                .resolveActiveModelPath(getApplication<Application>()) != null
-                        }.getOrDefault(false)
+                    // The runtime loader's fallbackPath source: the
+                    // descriptor's saved model path (loadCatalogBackend).
+                    val savedModelPath: suspend (String) -> String? = { id ->
+                        backendRegistry.byBackendId(id)?.modelPathFlow?.invoke(preferencesManager)?.first()
+                    }
+                    val fastId = com.antivocale.app.transcription.TwoPassArms.fastBackendId(
+                        context = getApplication<Application>(),
+                        previewPin = previewPin,
+                        accurate = accurate,
+                        loadableExternals = externals,
+                        savedModelPath = savedModelPath,
+                    )
+                    // The EFFECTIVE accurate side (the pin, else the
+                    // selected backend it falls back to) must itself be
+                    // loadable: a STALE pin (recorded, model since deleted)
+                    // or a selected-but-not-installed default would
+                    // otherwise leave the gate open (or prompt for a
+                    // preview pick) while every run degrades to
+                    // SKIP_REFINE_LOAD_FAILED. Built-in ids resolve through
+                    // the manager's dir probe with the saved path as the
+                    // loader's fallback (the same probe class the fast arm
+                    // uses, so heal and delete keep the lock truthful); any
+                    // other id (LLM, external) resolves through this
+                    // combine's installed set, which already re-probes on
+                    // install/uninstall.
+                    val accurateSavedPath = runCatching { savedModelPath(accurate) }
+                        .getOrNull()?.takeIf { it.isNotBlank() }
+                    val accurateUsable =
+                        installed.any { it.backendId == accurate } ||
+                            externals.any { it.backendId == accurate } ||
+                            runCatching {
+                                com.antivocale.app.transcription.SherpaModelManager
+                                    .of(accurate)
+                                    .resolveActiveModelPath(
+                                        getApplication<Application>(),
+                                        fallbackPath = accurateSavedPath,
+                                    ) != null
+                            }.getOrDefault(false)
                     _fastBackendId.value = fastId
-                    // TASK-937: available implies a resolved fast arm (the
-                    // same assignment block); the card description pairs the
-                    // two arms from these sibling flows.
-                    _refinementTargetBackendId.value = accurate
                     // TASK-937 review: the remote-offload accurate side never
                     // two-passes (the policy returns null for it), so the
                     // gate locks there instead of advertising a dead toggle.
                     val accurateIsRemoteOffload =
                         accurate == com.antivocale.app.transcription.RemoteOmnivoiceBackend.BACKEND_ID
+                    // TASK-937: available implies a resolved fast arm (the
+                    // same assignment block); the card description pairs the
+                    // two arms from these sibling flows.
                     _refinementAvailable.value =
-                        pinUsable && fastId != null && !accurateIsRemoteOffload
+                        accurateUsable && fastId != null && !accurateIsRemoteOffload
+                    // Automatic found nothing, yet another model besides the
+                    // accurate side could serve the preview: ask for a pin.
+                    val candidates = previewModelCandidates(installed, externals, accurate)
+                    _previewCandidates.value = candidates
+                    _previewChoiceNeeded.value = fastId == null && accurateUsable &&
+                        !accurateIsRemoteOffload && candidates.isNotEmpty()
+                    // Published LAST: an observer that sees this emission's
+                    // target also sees its fast arm, availability and
+                    // preview-choice state (the gate tests key on it).
+                    _refinementTargetBackendId.value = accurate
                 }
         }
         // Load text size from preferences (TASK-576)
@@ -1987,3 +2051,31 @@ class SettingsViewModel @Inject constructor(
         }
     }
 }
+
+/** The refinement gate's combine inputs (five flows, so a named holder). */
+private data class RefinementGateInputs(
+    val selected: String,
+    val pin: String,
+    val previewPin: String,
+    val installed: List<InstalledBackend>,
+    val externals: List<com.antivocale.app.data.ExternalModelRecord>,
+)
+
+/**
+ * The preview picker's candidates: every installed model (the loadable
+ * imports included) except the [accurate] side, the LLM (never a fast arm)
+ * and the remote offload backend, de-duplicated by backend id.
+ */
+internal fun previewModelCandidates(
+    installed: List<InstalledBackend>,
+    externals: List<com.antivocale.app.data.ExternalModelRecord>,
+    accurate: String?,
+): List<InstalledBackend> =
+    (installed + externals.map { InstalledBackend(it.backendId, it.displayName) })
+        .distinctBy { it.backendId }
+        .filter { it.backendId != accurate }
+        .filterNot { BuiltInBackendIds.isLlm(it.backendId) }
+        .filterNot { BuiltInBackendIds.hiddenOnStubBuild(it.backendId) }
+        .filterNot {
+            it.backendId == com.antivocale.app.transcription.RemoteOmnivoiceBackend.BACKEND_ID
+        }

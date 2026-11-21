@@ -38,6 +38,11 @@ class DanglingBackendCleaner(
         if (isDanglingExternal(pin)) {
             preferencesManager.saveRefinementModelBackendId("")
         }
+        // The preview (first-pass) pin gets the same net: blank = automatic.
+        val previewPin = preferencesManager.previewModelBackendId.first()
+        if (isDanglingExternal(previewPin)) {
+            preferencesManager.savePreviewModelBackendId("")
+        }
     }
 
     /** byId resolves valid records only (dir must exist), matching what the

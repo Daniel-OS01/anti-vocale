@@ -84,6 +84,27 @@ class SettingsViewModelRefinementGateTest : ViewModelTeardownTest() {
             runCurrent()
             Thread.sleep(20)
         }
+        // A timeout must fail here: a caller asserting only part of the
+        // predicate would otherwise pass on a half-published state.
+        assertTrue("gate did not settle within 30s", settled())
+    }
+
+    /**
+     * Waits (bounded, via [awaitGate]) until the fast arm, the refinement
+     * target AND availability all hold their expected values, so the
+     * assertions that follow never race the collector's later writes on
+     * Dispatchers.Default.
+     */
+    private fun TestScope.awaitGateState(
+        fast: String?,
+        target: String?,
+        available: Boolean,
+        previewChoice: Boolean? = null,
+    ) = awaitGate {
+        viewModel.fastBackendId.value == fast &&
+            viewModel.refinementTargetBackendId.value == target &&
+            viewModel.refinementAvailable.value == available &&
+            (previewChoice == null || viewModel.previewChoiceNeeded.value == previewChoice)
     }
 
     @Test
@@ -91,7 +112,7 @@ class SettingsViewModelRefinementGateTest : ViewModelTeardownTest() {
         coEvery { SherpaModelManager.installedFastEntryId(any(), any()) } returns "whisper"
         installTwoBackends()
         fakePrefs._transcriptionBackend.value = "sherpa-onnx"
-        awaitGate { viewModel.fastBackendId.value == "whisper" }
+        awaitGateState(fast = "whisper", target = "sherpa-onnx", available = true)
         assertTrue(viewModel.refinementAvailable.value)
         assertEquals("whisper", viewModel.fastBackendId.value)
     }
@@ -104,8 +125,9 @@ class SettingsViewModelRefinementGateTest : ViewModelTeardownTest() {
         coEvery { SherpaModelManager.installedFastEntryId(any(), "whisper") } returns null
         fakePrefs._sherpaModelPath("whisper").value = "/models/whisper"
         fakePrefs._transcriptionBackend.value = "whisper"
-        awaitGate { viewModel.refinementAvailable.value == false &&
-            viewModel.fastBackendId.value == null }
+        // The target is published last: waiting for it proves the whisper
+        // emission landed, not the VM's initial locked state.
+        awaitGateState(fast = null, target = "whisper", available = false)
         assertFalse(viewModel.refinementAvailable.value)
     }
 
@@ -120,7 +142,7 @@ class SettingsViewModelRefinementGateTest : ViewModelTeardownTest() {
         } returns "whisper"
         installTwoBackends()
         fakePrefs._transcriptionBackend.value = "sherpa-onnx"
-        awaitGate { viewModel.fastBackendId.value == "whisper" }
+        awaitGateState(fast = "whisper", target = "sherpa-onnx", available = true)
         assertTrue(viewModel.refinementAvailable.value)
     }
 
@@ -130,8 +152,11 @@ class SettingsViewModelRefinementGateTest : ViewModelTeardownTest() {
             SherpaModelManager.installedFastEntryId(any(), "nemotron-streaming")
         } returns "whisper"
         installTwoBackends()
+        // The selected streaming model is the accurate side, so it must be
+        // installed too (an uninstalled accurate side locks the gate).
+        fakePrefs._sherpaModelPath("nemotron-streaming").value = "/models/nemotron"
         fakePrefs._transcriptionBackend.value = "nemotron-streaming"
-        awaitGate { viewModel.fastBackendId.value == "whisper" }
+        awaitGateState(fast = "whisper", target = "nemotron-streaming", available = true)
         assertTrue(viewModel.refinementAvailable.value)
         assertEquals("whisper", viewModel.fastBackendId.value)
     }
@@ -146,7 +171,7 @@ class SettingsViewModelRefinementGateTest : ViewModelTeardownTest() {
         installTwoBackends()
         fakePrefs._transcriptionBackend.value = "sherpa-onnx"
         fakePrefs._refinementModelBackendId.value = "whisper"
-        awaitGate { viewModel.fastBackendId.value == "sherpa-onnx" }
+        awaitGateState(fast = "sherpa-onnx", target = "whisper", available = true)
         assertTrue(viewModel.refinementAvailable.value)
         assertEquals("sherpa-onnx", viewModel.fastBackendId.value)
     }
@@ -162,7 +187,7 @@ class SettingsViewModelRefinementGateTest : ViewModelTeardownTest() {
         fakePrefs._sherpaModelPath("whisper").value = "/models/whisper"
         fakePrefs._transcriptionBackend.value = "whisper"
         fakePrefs._refinementModelBackendId.value = "gigaam"
-        awaitGate { viewModel.fastBackendId.value == "whisper" }
+        awaitGateState(fast = "whisper", target = "gigaam", available = false)
         assertEquals("whisper", viewModel.fastBackendId.value)
         assertFalse(viewModel.refinementAvailable.value)
     }
@@ -200,9 +225,11 @@ class SettingsViewModelRefinementGateTest : ViewModelTeardownTest() {
         externalRecords.value = listOf(importedStreaming, importedWhisper)
         fakePrefs._transcriptionBackend.value = importedStreaming.backendId
         fakePrefs._refinementModelBackendId.value = importedWhisper.backendId
-        // The target is assigned in the same block AFTER the fast arm, so
-        // seeing it proves the combine settled on this input.
-        awaitGate { viewModel.refinementTargetBackendId.value == importedWhisper.backendId }
+        awaitGateState(
+            fast = importedStreaming.backendId,
+            target = importedWhisper.backendId,
+            available = true,
+        )
         assertEquals(importedWhisper.backendId, viewModel.refinementTargetBackendId.value)
         assertEquals(importedStreaming.backendId, viewModel.fastBackendId.value)
         assertTrue(viewModel.refinementAvailable.value)
@@ -213,9 +240,62 @@ class SettingsViewModelRefinementGateTest : ViewModelTeardownTest() {
         coEvery { SherpaModelManager.installedFastEntryId(any(), any()) } returns null
         externalRecords.value = listOf(importedStreaming, importedWhisper)
         fakePrefs._transcriptionBackend.value = importedWhisper.backendId
-        awaitGate { viewModel.refinementTargetBackendId.value == importedWhisper.backendId }
+        awaitGateState(
+            fast = importedStreaming.backendId,
+            target = importedWhisper.backendId,
+            available = true,
+        )
         assertEquals(importedStreaming.backendId, viewModel.fastBackendId.value)
         assertTrue(viewModel.refinementAvailable.value)
+    }
+
+    private val importedCtc = external("ctc-small", ModelFamily.CTC)
+
+    @Test
+    fun `an imported preview pin becomes the fast arm`() = runTest {
+        coEvery { SherpaModelManager.installedFastEntryId(any(), any()) } returns null
+        externalRecords.value = listOf(importedCtc, importedWhisper)
+        fakePrefs._transcriptionBackend.value = importedWhisper.backendId
+        fakePrefs._previewModelBackendId.value = importedCtc.backendId
+        awaitGateState(
+            fast = importedCtc.backendId,
+            target = importedWhisper.backendId,
+            available = true,
+            previewChoice = false,
+        )
+        assertEquals(importedCtc.backendId, viewModel.fastBackendId.value)
+        assertTrue(viewModel.refinementAvailable.value)
+        assertFalse(viewModel.previewChoiceNeeded.value)
+    }
+
+    @Test
+    fun `a stale preview pin falls through to the automatic streaming import`() = runTest {
+        coEvery { SherpaModelManager.installedFastEntryId(any(), any()) } returns null
+        externalRecords.value = listOf(importedStreaming, importedWhisper)
+        fakePrefs._transcriptionBackend.value = importedWhisper.backendId
+        fakePrefs._previewModelBackendId.value = "external:deleted-model"
+        awaitGateState(
+            fast = importedStreaming.backendId,
+            target = importedWhisper.backendId,
+            available = true,
+        )
+        assertEquals(importedStreaming.backendId, viewModel.fastBackendId.value)
+        assertTrue(viewModel.refinementAvailable.value)
+    }
+
+    @Test
+    fun `no automatic arm but another install asks for a preview choice`() = runTest {
+        // Neither import streams, so automatic finds nothing: the toggle
+        // stays locked, and the picker offers the other import.
+        coEvery { SherpaModelManager.installedFastEntryId(any(), any()) } returns null
+        externalRecords.value = listOf(importedCtc, importedWhisper)
+        fakePrefs._transcriptionBackend.value = importedWhisper.backendId
+        awaitGate { viewModel.previewChoiceNeeded.value }
+        assertTrue(viewModel.previewChoiceNeeded.value)
+        assertFalse(viewModel.refinementAvailable.value)
+        assertNull(viewModel.fastBackendId.value)
+        assertEquals(listOf(importedCtc.backendId),
+            viewModel.previewCandidates.value.map { it.backendId })
     }
 
     @Test
@@ -223,15 +303,60 @@ class SettingsViewModelRefinementGateTest : ViewModelTeardownTest() {
         coEvery { SherpaModelManager.installedFastEntryId(any(), any()) } returns "whisper"
         installTwoBackends()
         fakePrefs._transcriptionBackend.value = "sherpa-onnx"
-        awaitGate { viewModel.refinementAvailable.value }
+        awaitGateState(fast = "whisper", target = "sherpa-onnx", available = true)
         assertTrue(viewModel.refinementAvailable.value)
 
         // The uninstall shape: the resolution goes away, a backend
         // switch forces the next combine emission, and the gate locks.
         coEvery { SherpaModelManager.installedFastEntryId(any(), any()) } returns null
         fakePrefs._transcriptionBackend.value = "qwen3-asr"
-        awaitGate { viewModel.fastBackendId.value == null }
+        awaitGateState(fast = null, target = "qwen3-asr", available = false)
         assertFalse(viewModel.refinementAvailable.value)
         assertNull(viewModel.fastBackendId.value)
+    }
+
+    @Test
+    fun `an uninstalled default accurate side with one offline import keeps the original locked reason`() = runTest {
+        // Parakeet (the default) is selected but NOT installed, the refine
+        // pin is blank, and the only model is one offline Whisper import:
+        // automatic finds no fast arm, and phase two (Parakeet) could never
+        // run, so the gate stays locked with the plain locked reason rather
+        // than prompting for a preview pick.
+        coEvery { SherpaModelManager.installedFastEntryId(any(), any()) } returns null
+        externalRecords.value = listOf(importedWhisper)
+        // The target is published last; switching it through the import and
+        // back to Parakeet makes seeing "sherpa-onnx" prove that the final
+        // emission (not the VM's initial one) fully landed.
+        fakePrefs._transcriptionBackend.value = importedWhisper.backendId
+        awaitGateState(fast = null, target = importedWhisper.backendId, available = false)
+        fakePrefs._transcriptionBackend.value = "sherpa-onnx"
+        awaitGateState(fast = null, target = "sherpa-onnx", available = false, previewChoice = false)
+        assertEquals("sherpa-onnx", viewModel.refinementTargetBackendId.value)
+        assertFalse(viewModel.previewChoiceNeeded.value)
+        assertFalse(viewModel.refinementAvailable.value)
+        assertNull(viewModel.fastBackendId.value)
+    }
+
+    @Test
+    fun `picking the import as preview does not unlock an uninstalled default accurate side`() = runTest {
+        coEvery { SherpaModelManager.installedFastEntryId(any(), any()) } returns null
+        externalRecords.value = listOf(importedWhisper)
+        // While the import is selected the pin equals the accurate side and
+        // is ignored; switching to the uninstalled Parakeet makes the pin
+        // the fast arm in the same (final) emission as the new target.
+        fakePrefs._transcriptionBackend.value = importedWhisper.backendId
+        fakePrefs._previewModelBackendId.value = importedWhisper.backendId
+        awaitGateState(fast = null, target = importedWhisper.backendId, available = false)
+        fakePrefs._transcriptionBackend.value = "sherpa-onnx"
+        awaitGateState(
+            fast = importedWhisper.backendId,
+            target = "sherpa-onnx",
+            available = false,
+            previewChoice = false,
+        )
+        assertEquals(importedWhisper.backendId, viewModel.fastBackendId.value)
+        assertEquals("sherpa-onnx", viewModel.refinementTargetBackendId.value)
+        assertFalse(viewModel.refinementAvailable.value)
+        assertFalse(viewModel.previewChoiceNeeded.value)
     }
 }

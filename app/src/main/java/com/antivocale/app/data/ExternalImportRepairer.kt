@@ -129,6 +129,9 @@ class ExternalImportRepairer(
         preferencesManager.refinementModelBackendId.first()
             .takeIf { it.startsWith(ExternalModelRecord.BACKEND_ID_PREFIX) }
             ?.let { preferencesManager.saveWipedRepairCapturedPin(it) }
+        preferencesManager.previewModelBackendId.first()
+            .takeIf { it.startsWith(ExternalModelRecord.BACKEND_ID_PREFIX) }
+            ?.let { preferencesManager.saveWipedRepairCapturedPreviewPin(it) }
     }
 
     /** The dangling-but-repairable records right now. Startup calls this to
@@ -178,6 +181,7 @@ class ExternalImportRepairer(
     suspend fun clearCapturedSelectionsIfIdle() {
         preferencesManager.saveWipedRepairCapturedActive("")
         preferencesManager.saveWipedRepairCapturedPin("")
+        preferencesManager.saveWipedRepairCapturedPreviewPin("")
     }
 
     /** Phase 2, launched by the notification's Recover action on the
@@ -371,6 +375,20 @@ class ExternalImportRepairer(
                     if (restored != null) {
                         preferencesManager.saveRefinementModelBackendId(restored)
                         preferencesManager.saveWipedRepairCapturedPin("")
+                    }
+                }
+            }
+        preferencesManager.wipedRepairCapturedPreviewPin.first()
+            .takeIf { it.isNotBlank() }
+            ?.let { captured ->
+                val stillBlank = preferencesManager.previewModelBackendId.first().isBlank()
+                if (stillBlank) {
+                    val restored = restoreId(
+                        captured.removePrefix(ExternalModelRecord.BACKEND_ID_PREFIX),
+                        driftReplacements)
+                    if (restored != null) {
+                        preferencesManager.savePreviewModelBackendId(restored)
+                        preferencesManager.saveWipedRepairCapturedPreviewPin("")
                     }
                 }
             }
