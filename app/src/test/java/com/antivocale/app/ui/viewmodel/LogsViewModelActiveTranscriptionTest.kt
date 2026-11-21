@@ -1,5 +1,6 @@
 package com.antivocale.app.ui.viewmodel
 
+import com.antivocale.app.data.ScopeProfileSource
 import com.antivocale.app.data.local.LogDao
 import com.antivocale.app.data.local.LogEntity
 import com.antivocale.app.data.local.toLogEntry
@@ -42,7 +43,7 @@ class LogsViewModelActiveTranscriptionTest : ViewModelTeardownTest() {
         Dispatchers.setMain(testDispatcher)
         logDao = mockk(relaxed = true)
         every { logDao.getAll() } returns logsFlow
-        viewModel = register(LogsViewModel(mockk(relaxed = true), logDao, stubPreferencesManager(), staticRegistry(), mockk(relaxed = true), mockk(relaxed = true), mockk(relaxed = true), mockk(relaxed = true), orchestrator = mockk(relaxed = true), duplicateGuard = mockk(relaxed = true), scheduledFolderStore = mockk(relaxed = true), profileOutcomeSource = mockk(relaxed = true), historyBulkRedo = mockk(relaxed = true, scopeProfileSource = mockk(relaxed = true)), scopeProfileStore = mockk(relaxed = true), appScope = appScope))
+        viewModel = register(LogsViewModel(mockk(relaxed = true), logDao, stubPreferencesManager(), staticRegistry(), mockk(relaxed = true), mockk(relaxed = true), mockk(relaxed = true), mockk(relaxed = true), orchestrator = mockk(relaxed = true), duplicateGuard = mockk(relaxed = true), scheduledFolderStore = mockk(relaxed = true), profileOutcomeSource = mockk(relaxed = true), historyBulkRedo = mockk(relaxed = true), scopeProfileSource = mockk<ScopeProfileSource>(relaxed = true), scopeProfileStore = mockk(relaxed = true), appScope = appScope))
     }
 
     private fun makeEntity(
