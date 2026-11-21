@@ -1109,6 +1109,12 @@
         <item quantity="other">%1$d сообщений</item>
     </plurals>
     <string name="conversation_group_unknown">Другое</string>
+    <!-- R3: History origin sections (group by source) -->
+    <string name="history_group_folder">📁 %1$s</string>
+    <string name="history_group_folder_sync">Синхронизация папки</string>
+    <string name="history_group_imported">Импортированные файлы</string>
+    <string name="history_group_shared">Полученные файлы</string>
+    <string name="history_group_automation">Автоматизация</string>
 
     <!-- Re-transcribe -->
     <string name="retranscribe">Повторить попытку</string>

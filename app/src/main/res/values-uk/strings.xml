@@ -1129,6 +1129,12 @@
         <item quantity="other">%1$d повідомлення</item>
     </plurals>
     <string name="conversation_group_unknown">Інші</string>
+    <!-- R3: History origin sections (group by source) -->
+    <string name="history_group_folder">📁 %1$s</string>
+    <string name="history_group_folder_sync">Синхронізація папки</string>
+    <string name="history_group_imported">Імпортовані файли</string>
+    <string name="history_group_shared">Отримані файли</string>
+    <string name="history_group_automation">Автоматизація</string>
 
     <!-- Re-transcribe -->
     <string name="retranscribe">Повторити спробу</string>

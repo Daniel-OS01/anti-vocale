@@ -789,7 +789,8 @@ fun HistoryTab(
         .collectAsState(initial = PreferencesManager.DEFAULT_SWIPE_ACTION_MODE)
     val showVadAdvisory by viewModel.showVadAdvisory.collectAsState()
     val groupByConversation by viewModel.groupLogsByConversation.collectAsState()
-    val watchedFolders = remember { emptyList<WatchedFolder>() }
+    // R3: names folder sections and classifies legacy folder-watch rows.
+    val watchedFolders by viewModel.watchedFolders.collectAsState()
 
     // Lifted expanded state — tracks which taskIds are expanded
     var expandedTaskIds by remember { mutableStateOf<Set<String>>(emptySet()) }
@@ -2817,14 +2818,18 @@ private fun ConversationGroupHeader(
 /** R3: the one place a section descriptor becomes its localized title. */
 @Composable
 private fun historyGroupTitleText(title: HistoryGroupTitle): String {
-    val unknown = stringResource(R.string.conversation_group_unknown)
     return when (title) {
         is HistoryGroupTitle.App -> {
             val context = LocalContext.current
             remember(title.packageName) { AppInfoUtils.getAppName(context, title.packageName) }
-                .ifBlank { unknown }
+                .ifBlank { stringResource(R.string.conversation_group_unknown) }
         }
-        else -> unknown
+        is HistoryGroupTitle.Folder -> stringResource(R.string.history_group_folder, title.name)
+        HistoryGroupTitle.FolderSyncLegacy -> stringResource(R.string.history_group_folder_sync)
+        HistoryGroupTitle.Imported -> stringResource(R.string.history_group_imported)
+        HistoryGroupTitle.Shared -> stringResource(R.string.history_group_shared)
+        HistoryGroupTitle.Automation -> stringResource(R.string.history_group_automation)
+        HistoryGroupTitle.Other -> stringResource(R.string.conversation_group_unknown)
     }
 }
 

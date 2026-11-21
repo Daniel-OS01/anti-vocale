@@ -1059,6 +1059,12 @@
     <string name="compact_result_actions_description">ट्रांस्क्रिप्शन क्रियाओं को कार्ड के कोने में केवल आइकन के रूप में दिखाएं। लेबल वाले बटनों के लिए बंद करें।</string>
     <string name="conversation_grouping_description">स्रोत ऐप (WhatsApp, Telegram आदि) के अनुसार ट्रांसक्रिप्शन सिकुड़ने वाले सेक्शन में समूहबद्ध दिखाएं।</string>
     <string name="conversation_group_unknown">अन्य</string>
+    <!-- R3: History origin sections (group by source) -->
+    <string name="history_group_folder">📁 %1$s</string>
+    <string name="history_group_folder_sync">फ़ोल्डर सिंक</string>
+    <string name="history_group_imported">आयात की गई फ़ाइलें</string>
+    <string name="history_group_shared">साझा की गई फ़ाइलें</string>
+    <string name="history_group_automation">स्वचालन</string>
 
     <!-- Re-transcribe -->
     <string name="retranscribe">फिर से कोशिश करें</string>

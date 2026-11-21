@@ -1,5 +1,6 @@
 package com.antivocale.app.ui.tabs
 
+import com.antivocale.app.data.SourceKind
 import com.antivocale.app.data.WatchedFolder
 import com.antivocale.app.ui.viewmodel.LogEntry
 
@@ -56,14 +57,105 @@ internal fun resolveHistoryGroup(
     entry: LogEntry,
     watchedFolders: List<WatchedFolder>,
 ): HistoryGroupPlacement {
-    val packageName = entry.sourcePackageName
-    val sender = entry.senderName?.takeIf { it.isNotBlank() }?.let { HistorySubGroupRef(it, it) }
-    return if (packageName != null) {
-        HistoryGroupPlacement(packageName, HistoryGroupTitle.App(packageName), sender)
-    } else {
-        HistoryGroupPlacement(UNKNOWN_GROUP_KEY, HistoryGroupTitle.Other, sender)
+    val sender = senderSubGroup(entry)
+    // The app fact wins over the kind: a share from WhatsApp stays in the
+    // WhatsApp section exactly as before R3.
+    entry.sourcePackageName?.let { packageName ->
+        return HistoryGroupPlacement(packageName, HistoryGroupTitle.App(packageName), sender)
+    }
+    return when (entry.sourceKind) {
+        SourceKind.FOLDER_WATCH -> folderWatchPlacement(entry, watchedFolders)
+        SourceKind.BROWSE -> HistoryGroupPlacement(
+            IMPORTED_GROUP_KEY,
+            HistoryGroupTitle.Imported,
+            folderSubGroup(entry.sourceFolderName),
+        )
+        SourceKind.SHARE -> HistoryGroupPlacement(SHARED_GROUP_KEY, HistoryGroupTitle.Shared, sender)
+        SourceKind.AUTOMATION, SourceKind.OPENTRANSCRIBE ->
+            HistoryGroupPlacement(AUTOMATION_GROUP_KEY, HistoryGroupTitle.Automation, sender)
+        // Pre-R3 rows carry no kind; only folder-watch ones are recognizable
+        // (by their task id). Old browse rows recorded nothing and stay Other.
+        null -> legacyFolderWatchPlacement(entry, watchedFolders) ?: otherPlacement(sender)
+        // voice_note without a package, or a token a newer build wrote.
+        else -> otherPlacement(sender)
     }
 }
 
+private fun otherPlacement(sender: HistorySubGroupRef?) =
+    HistoryGroupPlacement(UNKNOWN_GROUP_KEY, HistoryGroupTitle.Other, sender)
+
+/** Notification-identity sender (app rows) or caller label (folder rows). */
+private fun senderSubGroup(entry: LogEntry): HistorySubGroupRef? =
+    entry.senderName?.takeIf { it.isNotBlank() }?.let { HistorySubGroupRef(it, it) }
+
+/**
+ * A folder-path second level. The key carries [FOLDER_SUBGROUP_PREFIX] so a
+ * subfolder named like a caller label in the same folder section stays a
+ * separate sub-header (the two second-level kinds share one section).
+ */
+private fun folderSubGroup(path: String?): HistorySubGroupRef? =
+    path?.takeIf { it.isNotBlank() }?.let { HistorySubGroupRef(FOLDER_SUBGROUP_PREFIX + it, it) }
+
+private fun folderWatchPlacement(
+    entry: LogEntry,
+    watchedFolders: List<WatchedFolder>,
+): HistoryGroupPlacement {
+    val treeUri = entry.sourceFolderKey?.takeIf { it.isNotBlank() }
+        // A folder-watch row that lost its folder key is classified like a
+        // pre-R3 one: by the tree hash its task id carries.
+        ?: return legacyFolderWatchPlacement(entry, watchedFolders) ?: folderSyncPlacement(entry)
+    val name = entry.sourceFolderName?.takeIf { it.isNotBlank() }
+        ?: watchedFolders.firstOrNull { it.treeUri == treeUri }?.displayName
+    return HistoryGroupPlacement(
+        folderGroupKey(treeUri),
+        name?.let { HistoryGroupTitle.Folder(it) } ?: HistoryGroupTitle.FolderSyncLegacy,
+        folderSubGroup(entry.sourceSubPath) ?: senderSubGroup(entry),
+    )
+}
+
+/**
+ * A pre-R3 folder-watch row, recognized by ScheduledFolderWorker's task id
+ * `fwatch_<treeUri.hashCode().toUInt()>_<ts>_<nameHash>`. It joins a folder
+ * section only when exactly ONE watched folder has that hash (a 32-bit hash
+ * can collide; a wrong folder is worse than the generic section); any other
+ * fwatch row goes to Folder sync. Null when the id is not an fwatch id.
+ */
+private fun legacyFolderWatchPlacement(
+    entry: LogEntry,
+    watchedFolders: List<WatchedFolder>,
+): HistoryGroupPlacement? {
+    val treeHash = LEGACY_FOLDER_WATCH_TASK_ID.matchEntire(entry.taskId)?.groupValues?.get(1)
+        ?: return null
+    val folder = watchedFolders
+        .filter { it.treeUri.hashCode().toUInt().toString() == treeHash }
+        .singleOrNull()
+        ?: return folderSyncPlacement(entry)
+    return HistoryGroupPlacement(
+        folderGroupKey(folder.treeUri),
+        HistoryGroupTitle.Folder(folder.displayName),
+        senderSubGroup(entry),
+    )
+}
+
+private fun folderSyncPlacement(entry: LogEntry) =
+    HistoryGroupPlacement(FOLDER_SYNC_GROUP_KEY, HistoryGroupTitle.FolderSyncLegacy, senderSubGroup(entry))
+
+private val LEGACY_FOLDER_WATCH_TASK_ID = Regex("""fwatch_(\d+)_\d+_\d+""")
+
+/*
+ * Section keys. App sections key on the bare package name; Android package
+ * names never contain ':' and always contain a '.', so the `folder:` prefix
+ * and the dot-free `__name__` sentinels below cannot collide with one.
+ */
+
 /** The section key for rows with no recognized origin. */
 internal const val UNKNOWN_GROUP_KEY = "__unknown__"
+private const val IMPORTED_GROUP_KEY = "__imported__"
+private const val SHARED_GROUP_KEY = "__shared__"
+private const val AUTOMATION_GROUP_KEY = "__automation__"
+private const val FOLDER_SYNC_GROUP_KEY = "__folder_sync__"
+private const val FOLDER_SUBGROUP_PREFIX = "dir:"
+
+/** One watched folder's section: new rows (by sourceFolderKey) and matched
+ *  legacy rows (by treeUri) share it. */
+private fun folderGroupKey(treeUri: String) = "folder:$treeUri"

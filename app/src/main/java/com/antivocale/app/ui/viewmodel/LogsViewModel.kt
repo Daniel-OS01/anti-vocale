@@ -25,7 +25,9 @@ import com.antivocale.app.data.local.toEntity
 import com.antivocale.app.data.local.toLogEntry
 import com.antivocale.app.data.ActiveModelRepository
 import com.antivocale.app.data.PreferencesManager
+import com.antivocale.app.data.ScheduledFolderStore
 import com.antivocale.app.data.SourceKind
+import com.antivocale.app.data.WatchedFolder
 import com.antivocale.app.data.VoiceNoteDuplicateGuard
 import com.antivocale.app.data.TranscriptionCalibrator
 import com.antivocale.app.data.catalog.BundledCatalog
@@ -184,6 +186,8 @@ class LogsViewModel @Inject constructor(
     private val orchestrator: TranscriptionOrchestrator,
     /** TASK-842 browse arm: the duplicate lookup (shares the guard). */
     private val duplicateGuard: VoiceNoteDuplicateGuard,
+    /** R3: the watched folders History names its folder sections after. */
+    private val scheduledFolderStore: ScheduledFolderStore,
     /** TASK-934: the staged-copy reclaims survive a ViewModel clear (a tap
      *  followed by leaving History must not cancel the delete; viewModelScope
      *  would). Tests omit this parameter; production gets @ApplicationScope. */
@@ -849,6 +853,11 @@ class LogsViewModel @Inject constructor(
 
     val groupLogsByConversation: StateFlow<Boolean> = preferencesManager.groupLogsByConversation
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), PreferencesManager.DEFAULT_GROUP_LOGS_BY_CONVERSATION)
+
+    /** R3: the History origin grouping's folder lookup (section titles and
+     *  legacy folder-watch row classification). */
+    val watchedFolders: StateFlow<List<WatchedFolder>> = scheduledFolderStore.foldersFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     /** TASK-616: the technical processing-context line renders only when
      *  this is on (off by default); the data stays persisted either way. */

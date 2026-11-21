@@ -956,6 +956,12 @@
     <string name="compact_result_actions_description">转写操作仅以图标显示，收纳于结果卡片一角。关闭后显示带文字标签的按钮。</string>
     <string name="conversation_grouping_description">按来源应用（WhatsApp、Telegram 等）将转写分组为可折叠的区块。</string>
     <string name="conversation_group_unknown">其他</string>
+    <!-- R3: History origin sections (group by source) -->
+    <string name="history_group_folder">📁 %1$s</string>
+    <string name="history_group_folder_sync">文件夹同步</string>
+    <string name="history_group_imported">导入的文件</string>
+    <string name="history_group_shared">分享的文件</string>
+    <string name="history_group_automation">自动化</string>
     <string name="retranscribe">重试</string>
     <string name="retranscribe_title">选择模型重新转写…</string>
     <string name="retranscribe_subtitle">选择一个模型来重新转写此音频</string>

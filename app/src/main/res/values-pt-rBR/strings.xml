@@ -960,6 +960,12 @@
         <item quantity="other">%1$d mensagens</item>
     </plurals>
     <string name="conversation_group_unknown">Outros</string>
+    <!-- R3: History origin sections (group by source) -->
+    <string name="history_group_folder">📁 %1$s</string>
+    <string name="history_group_folder_sync">Sincronização de pasta</string>
+    <string name="history_group_imported">Arquivos importados</string>
+    <string name="history_group_shared">Arquivos compartilhados</string>
+    <string name="history_group_automation">Automação</string>
     <string name="retranscribe">Tentar novamente</string>
     <string name="retranscribe_title">Re-transcrever com…</string>
     <string name="retranscribe_subtitle">Selecione um modelo para re-transcrever este áudio</string>
