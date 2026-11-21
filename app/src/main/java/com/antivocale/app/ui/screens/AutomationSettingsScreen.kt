@@ -31,6 +31,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -77,8 +79,34 @@ fun AutomationSettingsScreen(
     viewModel: SettingsViewModel,
     initialScroll: AppNavigation.ScrollRequest? = null,
     onScrollConsumed: () -> Unit = {},
+    /** R6: the rules editor's "Set a model for this language" action. */
+    onOpenLanguageModels: () -> Unit = {},
     onBack: () -> Unit,
 ) {
+    // R6: the per-folder rules page is a nested state of this page, keyed
+    // by tree uri (AppNavigation sub-page keys are literal, no parameter).
+    var rulesFolderUri by rememberSaveable { mutableStateOf<String?>(null) }
+    rulesFolderUri?.let { uri ->
+        val folders by viewModel.scheduledFolders.collectAsStateWithLifecycle()
+        val folder = folders.firstOrNull { it.treeUri == uri }
+        if (folder != null) {
+            FolderTranscriptionRulesScreen(
+                viewModel = viewModel,
+                folder = folder,
+                folderLabel = rememberFolderLabel(folder),
+                onOpenLanguageModels = {
+                    rulesFolderUri = null
+                    onOpenLanguageModels()
+                },
+                onBack = { rulesFolderUri = null },
+            )
+            return
+        }
+        // The folder was removed (or the list has not loaded yet after a
+        // restore): leave the nested page once the list is known.
+        LaunchedEffect(uri, folders) { if (folders.isNotEmpty()) rulesFolderUri = null }
+    }
+
     val externalAutomationEnabled by viewModel.externalAutomationEnabled.collectAsStateWithLifecycle()
     val openTranscribeEnabled by viewModel.openTranscribeEnabled.collectAsStateWithLifecycle()
     val remoteOffloadEnabled by viewModel.remoteOmnivoiceEnabled.collectAsStateWithLifecycle()
@@ -167,7 +195,7 @@ fun AutomationSettingsScreen(
             // automation input source; the honest ColorOS contract lives in the
             // description (runs when the system allows; the manual scan is
             // always available).
-            ScheduledFolderWatchCard(viewModel)
+            ScheduledFolderWatchCard(viewModel, onOpenRules = { rulesFolderUri = it })
     }
 }
 
@@ -192,7 +220,7 @@ private fun rememberFolderLabel(folder: com.antivocale.app.data.WatchedFolder): 
 }
 
 @Composable
-private fun ScheduledFolderWatchCard(viewModel: SettingsViewModel) {
+private fun ScheduledFolderWatchCard(viewModel: SettingsViewModel, onOpenRules: (String) -> Unit) {
     val context = LocalContext.current
     val folders by viewModel.scheduledFolders.collectAsStateWithLifecycle(initialValue = emptyList())
     val pendingFolderAdd by viewModel.pendingFolderAdd.collectAsStateWithLifecycle()
@@ -281,6 +309,27 @@ private fun ScheduledFolderWatchCard(viewModel: SettingsViewModel) {
                     label = stringResource(R.string.folder_watch_period_label),
                     modifier = Modifier.fillMaxWidth(),
                 )
+                // R6: the folder's transcription rules (default + subfolders).
+                Row(
+                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(role = Role.Button) { onOpenRules(folder.treeUri) }
+                        .padding(vertical = 8.dp),
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = stringResource(R.string.scope_rule_page_title),
+                            style = MaterialTheme.typography.bodyLarge,
+                        )
+                        Text(
+                            text = stringResource(R.string.scope_rule_row_summary),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
+                }
                 Row(
                     horizontalArrangement = androidx.compose.foundation.layout.Arrangement.End,
                     modifier = Modifier.fillMaxWidth(),

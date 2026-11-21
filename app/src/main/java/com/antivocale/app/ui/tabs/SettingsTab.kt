@@ -188,6 +188,8 @@ fun SettingsTab(
     // TASK-994.2: the personal-dictionary page (maintainer trial 2026-11-14:
     // the card-in-tree was obscure; the surface is a subpage now).
     var showDictionarySettings by rememberSaveable("showDictionarySettings") { mutableStateOf(false) }
+    // R6: the model-per-language page (the N>=2 subpage rule: one row per language).
+    var showLanguageModelSettings by rememberSaveable("showLanguageModelSettings") { mutableStateOf(false) }
     // TASK-929: the What's-New notes hold a List<String>, which is not
     // saveable; the dialog is transient view state and drops on rotation
     // like every other content dialog.
@@ -207,6 +209,7 @@ fun SettingsTab(
         showVoiceNoteSettings = false
         showBackupTransfer = false
         showDictionarySettings = false
+        showLanguageModelSettings = false
     }
 
     // 2026-09-30 regroup: system back on ANY subpage must return to the
@@ -215,7 +218,7 @@ fun SettingsTab(
     androidx.activity.compose.BackHandler(enabled = showIconSettings || showExportSettings ||
         showPromptSettings || showPerAppSettings || showSpeakerSettings ||
         showPerformanceSettings || showAutomationSettings || showVoiceNoteSettings ||
-        showBackupTransfer || showDictionarySettings) {
+        showBackupTransfer || showDictionarySettings || showLanguageModelSettings) {
         closeSubPages()
     }
     // TASK-625 deep-link carrier: the memory-failure notification action
@@ -262,6 +265,7 @@ fun SettingsTab(
                     "voice_notes" -> showVoiceNoteSettings = true
                     "backup" -> showBackupTransfer = true
                     "dictionary" -> showDictionarySettings = true
+                    "language_models" -> showLanguageModelSettings = true
                 }
             }
             is AppNavigation.Destination.SettingsRow -> {
@@ -418,6 +422,18 @@ fun SettingsTab(
             onScrollConsumed = { pendingSubPageScroll = null },
             onBack = { showDictionarySettings = false }
         )
+    } else if (showLanguageModelSettings) {
+        // R6: the language->model map a language-only rule resolves through.
+        com.antivocale.app.ui.screens.LanguageModelsSettingsScreen(
+            viewModel = viewModel,
+            initialScroll = pendingSubPageScroll,
+            onScrollConsumed = { pendingSubPageScroll = null },
+            onOpenModels = {
+                closeSubPages()
+                onNavigateToModelTab()
+            },
+            onBack = { showLanguageModelSettings = false }
+        )
     } else if (showPromptSettings) {
         PromptSettingsScreen(
             viewModel = viewModel,
@@ -447,6 +463,10 @@ fun SettingsTab(
             viewModel = viewModel,
             initialScroll = pendingSubPageScroll,
             onScrollConsumed = { pendingSubPageScroll = null },
+            onOpenLanguageModels = {
+                closeSubPages()
+                showLanguageModelSettings = true
+            },
             onBack = { showAutomationSettings = false },
         )
     } else if (showBackupTransfer) {
@@ -833,6 +853,16 @@ fun SettingsTab(
                         )
                     }
                 }
+            }
+
+            // R6: the model-per-language hub (rules that set a language
+            // without a model run on the model mapped here). Search
+            // vocabulary: the hub-union of the page's strings.
+            SearchFilterRow(searchQuery, SettingsSearchId.LANGUAGE_MODELS_HUB, searchState) {
+                SettingsHubCard(
+                    titleRes = R.string.language_models_title,
+                    summaryRes = R.string.language_models_summary,
+                ) { showLanguageModelSettings = true }
             }
 
             SettingsGroupLabel(SettingsSearchGroup.DECODING, searchState)
@@ -4006,7 +4036,7 @@ internal enum class SettingsSearchSection { TRANSCRIPTION, APPEARANCE, ADVANCED,
  */
 internal enum class SettingsSearchId {
     // Transcription
-    MODEL_STATUS, ACTIVE_MODEL, TRANSCRIPTION_LANGUAGE, AUTO_COPY, EXPORT_SETTINGS,
+    MODEL_STATUS, ACTIVE_MODEL, TRANSCRIPTION_LANGUAGE, LANGUAGE_MODELS_HUB, AUTO_COPY, EXPORT_SETTINGS,
     REFINEMENT, REFINEMENT_MODEL, PREVIEW_MODEL, DIARIZATION_HUB, VAD, PROGRESSIVE, EARLY_PREVIEW,
     INTERRUPTED_RUN_NOTIFICATIONS,
     PUNCTUATION_MODE, PUNCTUATION_PROMPT, SUMMARIZE, SUMMARY_PROMPT, SIGNATURE,
@@ -4156,6 +4186,15 @@ internal val SETTINGS_SEARCH_CARDS: List<SettingsSearchCard> = listOf(
         // At most one hint renders (see transcriptionHintRes in the tree);
         // the vocabulary must not match text the tree does not show.
         res = { s -> listOfNotNull(R.string.transcription_language_title, s.transcriptionHintRes) },
+    ),
+    // R6 (the N>=2 subpage rule): the model-per-language hub. Static union
+    // vocabulary: the hub's strings plus the page's.
+    SettingsSearchCard(
+        SettingsSearchId.LANGUAGE_MODELS_HUB, SettingsSearchSection.TRANSCRIPTION,
+        listOf(
+            R.string.language_models_title, R.string.language_models_summary,
+            R.string.language_models_explainer, R.string.language_models_add,
+            R.string.language_models_model_label),
     ),
     SettingsSearchCard(
         SettingsSearchId.VAD, SettingsSearchSection.TRANSCRIPTION,
@@ -4482,7 +4521,11 @@ internal val SETTINGS_SEARCH_CARDS: List<SettingsSearchCard> = listOf(
             R.string.automation_guide_title, R.string.automation_guide_description,
             R.string.remote_offload_title, R.string.remote_offload_description,
             R.string.folder_watch_title, R.string.folder_watch_description,
-            R.string.open_transcribe_title, R.string.open_transcribe_description),
+            R.string.open_transcribe_title, R.string.open_transcribe_description,
+            // R6: the per-folder transcription rules page (opened from each
+            // watched folder's row).
+            R.string.scope_rule_page_title, R.string.scope_rule_row_summary,
+            R.string.scope_rule_subfolders_title),
         group = SettingsSearchGroup.INTEGRATIONS,
     ),
     // TASK-835 (the N>=2 subpage rule): the voice-note hub, whose page

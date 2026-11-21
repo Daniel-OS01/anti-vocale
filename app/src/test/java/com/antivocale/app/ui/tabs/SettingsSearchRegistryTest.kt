@@ -226,6 +226,8 @@ class SettingsSearchRegistryTest {
             listOf(
                 SettingsSearchId.ACTIVE_MODEL,
                 SettingsSearchId.TRANSCRIPTION_LANGUAGE,
+                // R6: the model-per-language hub, unconditional.
+                SettingsSearchId.LANGUAGE_MODELS_HUB,
                 SettingsSearchId.VAD,
                 SettingsSearchId.FREEZE_PROTECTION,
                 SettingsSearchId.PROGRESSIVE, SettingsSearchId.EARLY_PREVIEW,
@@ -260,6 +262,8 @@ class SettingsSearchRegistryTest {
             listOf(
                 SettingsSearchId.ACTIVE_MODEL,
                 SettingsSearchId.TRANSCRIPTION_LANGUAGE,
+                // R6: the model-per-language hub, unconditional.
+                SettingsSearchId.LANGUAGE_MODELS_HUB,
                 SettingsSearchId.VAD,
                 SettingsSearchId.FREEZE_PROTECTION,
                 SettingsSearchId.PROGRESSIVE, SettingsSearchId.EARLY_PREVIEW,
@@ -287,6 +291,8 @@ class SettingsSearchRegistryTest {
                 SettingsSearchId.MODEL_STATUS,
                 SettingsSearchId.ACTIVE_MODEL,
                 SettingsSearchId.TRANSCRIPTION_LANGUAGE,
+                // R6: the model-per-language hub, unconditional.
+                SettingsSearchId.LANGUAGE_MODELS_HUB,
                 SettingsSearchId.VAD,
                 SettingsSearchId.FREEZE_PROTECTION,
                 SettingsSearchId.PROGRESSIVE, SettingsSearchId.EARLY_PREVIEW,
@@ -450,6 +456,24 @@ class SettingsSearchRegistryTest {
         // TASK-741: the folder watch is the fourth child.
         assertTrue(vocab.contains(R.string.folder_watch_title))
         assertTrue(vocab.contains(R.string.folder_watch_description))
+        // R6: the per-folder transcription rules page rides the hub.
+        assertTrue(vocab.contains(R.string.scope_rule_page_title))
+        assertTrue(vocab.contains(R.string.scope_rule_row_summary))
+    }
+
+    @Test
+    fun `the language-models hub carries its page's vocabulary`() {
+        // R6 (the N>=2 subpage rule): the hub opens the model-per-language
+        // page; the page's explainer and add-language strings land on it.
+        val hub = SETTINGS_SEARCH_CARDS.first { it.id == SettingsSearchId.LANGUAGE_MODELS_HUB }
+        assertEquals(SettingsSearchSection.TRANSCRIPTION, hub.section)
+        assertEquals(
+            listOf(
+                R.string.language_models_title, R.string.language_models_summary,
+                R.string.language_models_explainer, R.string.language_models_add,
+                R.string.language_models_model_label),
+            hub.res(state()),
+        )
     }
 
     @Test
