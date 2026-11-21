@@ -34,6 +34,9 @@ import com.antivocale.app.data.TranscriptionCalibrator
 import com.antivocale.app.data.TranscriptionProfile
 import com.antivocale.app.data.catalog.BundledCatalog
 import com.antivocale.app.service.AudioRequestIntent
+import com.antivocale.app.service.BulkRedoReport
+import com.antivocale.app.service.HistoryBulkRedo
+import com.antivocale.app.service.PreparedBatch
 import com.antivocale.app.service.InferenceEnqueue
 import com.antivocale.app.service.InferenceService
 import com.antivocale.app.service.LongAudioDecider
@@ -57,6 +60,7 @@ import com.antivocale.app.ui.tabs.HistorySelection
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.flow.Flow
@@ -72,6 +76,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -200,6 +205,8 @@ class LogsViewModel @Inject constructor(
     /** R6: the rule editor's outcome line and language codes (shared with
      *  the Settings rules pages, so the History long-press cannot drift). */
     private val profileOutcomeSource: ProfileOutcomeSource,
+    /** The History bulk redo runner (prepare, enqueue, discard). */
+    private val historyBulkRedo: HistoryBulkRedo,
     /** TASK-934: the staged-copy reclaims survive a ViewModel clear (a tap
      *  followed by leaving History must not cancel the delete; viewModelScope
      *  would). Tests omit this parameter; production gets @ApplicationScope. */
@@ -809,6 +816,118 @@ class LogsViewModel @Inject constructor(
             viewModelScope.launch { logDao.deleteByIds(ids) }
         }
         return BulkDeleteResult(deleted = ids.size, skipped = inFlight.size)
+    }
+
+    // ---- History bulk redo ----
+    // Independent of the selection mode: the multi-select bar calls
+    // redoSelected, other History flows call redoRows with their own ids.
+
+    /** The bulk redo dialog flow; [Idle] when no dialog shows. */
+    sealed interface BulkRedoUiState {
+        data object Idle : BulkRedoUiState
+        data class Preparing(val done: Int, val total: Int) : BulkRedoUiState
+        data class Summary(
+            val batch: PreparedBatch,
+            val profile: TranscriptionProfile,
+            val modelDisplayName: String,
+        ) : BulkRedoUiState
+        data class Done(val report: BulkRedoReport) : BulkRedoUiState
+    }
+
+    private val _bulkRedoState = MutableStateFlow<BulkRedoUiState>(BulkRedoUiState.Idle)
+    val bulkRedoState: StateFlow<BulkRedoUiState> = _bulkRedoState.asStateFlow()
+
+    private var bulkPrepareJob: Job? = null
+
+    /**
+     * Prepares a redo of [rowIds] with [profile] (Preparing, then Summary).
+     * Ignored while another bulk redo is preparing or awaiting confirmation.
+     */
+    fun redoRows(rowIds: Collection<String>, profile: TranscriptionProfile) {
+        if (rowIds.isEmpty()) return
+        val current = _bulkRedoState.value
+        if (current is BulkRedoUiState.Preparing || current is BulkRedoUiState.Summary) {
+            Log.w(TAG, "event=bulk_redo_ignored reason=busy")
+            return
+        }
+        val ids = rowIds.toList()
+        _bulkRedoState.value = BulkRedoUiState.Preparing(0, ids.size)
+        bulkPrepareJob = viewModelScope.launch {
+            val batch = try {
+                withContext(Dispatchers.IO) {
+                    historyBulkRedo.prepare(ids, profile) { done, total ->
+                        // A late callback must not resurrect a cancelled flow.
+                        _bulkRedoState.update {
+                            if (it is BulkRedoUiState.Preparing) BulkRedoUiState.Preparing(done, total) else it
+                        }
+                    }
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e(TAG, "event=bulk_redo_prepare_failed rows=${ids.size}", e)
+                _bulkRedoState.value = BulkRedoUiState.Idle
+                return@launch
+            }
+            val modelName = displayNameFor(batch.backendId, appContext)
+            _bulkRedoState.value = BulkRedoUiState.Summary(batch, profile, modelName)
+        }
+    }
+
+    /** [redoRows] over the current multi-select selection. */
+    fun redoSelected(profile: TranscriptionProfile) {
+        redoRows(selection.value, profile)
+    }
+
+    /** The Summary's confirm: enqueues (long items only when [includeLong]), then Done. */
+    fun confirmBulkRedo(includeLong: Boolean) {
+        val summary = _bulkRedoState.value as? BulkRedoUiState.Summary ?: return
+        // Leaves Summary synchronously, so a double tap cannot enqueue twice.
+        _bulkRedoState.value = BulkRedoUiState.Idle
+        viewModelScope.launch {
+            val report = try {
+                withContext(Dispatchers.IO) {
+                    historyBulkRedo.enqueue(summary.batch, summary.profile, includeLong)
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e(TAG, "event=bulk_redo_enqueue_failed items=${summary.batch.items.size}", e)
+                val runCount = summary.batch.items.count { includeLong || !it.isLong }
+                BulkRedoReport(queued = 0, failedToStart = runCount)
+            }
+            _bulkRedoState.value = BulkRedoUiState.Done(report)
+            if (_selectionMode.value) exitSelection()
+        }
+    }
+
+    /** Cancels a running prepare, or discards a prepared batch; back to Idle. */
+    fun cancelBulkRedo() {
+        when (val state = _bulkRedoState.value) {
+            is BulkRedoUiState.Preparing -> bulkPrepareJob?.cancel()
+            is BulkRedoUiState.Summary -> discardBatch(state.batch)
+            BulkRedoUiState.Idle, is BulkRedoUiState.Done -> Unit
+        }
+        bulkPrepareJob = null
+        _bulkRedoState.value = BulkRedoUiState.Idle
+    }
+
+    fun dismissBulkRedoResult() {
+        if (_bulkRedoState.value is BulkRedoUiState.Done) _bulkRedoState.value = BulkRedoUiState.Idle
+    }
+
+    /** The languages [backendId] conditions on (empty = the picker hides the language step). */
+    suspend fun offeredLanguagesFor(backendId: String): Set<String> =
+        activeModelRepository.offeredLanguageCodes(backendId)
+
+    // appScope, as the TASK-934 reclaims: leaving History must not cancel the delete.
+    private fun discardBatch(batch: PreparedBatch) {
+        appScope.launch(Dispatchers.IO) { historyBulkRedo.discard(batch) }
+    }
+
+    override fun onCleared() {
+        (_bulkRedoState.value as? BulkRedoUiState.Summary)?.let { discardBatch(it.batch) }
+        super.onCleared()
     }
 
     fun clearLogs() {

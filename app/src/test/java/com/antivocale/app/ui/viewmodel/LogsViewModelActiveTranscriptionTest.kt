@@ -42,7 +42,7 @@ class LogsViewModelActiveTranscriptionTest : ViewModelTeardownTest() {
         Dispatchers.setMain(testDispatcher)
         logDao = mockk(relaxed = true)
         every { logDao.getAll() } returns logsFlow
-        viewModel = register(LogsViewModel(mockk(relaxed = true), logDao, stubPreferencesManager(), staticRegistry(), mockk(relaxed = true), mockk(relaxed = true), mockk(relaxed = true), mockk(relaxed = true), orchestrator = mockk(relaxed = true), duplicateGuard = mockk(relaxed = true), scheduledFolderStore = mockk(relaxed = true), profileOutcomeSource = mockk(relaxed = true), appScope = appScope))
+        viewModel = register(LogsViewModel(mockk(relaxed = true), logDao, stubPreferencesManager(), staticRegistry(), mockk(relaxed = true), mockk(relaxed = true), mockk(relaxed = true), mockk(relaxed = true), orchestrator = mockk(relaxed = true), duplicateGuard = mockk(relaxed = true), scheduledFolderStore = mockk(relaxed = true), profileOutcomeSource = mockk(relaxed = true), historyBulkRedo = mockk(relaxed = true), appScope = appScope))
     }
 
     private fun makeEntity(
