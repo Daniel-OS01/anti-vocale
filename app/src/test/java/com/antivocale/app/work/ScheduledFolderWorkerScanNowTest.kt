@@ -1,5 +1,8 @@
 package com.antivocale.app.work
 
+import com.antivocale.app.data.SourceKind
+import com.antivocale.app.receiver.TaskerRequestReceiver
+import com.antivocale.app.service.InferenceService
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -52,6 +55,33 @@ class ScheduledFolderWorkerScanNowTest {
         assertEquals(2, request.workSpec.input.getInt(ScheduledFolderWorker.KEY_RECHECK_ATTEMPT, -1))
         assertEquals(10_000L, request.workSpec.initialDelay)
         assertFalse(request.workSpec.expedited)
+    }
+
+    @Test
+    fun `a subfolder file carries its relative directory as the History subfolder`() {
+        val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
+        val tree = "content://tree/primary%3ARecordings"
+        val intent = ScheduledFolderWorker.buildServiceIntent(
+            context, "/data/copy.m4a", "Calls/2026/rec.m4a", tree, "Recordings",
+        )
+        assertEquals("Calls/2026", intent.getStringExtra(InferenceService.EXTRA_SOURCE_SUB_PATH))
+        assertEquals(SourceKind.FOLDER_WATCH, intent.getStringExtra(InferenceService.EXTRA_SOURCE_KIND))
+        assertEquals(tree, intent.getStringExtra(InferenceService.EXTRA_SOURCE_FOLDER_KEY))
+        assertEquals("Recordings", intent.getStringExtra(InferenceService.EXTRA_SOURCE_FOLDER_NAME))
+    }
+
+    @Test
+    fun `a root file carries no subfolder and same-named files in two subfolders get distinct task ids`() {
+        val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
+        val tree = "content://tree/primary%3ARecordings"
+        val root = ScheduledFolderWorker.buildServiceIntent(context, "/data/a.m4a", "rec.m4a", tree, "Recordings")
+        assertFalse(root.hasExtra(InferenceService.EXTRA_SOURCE_SUB_PATH))
+        val a = ScheduledFolderWorker.buildServiceIntent(context, "/data/a.m4a", "A/rec.m4a", tree, "Recordings")
+        val b = ScheduledFolderWorker.buildServiceIntent(context, "/data/b.m4a", "B/rec.m4a", tree, "Recordings")
+        val idA = checkNotNull(a.getStringExtra(TaskerRequestReceiver.EXTRA_TASK_ID))
+        val idB = checkNotNull(b.getStringExtra(TaskerRequestReceiver.EXTRA_TASK_ID))
+        // The trailing hash is the per-file part; the timestamp may coincide.
+        assertTrue(idA.substringAfterLast('_') != idB.substringAfterLast('_'))
     }
 
     @Test

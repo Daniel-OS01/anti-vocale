@@ -203,7 +203,7 @@ class ScheduledFolderWorker @AssistedInject constructor(
                             ?.let {
                                 InferenceEnqueue.start(
                                     applicationContext,
-                                    buildServiceIntent(it.path, child.name, treeUriString, folder.displayName),
+                                    buildServiceIntent(applicationContext, it.path, child.name, treeUriString, folder.displayName),
                                 )
                             }
                         if (copy is SharedAudioHandler.CopyResult.Success &&
@@ -244,43 +244,46 @@ class ScheduledFolderWorker @AssistedInject constructor(
     private fun grantHeld(treeUri: Uri): Boolean =
         com.antivocale.app.util.TreeUris.holdsPersistableReadGrant(applicationContext, treeUri)
 
-    /**
-     * The share-shaped request (local path + request type), with the folder
-     * watch as the source so History rows and the skip logic can tell the
-     * origin apart; no source package (no calling app). [relativePath] is the
-     * planner's name (see FolderScanPlanner's IDENTITY); the caller lookup
-     * reads its basename, the file name a recorder actually wrote.
-     */
-    private fun buildServiceIntent(
-        localPath: String,
-        relativePath: String,
-        treeUri: String,
-        folderName: String,
-    ): Intent =
-        // TASK-776: the shared audio-request factory; the taskId stays
-        // local because its derivation is this worker's contract.
-        AudioRequestIntent.make(
-            applicationContext,
-            InferenceService.SOURCE_FOLDER_WATCH,
-            // The tree uri rides the id: two folders holding a
-            // same-named file scanned in the same millisecond must not
-            // collide (the service drops duplicate task ids silently). The
-            // RELATIVE PATH is hashed, not the basename, for the same reason
-            // across two subfolders of one tree.
-            "fwatch_${treeUri.hashCode().toUInt()}_${System.currentTimeMillis()}_${relativePath.hashCode().toUInt()}",
-            localPath,
-            senderName = CallRecordingFilenames.callerFromFileName(FolderScanPlanner.baseNameOf(relativePath)),
-            sourceKind = SourceKind.FOLDER_WATCH,
-            sourceFolderKey = treeUri,
-            sourceFolderName = folderName,
-        )
-
     companion object {
         private const val TAG = "ScheduledFolderWorker"
         const val KEY_TREE_URI = "tree_uri"
         const val KEY_SCAN_NOW = "scan_now"
         /** Stability re-checks already spent in this lineage (backoff index). */
         const val KEY_RECHECK_ATTEMPT = "recheck_attempt"
+
+        /**
+         * The share-shaped request (local path + request type), with the folder
+         * watch as the source so History rows and the skip logic can tell the
+         * origin apart; no source package (no calling app). [relativePath] is the
+         * planner's name (see FolderScanPlanner's IDENTITY); the caller lookup
+         * reads its basename, the file name a recorder actually wrote, and its
+         * parent directory rides as the History subfolder (null for a root file).
+         */
+        internal fun buildServiceIntent(
+            context: Context,
+            localPath: String,
+            relativePath: String,
+            treeUri: String,
+            folderName: String,
+        ): Intent =
+            // TASK-776: the shared audio-request factory; the taskId stays
+            // local because its derivation is this worker's contract.
+            AudioRequestIntent.make(
+                context,
+                InferenceService.SOURCE_FOLDER_WATCH,
+                // The tree uri rides the id: two folders holding a
+                // same-named file scanned in the same millisecond must not
+                // collide (the service drops duplicate task ids silently). The
+                // RELATIVE PATH is hashed, not the basename, for the same reason
+                // across two subfolders of one tree.
+                "fwatch_${treeUri.hashCode().toUInt()}_${System.currentTimeMillis()}_${relativePath.hashCode().toUInt()}",
+                localPath,
+                senderName = CallRecordingFilenames.callerFromFileName(FolderScanPlanner.baseNameOf(relativePath)),
+                sourceKind = SourceKind.FOLDER_WATCH,
+                sourceFolderKey = treeUri,
+                sourceFolderName = folderName,
+                sourceSubPath = FolderScanPlanner.subPathOf(relativePath),
+            )
 
         /** The per-folder serialization (see the class KDoc). */
         private val scanMutexes = java.util.concurrent.ConcurrentHashMap<String, Mutex>()
