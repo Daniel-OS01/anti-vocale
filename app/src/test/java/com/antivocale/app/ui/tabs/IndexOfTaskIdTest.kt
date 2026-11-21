@@ -1,5 +1,7 @@
 package com.antivocale.app.ui.tabs
 
+import com.antivocale.app.data.SourceKind
+import com.antivocale.app.data.WatchedFolder
 import com.antivocale.app.ui.viewmodel.LogEntry
 import org.junit.Assert.*
 import org.junit.Test
@@ -89,16 +91,16 @@ class IndexOfTaskIdTest {
     @Test
     fun `counts sender headers when all senders expanded`() {
         val group = ConversationGroup(
-            packageName = "com.whatsapp",
-            appName = "WhatsApp",
+            groupKey = "com.whatsapp",
+            title = HistoryGroupTitle.App("com.whatsapp"),
             logs = listOf(
                 stamped("a1", at = 300).copy(senderName = "Anna"),
                 stamped("u1", at = 100).copy(senderName = null),
                 stamped("b1", at = 200).copy(senderName = "Bruno")
             ),
-            senderGroups = listOf(
-                SenderGroup("Anna", listOf(stamped("a1", at = 300).copy(senderName = "Anna"))),
-                SenderGroup("Bruno", listOf(stamped("b1", at = 200).copy(senderName = "Bruno")))
+            subGroups = listOf(
+                SubGroup("Anna", "Anna", listOf(stamped("a1", at = 300).copy(senderName = "Anna"))),
+                SubGroup("Bruno", "Bruno", listOf(stamped("b1", at = 200).copy(senderName = "Bruno")))
             ),
             unlabeledLogs = listOf(stamped("u1", at = 100).copy(senderName = null))
         )
@@ -113,16 +115,16 @@ class IndexOfTaskIdTest {
     @Test
     fun `skips rows of collapsed senders`() {
         val group = ConversationGroup(
-            packageName = "com.whatsapp",
-            appName = "WhatsApp",
+            groupKey = "com.whatsapp",
+            title = HistoryGroupTitle.App("com.whatsapp"),
             logs = listOf(
                 senderEntry("a1", "Anna"),
                 senderEntry("a2", "Anna"),
                 senderEntry("b1", "Bruno")
             ),
-            senderGroups = listOf(
-                SenderGroup("Anna", listOf(senderEntry("a1", "Anna"), senderEntry("a2", "Anna"))),
-                SenderGroup("Bruno", listOf(senderEntry("b1", "Bruno")))
+            subGroups = listOf(
+                SubGroup("Anna", "Anna", listOf(senderEntry("a1", "Anna"), senderEntry("a2", "Anna"))),
+                SubGroup("Bruno", "Bruno", listOf(senderEntry("b1", "Bruno")))
             ),
             unlabeledLogs = emptyList()
         )
@@ -141,10 +143,10 @@ class IndexOfTaskIdTest {
     @Test
     fun `group without sender groups keeps the legacy math`() {
         val group = ConversationGroup(
-            packageName = "com.whatsapp",
-            appName = "WhatsApp",
+            groupKey = "com.whatsapp",
+            title = HistoryGroupTitle.App("com.whatsapp"),
             logs = listOf(makeEntry("a"), makeEntry("b")),
-            senderGroups = emptyList(),
+            subGroups = emptyList(),
             unlabeledLogs = listOf(makeEntry("a"), makeEntry("b"))
         )
         // [1] section header, [2] a, [3] b regardless of the predicate
@@ -163,17 +165,17 @@ class IndexOfTaskIdTest {
     @Test
     fun `a collapsed section above the target hides its rows from the count`() {
         val whatsapp = ConversationGroup(
-            packageName = "com.whatsapp",
-            appName = "WhatsApp",
+            groupKey = "com.whatsapp",
+            title = HistoryGroupTitle.App("com.whatsapp"),
             logs = listOf(makeEntry("w1"), makeEntry("w2")),
-            senderGroups = emptyList(),
+            subGroups = emptyList(),
             unlabeledLogs = listOf(makeEntry("w1"), makeEntry("w2"))
         )
         val telegram = ConversationGroup(
-            packageName = "org.telegram",
-            appName = "Telegram",
+            groupKey = "org.telegram",
+            title = HistoryGroupTitle.App("org.telegram"),
             logs = listOf(makeEntry("t1")),
-            senderGroups = emptyList(),
+            subGroups = emptyList(),
             unlabeledLogs = listOf(makeEntry("t1"))
         )
         val groups = listOf(whatsapp, telegram)
@@ -188,17 +190,79 @@ class IndexOfTaskIdTest {
     @Test
     fun `a newer unlabeled row is counted before the sender blocks`() {
         val group = ConversationGroup(
-            packageName = "com.whatsapp",
-            appName = "WhatsApp",
+            groupKey = "com.whatsapp",
+            title = HistoryGroupTitle.App("com.whatsapp"),
             logs = listOf(
                 stamped("a1", at = 100),
                 stamped("u1", at = 200)
             ),
-            senderGroups = listOf(SenderGroup("Anna", listOf(stamped("a1", at = 100)))),
+            subGroups = listOf(SubGroup("Anna", "Anna", listOf(stamped("a1", at = 100)))),
             unlabeledLogs = listOf(stamped("u1", at = 200))
         )
         // [1] section, [2] u1 (newest block first), [3] Anna header, [4] a1
         assertEquals(2, indexOfTaskIdInGroups(listOf(group), "u1"))
         assertEquals(4, indexOfTaskIdInGroups(listOf(group), "a1"))
+    }
+
+    /**
+     * R3 item 3: the origin sections go through resolveHistoryGroup, so the
+     * index math here and the render rows key the SAME sections; these
+     * build the groups with the production grouping, not by hand.
+     */
+    private val callsUri = "content://com.android.externalstorage.documents/tree/primary%3ACalls"
+    private val calls = WatchedFolder(treeUri = callsUri, displayName = "Calls")
+
+    private fun originRows() = listOf(
+        stamped("w1", at = 300).copy(sourcePackageName = "com.whatsapp"),
+        stamped("f1", at = 200).copy(
+            sourceKind = SourceKind.FOLDER_WATCH,
+            sourceFolderKey = callsUri,
+            sourceFolderName = "Calls",
+        ),
+        stamped("b1", at = 100).copy(
+            sourceKind = SourceKind.BROWSE,
+            sourceFolderName = "Download",
+        ),
+    )
+
+    @Test
+    fun `folder-watch and browse rows get their own sections when expanded`() {
+        val groups = groupLogsByConversation(originRows(), listOf(calls))
+        // [1] WhatsApp, [2] w1, [3] Calls folder, [4] f1,
+        // [5] Imported, [6] Download sub-header, [7] b1
+        assertEquals(4, indexOfTaskIdInGroups(groups, "f1"))
+        assertEquals(7, indexOfTaskIdInGroups(groups, "b1"))
+    }
+
+    @Test
+    fun `a collapsed folder section hides only its own rows`() {
+        val groups = groupLogsByConversation(originRows(), listOf(calls))
+        val folderKey = resolveHistoryGroup(originRows()[1], listOf(calls)).groupKey
+        // Calls collapsed: [1] WA, [2] w1, [3] Calls header, [4] Imported,
+        // [5] Download sub-header, [6] b1
+        assertEquals(6, indexOfTaskIdInGroups(groups, "b1", isSectionExpanded = { it != folderKey }))
+        // Imported collapsed: its rows vanish, the folder row stays at [4]
+        val importedKey = resolveHistoryGroup(originRows()[2], listOf(calls)).groupKey
+        assertEquals(4, indexOfTaskIdInGroups(groups, "f1", isSectionExpanded = { it != importedKey }))
+    }
+
+    @Test
+    fun `a legacy fwatch row joins its uniquely matched folder section`() {
+        val legacy = stamped("fwatch_${callsUri.hashCode().toUInt()}_1700000000000_42", at = 150)
+        val groups = groupLogsByConversation(originRows() + legacy, listOf(calls))
+        // [3] Calls header, [4] f1, [5] legacy row (same section), [6] Imported
+        assertEquals(5, indexOfTaskIdInGroups(groups, legacy.taskId))
+        assertEquals(8, indexOfTaskIdInGroups(groups, "b1"))
+    }
+
+    @Test
+    fun `a legacy fwatch row with no folder match lands in Folder sync`() {
+        val legacy = stamped("fwatch_12345_1700000000000_42", at = 50)
+        val groups = groupLogsByConversation(originRows() + legacy, listOf(calls))
+        // [5] Imported, [6] Download, [7] b1, [8] Folder sync header, [9] row
+        assertEquals(9, indexOfTaskIdInGroups(groups, legacy.taskId))
+        val syncKey = resolveHistoryGroup(legacy, listOf(calls)).groupKey
+        // Folder sync collapsed: the row is not rendered, so the walk finds nothing
+        assertEquals(-1, indexOfTaskIdInGroups(groups, legacy.taskId, isSectionExpanded = { it != syncKey }))
     }
 }
