@@ -23,6 +23,7 @@ import com.antivocale.app.data.CallRecordingFilenames
 import com.antivocale.app.data.SourceKind
 import com.antivocale.app.data.FileSnapshot
 import com.antivocale.app.data.FolderScanPlanner
+import com.antivocale.app.data.FolderWatchTaskIds
 import com.antivocale.app.data.FolderWalk
 import com.antivocale.app.data.OriginFacts
 import com.antivocale.app.data.ScheduledFolderStore
@@ -291,17 +292,13 @@ class ScheduledFolderWorker @AssistedInject constructor(
             folderName: String,
             profile: ResolvedProfile? = null,
         ): Intent =
-            // TASK-776: the shared audio-request factory; the taskId stays
-            // local because its derivation is this worker's contract.
+            // TASK-776: the shared audio-request factory.
             AudioRequestIntent.make(
                 context,
                 InferenceService.SOURCE_FOLDER_WATCH,
-                // The tree uri rides the id: two folders holding a
-                // same-named file scanned in the same millisecond must not
-                // collide (the service drops duplicate task ids silently). The
-                // RELATIVE PATH is hashed, not the basename, for the same reason
-                // across two subfolders of one tree.
-                "fwatch_${treeUri.hashCode().toUInt()}_${System.currentTimeMillis()}_${relativePath.hashCode().toUInt()}",
+                // The id shape (tree + relative-path hashes) is owned by
+                // FolderWatchTaskIds; see its KDoc for why both ride it.
+                FolderWatchTaskIds.mint(treeUri, relativePath, System.currentTimeMillis()),
                 localPath,
                 senderName = CallRecordingFilenames.callerFromFileName(FolderScanPlanner.baseNameOf(relativePath)),
                 sourceKind = SourceKind.FOLDER_WATCH,
@@ -370,6 +367,35 @@ internal object FolderListing {
             },
             truncated = walk.truncated,
         )
+    }
+
+    /** [listDirectory]'s answer: [FolderWalk.DirFiles] with uris in place of document ids. */
+    sealed class DirListing {
+        /** The directory's file children: (relative path from the tree root, uri). */
+        data class Files(val files: List<Pair<String, Uri>>) : DirListing()
+        object NotFound : DirListing()
+        object Ambiguous : DirListing()
+        object Unavailable : DirListing()
+    }
+
+    /**
+     * ONE directory of the tree, the one whose files [listWithStatus] names
+     * under [subPath] (null = the root), fully listed one level deep with no
+     * cap. The segment resolution and path joining are [FolderWalk.listDirectory].
+     * A throwing query propagates, as in [listWithStatus].
+     */
+    fun listDirectory(context: Context, treeUri: Uri, subPath: String?): DirListing {
+        val root = DocumentsContract.getTreeDocumentId(treeUri)
+        return when (val dir = FolderWalk.listDirectory(root, subPath) { id -> queryChildren(context, treeUri, id) }) {
+            is FolderWalk.DirFiles.Found -> DirListing.Files(
+                dir.files.map { (relPath, docId) ->
+                    relPath to DocumentsContract.buildDocumentUriUsingTree(treeUri, docId)
+                },
+            )
+            FolderWalk.DirFiles.NotFound -> DirListing.NotFound
+            FolderWalk.DirFiles.Ambiguous -> DirListing.Ambiguous
+            FolderWalk.DirFiles.Unavailable -> DirListing.Unavailable
+        }
     }
 
     /**

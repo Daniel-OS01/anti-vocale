@@ -17,8 +17,8 @@ data class SourceOrigin(
  *
  * A row is recovered only when it recorded no kind, or recorded folder_watch
  * without its folder key; any other recorded origin is returned unchanged.
- * Recognition is by ScheduledFolderWorker's task id
- * `fwatch_<treeUri.hashCode().toUInt()>_<ts>_<nameHash>`: the folder key and
+ * Recognition is by ScheduledFolderWorker's task id ([FolderWatchTaskIds]:
+ * tree hash, timestamp, relative-path hash): the folder key and
  * name are filled only when exactly ONE of [watchedFolders] has that hash (a
  * 32-bit hash can collide, and a wrong folder is worse than the generic
  * Folder sync section); otherwise the kind alone is set. A task id of any
@@ -32,7 +32,7 @@ fun effectiveSourceOrigin(
     val recoverable = recorded.kind == null ||
         (recorded.kind == SourceKind.FOLDER_WATCH && recorded.folderKey.isNullOrBlank())
     if (!recoverable) return recorded
-    val treeHash = LEGACY_FOLDER_WATCH_TASK_ID.matchEntire(taskId)?.groupValues?.get(1)
+    val treeHash = FolderWatchTaskIds.LEGACY_PATTERN.matchEntire(taskId)?.groupValues?.get(1)
         ?: return recorded
     val folder = watchedFolders
         .filter { it.treeUri.hashCode().toUInt().toString() == treeHash }
@@ -44,5 +44,3 @@ fun effectiveSourceOrigin(
         folderName = folder.displayName,
     )
 }
-
-private val LEGACY_FOLDER_WATCH_TASK_ID = Regex("""fwatch_(\d+)_\d+_\d+""")

@@ -67,12 +67,21 @@
     <string name="logs_select_all">Seleziona tutto</string>
     <string name="logs_deselect_all">Deseleziona tutto</string>
     <string name="logs_entries_selected">%d selezionati</string>
+    <string name="logs_selection_hidden_by_search">· %d nascoste dalla ricerca</string>
     <string name="logs_no_entries_selected">Nessuna voce selezionata</string>
     <string name="logs_cleared">Cronologia cancellata</string>
     <string name="logs_entry_deleted">Voce eliminata</string>
     <plurals name="logs_entries_deleted">
         <item quantity="one">%d voce eliminata</item>
         <item quantity="other">%d voci eliminate</item>
+    </plurals>
+    <plurals name="logs_delete_selected_confirm">
+        <item quantity="one">Eliminare %d voce?</item>
+        <item quantity="other">Eliminare %d voci?</item>
+    </plurals>
+    <plurals name="logs_entries_skipped_processing">
+        <item quantity="one">%d saltata (ancora in elaborazione)</item>
+        <item quantity="other">%d saltate (ancora in elaborazione)</item>
     </plurals>
     <string name="logs_undo">Annulla</string>
     <string name="logs_cancel">Annulla</string>
@@ -1470,4 +1479,61 @@
     <string name="history_scope_rule_folder_title">Trascrivi questa cartella come…</string>
     <string name="history_scope_rule_subfolder_title">Trascrivi questa sottocartella come…</string>
     <string name="history_scope_rule_long_press_label">Imposta regola di trascrizione</string>
+    <string name="bulk_redo_single_pass_hint">La modalità a due passaggi è disattivata per questa ripetizione: un solo passaggio con il modello scelto.</string>
+    <string name="bulk_redo_preparing">Preparazione %1$d di %2$d</string>
+    <string name="bulk_redo_all">Rifai tutte</string>
+    <string name="bulk_redo_skip_long">Salta le lunghe</string>
+    <string name="history_select_with_subfolders">Seleziona con le sottocartelle</string>
+    <plurals name="bulk_redo_title">
+        <item quantity="one">Rifai %d registrazione</item>
+        <item quantity="other">Rifai %d registrazioni</item>
+    </plurals>
+    <plurals name="bulk_redo_summary_ready">
+        <item quantity="one">%1$d registrazione verrà rifatta con %2$s</item>
+        <item quantity="other">%1$d registrazioni verranno rifatte con %2$s</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_not_audio">
+        <item quantity="one">%d saltata: non è audio</item>
+        <item quantity="other">%d saltate: non è audio</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_in_flight">
+        <item quantity="one">%d saltata: ancora in elaborazione</item>
+        <item quantity="other">%d saltate: ancora in elaborazione</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_file_gone">
+        <item quantity="one">%d saltata: file non più disponibile</item>
+        <item quantity="other">%d saltate: file non più disponibile</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_folder_unavailable">
+        <item quantity="one">%d saltata: cartella monitorata non disponibile</item>
+        <item quantity="other">%d saltate: cartella monitorata non disponibile</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_not_found_in_folder">
+        <item quantity="one">%d saltata: assente nella cartella monitorata</item>
+        <item quantity="other">%d saltate: assente nella cartella monitorata</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_ambiguous">
+        <item quantity="one">%d saltata: più file corrispondenti nella cartella</item>
+        <item quantity="other">%d saltate: più file corrispondenti nella cartella</item>
+    </plurals>
+    <plurals name="bulk_redo_long">
+        <item quantity="one">%1$d è lunga (la più lunga %2$s)</item>
+        <item quantity="other">%1$d sono lunghe (la più lunga %2$s)</item>
+    </plurals>
+    <plurals name="bulk_redo_queued">
+        <item quantity="one">%d in coda</item>
+        <item quantity="other">%d in coda</item>
+    </plurals>
+    <plurals name="bulk_redo_failed_to_start">
+        <item quantity="one">%d non è partita</item>
+        <item quantity="other">%d non sono partite</item>
+    </plurals>
+    <plurals name="bulk_redo_deferred">
+        <item quantity="one">%d richiede un tocco per avviarsi</item>
+        <item quantity="other">%d richiedono un tocco per avviarsi</item>
+    </plurals>
+    <plurals name="bulk_redo_not_started">
+        <item quantity="one">%d non è stata avviata (app in background)</item>
+        <item quantity="other">%d non sono state avviate (app in background)</item>
+    </plurals>
 </resources>

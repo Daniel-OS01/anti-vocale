@@ -68,12 +68,21 @@
     <string name="logs_select_all">Select all</string>
     <string name="logs_deselect_all">Deselect all</string>
     <string name="logs_entries_selected">%d selected</string>
+    <string name="logs_selection_hidden_by_search">· %d hidden by search</string>
     <string name="logs_no_entries_selected">No entries selected</string>
     <string name="logs_cleared">History cleared</string>
     <string name="logs_entry_deleted">Log entry deleted</string>
     <plurals name="logs_entries_deleted">
         <item quantity="one">%d entry deleted</item>
         <item quantity="other">%d entries deleted</item>
+    </plurals>
+    <plurals name="logs_delete_selected_confirm">
+        <item quantity="one">Delete %d entry?</item>
+        <item quantity="other">Delete %d entries?</item>
+    </plurals>
+    <plurals name="logs_entries_skipped_processing">
+        <item quantity="one">%d skipped (still processing)</item>
+        <item quantity="other">%d skipped (still processing)</item>
     </plurals>
     <string name="logs_undo">Undo</string>
     <string name="logs_cancel">Cancel</string>
@@ -1490,4 +1499,61 @@
     <string name="history_scope_rule_folder_title">Transcribe this folder as…</string>
     <string name="history_scope_rule_subfolder_title">Transcribe this subfolder as…</string>
     <string name="history_scope_rule_long_press_label">Set transcription rule</string>
+    <string name="bulk_redo_single_pass_hint">Two-pass is off for this redo: one pass with the chosen model.</string>
+    <string name="bulk_redo_preparing">Preparing %1$d of %2$d</string>
+    <string name="bulk_redo_all">Redo all</string>
+    <string name="bulk_redo_skip_long">Skip long ones</string>
+    <string name="history_select_with_subfolders">Select with subfolders</string>
+    <plurals name="bulk_redo_title">
+        <item quantity="one">Redo %d recording</item>
+        <item quantity="other">Redo %d recordings</item>
+    </plurals>
+    <plurals name="bulk_redo_summary_ready">
+        <item quantity="one">%1$d recording will be redone with %2$s</item>
+        <item quantity="other">%1$d recordings will be redone with %2$s</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_not_audio">
+        <item quantity="one">%d skipped: not audio</item>
+        <item quantity="other">%d skipped: not audio</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_in_flight">
+        <item quantity="one">%d skipped: still processing</item>
+        <item quantity="other">%d skipped: still processing</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_file_gone">
+        <item quantity="one">%d skipped: file no longer available</item>
+        <item quantity="other">%d skipped: file no longer available</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_folder_unavailable">
+        <item quantity="one">%d skipped: watched folder unavailable</item>
+        <item quantity="other">%d skipped: watched folder unavailable</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_not_found_in_folder">
+        <item quantity="one">%d skipped: not found in the watched folder</item>
+        <item quantity="other">%d skipped: not found in the watched folder</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_ambiguous">
+        <item quantity="one">%d skipped: more than one matching file in the folder</item>
+        <item quantity="other">%d skipped: more than one matching file in the folder</item>
+    </plurals>
+    <plurals name="bulk_redo_long">
+        <item quantity="one">%1$d is long (longest %2$s)</item>
+        <item quantity="other">%1$d are long (longest %2$s)</item>
+    </plurals>
+    <plurals name="bulk_redo_queued">
+        <item quantity="one">%d queued</item>
+        <item quantity="other">%d queued</item>
+    </plurals>
+    <plurals name="bulk_redo_failed_to_start">
+        <item quantity="one">%d could not start</item>
+        <item quantity="other">%d could not start</item>
+    </plurals>
+    <plurals name="bulk_redo_deferred">
+        <item quantity="one">%d needs a tap to start</item>
+        <item quantity="other">%d need a tap to start</item>
+    </plurals>
+    <plurals name="bulk_redo_not_started">
+        <item quantity="one">%d was not started (app went to the background)</item>
+        <item quantity="other">%d were not started (app went to the background)</item>
+    </plurals>
 </resources>

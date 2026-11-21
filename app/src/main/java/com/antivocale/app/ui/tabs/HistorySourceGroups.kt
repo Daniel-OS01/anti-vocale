@@ -143,6 +143,10 @@ private const val SENDER_SUBGROUP_PREFIX = "who:"
 
 private const val FOLDER_GROUP_PREFIX = "folder:"
 
+/** The subfolder path a folder sub-group key carries; null for a sender sub-group. */
+internal fun folderSubPathOf(subGroupKey: String): String? =
+    subGroupKey.takeIf { it.startsWith(FOLDER_SUBGROUP_PREFIX) }?.removePrefix(FOLDER_SUBGROUP_PREFIX)
+
 /** One watched folder's section: new rows (by sourceFolderKey) and matched
  *  legacy rows (by treeUri) share it. */
 private fun folderGroupKey(treeUri: String) = FOLDER_GROUP_PREFIX + treeUri

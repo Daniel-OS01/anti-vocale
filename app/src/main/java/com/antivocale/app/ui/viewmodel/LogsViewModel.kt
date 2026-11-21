@@ -15,9 +15,7 @@ import javax.inject.Inject
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.antivocale.app.R
-import com.antivocale.app.audio.AudioDurationPolicy
 import com.antivocale.app.audio.AudioPreprocessor
-import com.antivocale.app.audio.MemoryReadings
 import com.antivocale.app.data.local.LogDao
 import com.antivocale.app.data.local.TimedSegmentsConverter
 import com.antivocale.app.data.local.LogEntity
@@ -35,10 +33,14 @@ import com.antivocale.app.data.VoiceNoteDuplicateGuard
 import com.antivocale.app.data.TranscriptionCalibrator
 import com.antivocale.app.data.TranscriptionProfile
 import com.antivocale.app.data.catalog.BundledCatalog
-import com.antivocale.app.receiver.TaskerRequestReceiver
 import com.antivocale.app.service.AudioRequestIntent
+import com.antivocale.app.service.BulkRedoReport
+import com.antivocale.app.service.HistoryBulkRedo
+import com.antivocale.app.service.PreparedBatch
 import com.antivocale.app.service.InferenceEnqueue
 import com.antivocale.app.service.InferenceService
+import com.antivocale.app.service.LongAudioDecider
+import com.antivocale.app.service.RetranscribeIntent
 import com.antivocale.app.util.LocaleManager
 import com.antivocale.app.util.SharedAudioHandler
 import com.antivocale.app.util.parentFolderNameFromDocumentId
@@ -53,9 +55,11 @@ import com.antivocale.app.transcription.TranscriptionOrchestrator
 import com.antivocale.app.transcription.TranscriptFuzzySearch
 import com.antivocale.app.transcription.TranscriptionLanguagePolicy
 import com.antivocale.app.transcription.variantAwareDisplayName
+import com.antivocale.app.ui.tabs.HistorySelection
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.flow.Flow
@@ -71,6 +75,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -199,6 +204,8 @@ class LogsViewModel @Inject constructor(
     /** R6: the rule editor's outcome line and language codes (shared with
      *  the Settings rules pages, so the History long-press cannot drift). */
     private val profileOutcomeSource: ProfileOutcomeSource,
+    /** The History bulk redo runner (prepare, enqueue, discard). */
+    private val historyBulkRedo: HistoryBulkRedo,
     /** TASK-934: the staged-copy reclaims survive a ViewModel clear (a tap
      *  followed by leaving History must not cancel the delete; viewModelScope
      *  would). Tests omit this parameter; production gets @ApplicationScope. */
@@ -238,6 +245,13 @@ class LogsViewModel @Inject constructor(
         /** Decline (TASK-934): reclaims what the arming side staged. The
          *  retranscribe arm passes null (its file is the row's original). */
         val onCancel: (() -> Unit)? = null,
+    )
+
+    /** Stateless; built from this ViewModel's own dependencies so the
+     *  constructor (and every test that builds it) stays unchanged. */
+    private val longAudioDecider = LongAudioDecider(
+        audioPreprocessor, backendRegistry, preferencesManager,
+        transcriptionBackendManager, transcriptionCalibrator,
     )
 
     private val _pendingLongAudioWarning = MutableStateFlow<LongAudioWarning?>(null)
@@ -567,14 +581,22 @@ class LogsViewModel @Inject constructor(
         _pendingBrowseDuplicate.asStateFlow()
 
     /** Either arm's dismissal; also the dialog's cancel path (open).
-     *  Completes the pending state's gate (BEFORE the slot clears) so the
-     *  sequential intake loop starts the next file (review V1; the ordering
-     *  the gate leans on). */
+     *  Clears the slot, THEN completes the pending state's gate so the
+     *  sequential intake loop starts the next file (review V1). The order
+     *  matters: the gate resumes the intake on an IO thread, so completing
+     *  first let the next file's dialog land before this clear and be wiped,
+     *  parking the rest of the batch. */
     fun clearPendingBrowseDuplicate() {
-        _pendingBrowseDuplicate.value?.let { pending ->
-            pending.resolved.complete(Unit)
-            _pendingBrowseDuplicate.value = null
-        }
+        releasePendingBrowseDuplicate()
+    }
+
+    /** Clear-then-complete (see [clearPendingBrowseDuplicate]); only the
+     *  slot it read is cleared, never a newer one. */
+    private fun releasePendingBrowseDuplicate(): PendingBrowseDuplicate? {
+        val pending = _pendingBrowseDuplicate.value ?: return null
+        _pendingBrowseDuplicate.compareAndSet(pending, null)
+        pending.resolved.complete(Unit)
+        return pending
     }
 
     /**
@@ -587,9 +609,7 @@ class LogsViewModel @Inject constructor(
     fun onBrowseDuplicateOpen(existingTaskId: String) {
         // Highlight even when the slot was already consumed (a stale tap or
         // a recomposition racing a clear must still navigate, review F4).
-        _pendingBrowseDuplicate.value?.let { pending ->
-            pending.resolved.complete(Unit)
-            _pendingBrowseDuplicate.value = null
+        releasePendingBrowseDuplicate()?.let { pending ->
             appScope.launch(Dispatchers.IO) {
                 SharedAudioHandler.deleteStagedCopy(pending.localPath)
             }
@@ -662,38 +682,9 @@ class LogsViewModel @Inject constructor(
         proceed: () -> Unit,
         onDecline: (() -> Unit)? = null,
     ) {
-        // Off-main ALWAYS: callers arrive on either dispatcher and the probe
-        // is a container parse (code-review: the extraction had dropped the
-        // retranscribe path's withContext(IO) wrapper).
-        val duration = withContext(Dispatchers.IO) {
-            runCatching { audioPreprocessor.getAudioDuration(filePath) }.getOrDefault(0.0)
-        }
-        val descriptor = backendId?.let { backendRegistry.byBackendId(it) }
-        val modelPath = descriptor?.modelPathFlow(preferencesManager)?.first()
-        // TASK-873: the llm row keys on the SELECTED model path (read above
-        // for the calibrator), so the dialog predicts the run the user is
-        // about to start, not the engine that happens to be resident.
-        val decodePath = backendId
-            ?.let { transcriptionBackendManager.gateInputsFor(it, modelPath) }
-            ?.decodePath(preferencesManager.vadEnabled.first())
-            ?: AudioDurationPolicy.DecodePath.WHOLE_FILE_PCM
-        // TASK-681: an offload run never decodes on the phone, so the
-        // RAM-derived ceilings do not apply; the honest bound is the
-        // backend's wall-clock budget over the server throughput
-        // (budget-seconds x rtf audio-seconds).
-        val ceiling = if (backendId != null && BuiltInBackendIds.isRemoteOmnivoice(backendId)) {
-            (com.antivocale.app.transcription.RemoteOmnivoiceBackend.WALL_CLOCK_BUDGET_MS / 1000L) *
-                (descriptor?.rtfEstimate?.toLong() ?: 1L)
-        } else {
-            AudioDurationPolicy.ceilingSeconds(
-                decodePath, MemoryReadings.availableRamBytes(context), MemoryReadings.maxHeapBytes())
-        }
-        val profile = backendId?.let { transcriptionCalibrator.getEstimate(it, modelPath ?: "") }
-        val calibrated = profile?.hasEstimate == true
-        val estimate = AudioDurationPolicy.resolveEstimateMsPerSec(
-            profile?.msPerSecondOfAudio, calibrated, descriptor?.rtfEstimate ?: 1f)
-        val decision = AudioDurationPolicy.warnDecision(
-            duration.toLong(), ceiling, estimate, dialogCapable = true, calibrated = calibrated)
+        // The decision math is shared with the bulk redo (LongAudioDecider);
+        // this gate owns only the dialog.
+        val decision = longAudioDecider.decide(backendId, filePath, context).warn
         if (!decision.showDialog) {
             proceed()
             return
@@ -760,6 +751,278 @@ class LogsViewModel @Inject constructor(
         viewModelScope.launch {
             logDao.deleteById(id)
         }
+    }
+
+    // ---- History multi-select ----
+    // The raw set holds what the user picked; [selection] is that set pruned
+    // against the live rows, so a deleted row drops out without a write-back.
+    // The live rows are [logs] (the newest 500) UNION [filteredLogs]: a
+    // literal search filters before its LIMIT 500, so a visible hit can be
+    // older than every row of [logs]. A row drops out only when it is in
+    // neither. The query itself is deliberately NOT an input: rows hidden by
+    // a query stay selected (the bar reports them), and a new row is never added.
+
+    private val _selectionMode = MutableStateFlow(false)
+    val selectionMode: StateFlow<Boolean> = _selectionMode.asStateFlow()
+
+    private val _selectedIds = MutableStateFlow<Set<String>>(emptySet())
+
+    val selection: StateFlow<Set<String>> =
+        combine(_selectedIds, logs, filteredLogs) { sel, rows, hits ->
+            HistorySelection.prune(sel, selectableRows(rows, hits).keys)
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
+
+    /** The rows a selection may hold, by id: [rows] union [hits]. */
+    private fun selectableRows(rows: List<LogEntry>, hits: List<LogEntry>): Map<String, LogEntry> {
+        val byId = LinkedHashMap<String, LogEntry>(rows.size + hits.size)
+        rows.forEach { byId[it.id] = it }
+        hits.forEach { byId.putIfAbsent(it.id, it) }
+        return byId
+    }
+
+    /** The current selection's rows, pruned exactly as [selection] prunes. */
+    private fun effectiveSelectedRows(): List<LogEntry> {
+        val byId = selectableRows(logs.value, filteredLogs.value)
+        val selected = HistorySelection.prune(_selectedIds.value, byId.keys)
+        return selected.mapNotNull { byId[it] }
+    }
+
+    /** Enters selection mode with [id] checked (the row long-press). */
+    fun enterSelection(id: String) {
+        _selectedIds.value = setOf(id)
+        _selectionMode.value = true
+    }
+
+    /** An emptied selection keeps the mode: the user exits explicitly. */
+    fun toggleSelected(id: String) {
+        _selectedIds.value = HistorySelection.toggle(_selectedIds.value, id)
+    }
+
+    fun setGroupSelected(ids: Collection<String>, on: Boolean) {
+        _selectedIds.value = HistorySelection.setAll(_selectedIds.value, ids, on)
+    }
+
+    /** A group header's checkbox tap: a fully selected group clears, else selects. */
+    fun toggleGroupSelected(ids: Collection<String>) {
+        _selectedIds.value = HistorySelection.headerToggle(ids, _selectedIds.value)
+    }
+
+    fun exitSelection() {
+        _selectedIds.value = emptySet()
+        _selectionMode.value = false
+    }
+
+    /**
+     * What [deleteSelected] did: [deleted] is the DAO's count; [skipped] rows
+     * were still in flight. [id] is unique per delete, so two equal outcomes
+     * in a row are distinct StateFlow values (equal ones would conflate and
+     * the second snackbar would never show).
+     */
+    data class BulkDeleteResult(val deleted: Int, val skipped: Int, val id: Long)
+
+    // Main thread only (deleteSelected's viewModelScope launch).
+    private var bulkDeleteSeq = 0L
+
+    private val _bulkDeleteResult = MutableStateFlow<BulkDeleteResult?>(null)
+
+    /** The last bulk delete's outcome, published once the delete ran; consume it with [consumeBulkDeleteResult]. */
+    val bulkDeleteResult: StateFlow<BulkDeleteResult?> = _bulkDeleteResult.asStateFlow()
+
+    fun consumeBulkDeleteResult() {
+        _bulkDeleteResult.value = null
+    }
+
+    /**
+     * Deletes the selected TERMINAL rows (SUCCESS / ERROR) and exits
+     * selection mode, then publishes [bulkDeleteResult] with the count the
+     * DAO actually deleted. In-flight rows (QUEUED / PROCESSING, which also
+     * covers the legacy "PENDING" spelling via toLogEntry) are skipped:
+     * deleting a row the service is still writing would let its next status
+     * write miss.
+     */
+    fun deleteSelected() {
+        val (terminal, inFlight) = effectiveSelectedRows()
+            .partition { it.status == LogEntry.Status.SUCCESS || it.status == LogEntry.Status.ERROR }
+        val ids = terminal.map { it.id }
+        // TASK-599 F3, as in deleteLog: the caches must not outlive the rows.
+        ids.forEach { id ->
+            annotatedByRow.remove(id)
+            firstPassByRow.remove(id)
+            segmentsByRow.remove(id)
+        }
+        exitSelection()
+        viewModelScope.launch {
+            val deleted = if (ids.isEmpty()) 0 else logDao.deleteByIds(ids)
+            _bulkDeleteResult.value = BulkDeleteResult(deleted = deleted, skipped = inFlight.size, id = ++bulkDeleteSeq)
+        }
+    }
+
+    // ---- History bulk redo ----
+    // Independent of the selection mode: the multi-select bar calls
+    // redoSelected, other History flows call redoRows with their own ids.
+
+    /**
+     * The bulk redo dialog flow; [Idle] when no dialog shows. [Preparing] and
+     * [Summary] carry the [redoRows] call's generation, so a prepare job only
+     * ever writes over its own batch's state, never a newer batch's.
+     */
+    sealed interface BulkRedoUiState {
+        data object Idle : BulkRedoUiState
+        data class Preparing(val done: Int, val total: Int, val generation: Long) : BulkRedoUiState
+        data class Summary(
+            val batch: PreparedBatch,
+            val profile: TranscriptionProfile,
+            val modelDisplayName: String,
+            val generation: Long,
+        ) : BulkRedoUiState
+        /** Confirmed; the enqueue of [batch] is running. Not cancellable. */
+        data class Enqueuing(val batch: PreparedBatch) : BulkRedoUiState
+        data class Done(val report: BulkRedoReport) : BulkRedoUiState
+    }
+
+    private val _bulkRedoState = MutableStateFlow<BulkRedoUiState>(BulkRedoUiState.Idle)
+    val bulkRedoState: StateFlow<BulkRedoUiState> = _bulkRedoState.asStateFlow()
+
+    private var bulkPrepareJob: Job? = null
+
+    // Main thread only (redoRows); a failed claim just leaves a gap.
+    private var bulkRedoGeneration = 0L
+
+    /**
+     * Prepares a redo of [rowIds] with [profile] (Preparing, then Summary).
+     *
+     * Only one bulk redo runs at a time: this starts only from Idle or Done
+     * (a Done result is replaced) and returns true. While a redo is
+     * Preparing, awaiting confirmation (Summary) or Enqueuing, it does
+     * nothing and returns false, so a caller outside the multi-select bar
+     * must check the result before assuming its rows were taken. Empty
+     * [rowIds] also return false.
+     */
+    fun redoRows(rowIds: Collection<String>, profile: TranscriptionProfile): Boolean {
+        if (rowIds.isEmpty()) return false
+        val ids = rowIds.toList()
+        val current = _bulkRedoState.value
+        val free = current is BulkRedoUiState.Idle || current is BulkRedoUiState.Done
+        val generation = ++bulkRedoGeneration
+        // compareAndSet: the enqueue's completion writes Done from another thread.
+        if (!free || !_bulkRedoState.compareAndSet(current, BulkRedoUiState.Preparing(0, ids.size, generation))) {
+            Log.w(TAG, "event=bulk_redo_ignored reason=busy")
+            return false
+        }
+        bulkPrepareJob = viewModelScope.launch {
+            // From the moment prepare returns until Summary holds it, the
+            // batch is owned here: a cancel landing while the IO result waits
+            // for main dispatch, or while displayNameFor suspends, reaches
+            // neither cancelBulkRedo's Summary branch nor onCleared, so the
+            // finally discards it (appScope: launching works after cancel).
+            var prepared: PreparedBatch? = null
+            var owned = false
+            try {
+                val batch = try {
+                    withContext(Dispatchers.IO) {
+                        historyBulkRedo.prepare(ids, profile) { done, total ->
+                            // Only this batch's own Preparing: a late callback
+                            // from a cancelled prepare must not move a newer
+                            // batch's counts or resurrect a cancelled flow.
+                            _bulkRedoState.update {
+                                if (it is BulkRedoUiState.Preparing && it.generation == generation) {
+                                    it.copy(done = done, total = total)
+                                } else {
+                                    it
+                                }
+                            }
+                        }.also { prepared = it }
+                    }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Log.e(TAG, "event=bulk_redo_prepare_failed rows=${ids.size}", e)
+                    _bulkRedoState.update {
+                        if (it is BulkRedoUiState.Preparing && it.generation == generation) BulkRedoUiState.Idle else it
+                    }
+                    return@launch
+                }
+                val modelName = displayNameFor(batch.backendId, appContext)
+                val summary = BulkRedoUiState.Summary(batch, profile, modelName, generation)
+                while (true) {
+                    val state = _bulkRedoState.value
+                    if (state !is BulkRedoUiState.Preparing || state.generation != generation) break
+                    if (_bulkRedoState.compareAndSet(state, summary)) {
+                        owned = true
+                        break
+                    }
+                }
+            } finally {
+                if (!owned) prepared?.let { discardBatch(it) }
+            }
+        }
+        return true
+    }
+
+    /** [redoRows] over the current multi-select selection (the same pruned set as [selection]). */
+    fun redoSelected(profile: TranscriptionProfile): Boolean =
+        redoRows(effectiveSelectedRows().map { it.id }, profile)
+
+    /** The Summary's confirm: enqueues (long items only when [includeLong]), then Done. */
+    fun confirmBulkRedo(includeLong: Boolean) {
+        val summary = _bulkRedoState.value as? BulkRedoUiState.Summary ?: return
+        // Leaves Summary synchronously, so a double tap cannot enqueue twice;
+        // Enqueuing (not Idle) keeps redoRows from preparing a second batch
+        // whose Summary this enqueue's Done would overwrite.
+        val enqueuing = BulkRedoUiState.Enqueuing(summary.batch)
+        if (!_bulkRedoState.compareAndSet(summary, enqueuing)) return
+        // appScope: the batch is confirmed and its copies are the queue's
+        // inputs, so a ViewModel clear must not cancel the enqueue halfway.
+        appScope.launch(Dispatchers.IO) {
+            val report = try {
+                historyBulkRedo.enqueue(summary.batch, summary.profile, includeLong)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e(TAG, "event=bulk_redo_enqueue_failed items=${summary.batch.items.size}", e)
+                val runCount = summary.batch.items.count { includeLong || !it.isLong }
+                BulkRedoReport(queued = 0, failedToStart = runCount, deferred = 0, notStarted = 0)
+            }
+            // Only THIS enqueue's own state becomes Done (nothing else leaves
+            // Enqueuing today; the check keeps a future path from being
+            // overwritten). Selection exits first, so Done implies it.
+            if (_bulkRedoState.value === enqueuing) {
+                if (_selectionMode.value) exitSelection()
+                _bulkRedoState.compareAndSet(enqueuing, BulkRedoUiState.Done(report))
+            }
+        }
+    }
+
+    /** Cancels a running prepare, or discards a prepared batch; back to Idle. A confirmed enqueue is not cancelled. */
+    fun cancelBulkRedo() {
+        when (val state = _bulkRedoState.value) {
+            is BulkRedoUiState.Preparing -> bulkPrepareJob?.cancel()
+            is BulkRedoUiState.Summary -> discardBatch(state.batch)
+            is BulkRedoUiState.Enqueuing -> return
+            BulkRedoUiState.Idle, is BulkRedoUiState.Done -> Unit
+        }
+        bulkPrepareJob = null
+        _bulkRedoState.value = BulkRedoUiState.Idle
+    }
+
+    fun dismissBulkRedoResult() {
+        if (_bulkRedoState.value is BulkRedoUiState.Done) _bulkRedoState.value = BulkRedoUiState.Idle
+    }
+
+    /** The languages [backendId] conditions on (empty = the picker hides the language step). */
+    suspend fun offeredLanguagesFor(backendId: String): Set<String> =
+        activeModelRepository.offeredLanguageCodes(backendId)
+
+    // appScope, as the TASK-934 reclaims: leaving History must not cancel the delete.
+    private fun discardBatch(batch: PreparedBatch) {
+        appScope.launch(Dispatchers.IO) { historyBulkRedo.discard(batch) }
+    }
+
+    override fun onCleared() {
+        // Only an unconfirmed Summary is discarded: an Enqueuing batch's
+        // copies belong to the enqueue still running on appScope.
+        (_bulkRedoState.value as? BulkRedoUiState.Summary)?.let { discardBatch(it.batch) }
+        super.onCleared()
     }
 
     fun clearLogs() {
@@ -1247,31 +1510,13 @@ class LogsViewModel @Inject constructor(
         /** TASK-546 AC3: request-scoped language; absent on the backend retranscribe. */
         languageOverride: String? = null
     ) {
-        val newTaskId = UUID.randomUUID().toString()
-
-        val intent = Intent(context, InferenceService::class.java).apply {
-            putExtra(TaskerRequestReceiver.EXTRA_TASK_ID, newTaskId)
-            putExtra(TaskerRequestReceiver.EXTRA_REQUEST_TYPE, TaskerRequestReceiver.REQUEST_TYPE_AUDIO)
-            putExtra(TaskerRequestReceiver.EXTRA_PROMPT, originalEntry.prompt)
-            putExtra(TaskerRequestReceiver.EXTRA_FILE_PATH, filePath)
-            putExtra(InferenceService.EXTRA_SOURCE, InferenceService.SOURCE_RETRANSCRIBE)
-            putExtra(InferenceService.EXTRA_BACKEND_OVERRIDE, backendId)
-            languageOverride?.let {
-                putExtra(InferenceService.EXTRA_LANGUAGE_OVERRIDE, it)
-            }
-            originalEntry.sourcePackageName?.let {
-                putExtra(InferenceService.EXTRA_SOURCE_PACKAGE, it)
-            }
-            // TASK-736: the sender label must survive a re-run (the fresh
-            // row is a new task; without this the label is one-shot).
-            originalEntry.senderName?.let {
-                putExtra(InferenceService.EXTRA_SENDER_NAME, it)
-            }
-            origin.kind?.let { putExtra(InferenceService.EXTRA_SOURCE_KIND, it) }
-            origin.folderKey?.let { putExtra(InferenceService.EXTRA_SOURCE_FOLDER_KEY, it) }
-            origin.folderName?.let { putExtra(InferenceService.EXTRA_SOURCE_FOLDER_NAME, it) }
-            origin.subPath?.let { putExtra(InferenceService.EXTRA_SOURCE_SUB_PATH, it) }
-        }
+        // A folder-watch row keeps the folder-watch id shape so the redone
+        // row can be found again in its folder; any other row gets a UUID.
+        val newTaskId = RetranscribeIntent.taskIdFor(originalEntry, origin, RetranscribeIntent.nextTaskMs())
+        val intent = RetranscribeIntent.build(
+            context, originalEntry, origin, filePath, newTaskId,
+            TranscriptionProfile(backendId = backendId, language = languageOverride),
+        )
         // F2: unified enqueue; a restricted start rides the fallback
         // notification (the request survives), a real failure surfaces on
         // the History error channel.

@@ -54,12 +54,21 @@
     <string name="logs_select_all">Valitse kaikki</string>
     <string name="logs_deselect_all">Poista kaikki valinnat</string>
     <string name="logs_entries_selected">%d valittu</string>
+    <string name="logs_selection_hidden_by_search">· %d piilotettu haulla</string>
     <string name="logs_no_entries_selected">Ei valittuja merkintöjä</string>
     <string name="logs_cleared">Historia tyhjennetty</string>
     <string name="logs_entry_deleted">Lokimerkintä poistettu</string>
     <plurals name="logs_entries_deleted">
         <item quantity="one">%d merkintä poistettu</item>
         <item quantity="other">%d merkintää poistettu</item>
+    </plurals>
+    <plurals name="logs_delete_selected_confirm">
+        <item quantity="one">Poistetaanko %d merkintä?</item>
+        <item quantity="other">Poistetaanko %d merkintää?</item>
+    </plurals>
+    <plurals name="logs_entries_skipped_processing">
+        <item quantity="one">%d ohitettu (käsittely kesken)</item>
+        <item quantity="other">%d ohitettu (käsittely kesken)</item>
     </plurals>
     <string name="logs_undo">Kumoa</string>
     <string name="logs_cancel">Peruuta</string>
@@ -1304,4 +1313,61 @@
     <string name="history_scope_rule_folder_title">Litteroi tämä kansio näin…</string>
     <string name="history_scope_rule_subfolder_title">Litteroi tämä alikansio näin…</string>
     <string name="history_scope_rule_long_press_label">Aseta litterointisääntö</string>
+    <string name="bulk_redo_single_pass_hint">Kaksivaiheinen tila on pois päältä tässä uusinnassa: yksi kierros valitulla mallilla.</string>
+    <string name="bulk_redo_preparing">Valmistellaan %1$d/%2$d</string>
+    <string name="bulk_redo_all">Tee kaikki uudelleen</string>
+    <string name="bulk_redo_skip_long">Ohita pitkät</string>
+    <string name="history_select_with_subfolders">Valitse alikansioineen</string>
+    <plurals name="bulk_redo_title">
+        <item quantity="one">Tee %d tallenne uudelleen</item>
+        <item quantity="other">Tee %d tallennetta uudelleen</item>
+    </plurals>
+    <plurals name="bulk_redo_summary_ready">
+        <item quantity="one">%1$d tallenne litteroidaan uudelleen mallilla %2$s</item>
+        <item quantity="other">%1$d tallennetta litteroidaan uudelleen mallilla %2$s</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_not_audio">
+        <item quantity="one">%d ohitettu: ei ääntä</item>
+        <item quantity="other">%d ohitettu: ei ääntä</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_in_flight">
+        <item quantity="one">%d ohitettu: käsittely kesken</item>
+        <item quantity="other">%d ohitettu: käsittely kesken</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_file_gone">
+        <item quantity="one">%d ohitettu: tiedosto ei ole enää saatavilla</item>
+        <item quantity="other">%d ohitettu: tiedosto ei ole enää saatavilla</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_folder_unavailable">
+        <item quantity="one">%d ohitettu: valvottu kansio ei ole käytettävissä</item>
+        <item quantity="other">%d ohitettu: valvottu kansio ei ole käytettävissä</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_not_found_in_folder">
+        <item quantity="one">%d ohitettu: ei löytynyt valvotusta kansiosta</item>
+        <item quantity="other">%d ohitettu: ei löytynyt valvotusta kansiosta</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_ambiguous">
+        <item quantity="one">%d ohitettu: kansiossa useita vastaavia tiedostoja</item>
+        <item quantity="other">%d ohitettu: kansiossa useita vastaavia tiedostoja</item>
+    </plurals>
+    <plurals name="bulk_redo_long">
+        <item quantity="one">%1$d on pitkä (pisin %2$s)</item>
+        <item quantity="other">%1$d on pitkiä (pisin %2$s)</item>
+    </plurals>
+    <plurals name="bulk_redo_queued">
+        <item quantity="one">%d jonossa</item>
+        <item quantity="other">%d jonossa</item>
+    </plurals>
+    <plurals name="bulk_redo_failed_to_start">
+        <item quantity="one">%d ei käynnistynyt</item>
+        <item quantity="other">%d ei käynnistynyt</item>
+    </plurals>
+    <plurals name="bulk_redo_deferred">
+        <item quantity="one">%d odottaa napautusta käynnistyäkseen</item>
+        <item quantity="other">%d odottaa napautusta käynnistyäkseen</item>
+    </plurals>
+    <plurals name="bulk_redo_not_started">
+        <item quantity="one">%d jäi käynnistämättä (sovellus siirtyi taustalle)</item>
+        <item quantity="other">%d jäi käynnistämättä (sovellus siirtyi taustalle)</item>
+    </plurals>
 </resources>

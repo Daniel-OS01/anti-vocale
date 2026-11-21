@@ -67,12 +67,21 @@
     <string name="logs_select_all">انتخاب همه</string>
     <string name="logs_deselect_all">لغو انتخاب همه</string>
     <string name="logs_entries_selected">%d مورد انتخاب شد</string>
+    <string name="logs_selection_hidden_by_search">· پنهان‌شده با جستجو: %d</string>
     <string name="logs_no_entries_selected">هیچ ورودی‌ای انتخاب نشده است</string>
     <string name="logs_cleared">تاریخچه پاک شد</string>
     <string name="logs_entry_deleted">ورودی حذف شد</string>
     <plurals name="logs_entries_deleted">
         <item quantity="one">%d ورودی حذف شد</item>
         <item quantity="other">%d ورودی حذف شد</item>
+    </plurals>
+    <plurals name="logs_delete_selected_confirm">
+        <item quantity="one">%d ورودی حذف شود؟</item>
+        <item quantity="other">%d ورودی حذف شود؟</item>
+    </plurals>
+    <plurals name="logs_entries_skipped_processing">
+        <item quantity="one">%d مورد رد شد (هنوز در حال پردازش)</item>
+        <item quantity="other">%d مورد رد شد (هنوز در حال پردازش)</item>
     </plurals>
     <string name="logs_undo">واگردانی</string>
     <string name="logs_cancel">لغو</string>
@@ -1469,4 +1478,61 @@
     <string name="history_scope_rule_folder_title">رونویسی این پوشه به‌صورت…</string>
     <string name="history_scope_rule_subfolder_title">رونویسی این زیرپوشه به‌صورت…</string>
     <string name="history_scope_rule_long_press_label">تنظیم قانون رونویسی</string>
+    <string name="bulk_redo_single_pass_hint">حالت دو مرحله‌ای برای این تکرار خاموش است: یک مرحله با مدل انتخاب‌شده.</string>
+    <string name="bulk_redo_preparing">در حال آماده‌سازی %1$d از %2$d</string>
+    <string name="bulk_redo_all">تکرار همه</string>
+    <string name="bulk_redo_skip_long">رد کردن موارد طولانی</string>
+    <string name="history_select_with_subfolders">انتخاب همراه با زیرپوشه‌ها</string>
+    <plurals name="bulk_redo_title">
+        <item quantity="one">تکرار %d ضبط</item>
+        <item quantity="other">تکرار %d ضبط</item>
+    </plurals>
+    <plurals name="bulk_redo_summary_ready">
+        <item quantity="one">%1$d ضبط با %2$s دوباره رونویسی می‌شود</item>
+        <item quantity="other">%1$d ضبط با %2$s دوباره رونویسی می‌شوند</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_not_audio">
+        <item quantity="one">%d رد شد: صوتی نیست</item>
+        <item quantity="other">%d رد شد: صوتی نیست</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_in_flight">
+        <item quantity="one">%d رد شد: هنوز در حال پردازش</item>
+        <item quantity="other">%d رد شد: هنوز در حال پردازش</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_file_gone">
+        <item quantity="one">%d رد شد: فایل دیگر در دسترس نیست</item>
+        <item quantity="other">%d رد شد: فایل دیگر در دسترس نیست</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_folder_unavailable">
+        <item quantity="one">%d رد شد: پوشهٔ تحت نظر در دسترس نیست</item>
+        <item quantity="other">%d رد شد: پوشهٔ تحت نظر در دسترس نیست</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_not_found_in_folder">
+        <item quantity="one">%d رد شد: در پوشهٔ تحت نظر پیدا نشد</item>
+        <item quantity="other">%d رد شد: در پوشهٔ تحت نظر پیدا نشد</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_ambiguous">
+        <item quantity="one">%d رد شد: چند فایل منطبق در پوشه</item>
+        <item quantity="other">%d رد شد: چند فایل منطبق در پوشه</item>
+    </plurals>
+    <plurals name="bulk_redo_long">
+        <item quantity="one">%1$d مورد طولانی است (طولانی‌ترین %2$s)</item>
+        <item quantity="other">%1$d مورد طولانی هستند (طولانی‌ترین %2$s)</item>
+    </plurals>
+    <plurals name="bulk_redo_queued">
+        <item quantity="one">%d در صف</item>
+        <item quantity="other">%d در صف</item>
+    </plurals>
+    <plurals name="bulk_redo_failed_to_start">
+        <item quantity="one">%d شروع نشد</item>
+        <item quantity="other">%d شروع نشد</item>
+    </plurals>
+    <plurals name="bulk_redo_deferred">
+        <item quantity="one">%d برای شروع به یک ضربه نیاز دارد</item>
+        <item quantity="other">%d برای شروع به یک ضربه نیاز دارد</item>
+    </plurals>
+    <plurals name="bulk_redo_not_started">
+        <item quantity="one">%d شروع نشد (برنامه به پس‌زمینه رفت)</item>
+        <item quantity="other">%d شروع نشد (برنامه به پس‌زمینه رفت)</item>
+    </plurals>
 </resources>
