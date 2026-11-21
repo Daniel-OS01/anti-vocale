@@ -1,6 +1,7 @@
 package com.antivocale.app.data
 
 import java.nio.file.Files
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Before
@@ -147,5 +148,57 @@ class DanglingBackendCleanerTest {
         DanglingBackendCleaner(prefs, store).cleanIfNeeded()
         assertEquals(saved.backendId, prefs._voiceNoteBackendId.value)
         assertEquals("whisper", prefs._voiceNoteBusinessBackendId.value)
+    }
+
+    // ---- R6: the profile-map locations ----
+
+    private suspend fun seedProfileMaps(backendId: String) {
+        val folders = ScheduledFolderStore(prefs)
+        folders.add(WatchedFolder(treeUri = "a", displayName = "A"))
+        folders.setFolderProfile("a", TranscriptionProfile(backendId = backendId, language = "ru"))
+        folders.setSubfolderRule("a", "Russian", TranscriptionProfile(backendId = backendId))
+        val scopes = ScopeProfileStore(prefs)
+        scopes.setSenderProfile("s1", TranscriptionProfile(backendId = backendId))
+        scopes.setLanguageModel("ru", backendId)
+    }
+
+    @Test
+    fun `profile maps naming an external id with no record are scrubbed`() = runTest {
+        seedProfileMaps("external:gone-id")
+
+        DanglingBackendCleaner(prefs, store).cleanIfNeeded()
+
+        val a = ScheduledFolderStore(prefs).byUri("a")!!
+        assertEquals(TranscriptionProfile(language = "ru"), a.profile)
+        assertEquals(emptyMap<String, TranscriptionProfile>(), a.subfolderRules)
+        assertEquals(emptyMap<String, TranscriptionProfile>(), ScopeProfileStore(prefs).senderProfiles.first())
+        assertEquals(emptyMap<String, String>(), ScopeProfileStore(prefs).languageModels())
+    }
+
+    @Test
+    fun `profile maps naming a wiped but repairable record are kept`() = runTest {
+        // The record survives, its directory does not: ExternalImportRepairer
+        // can bring it back, and the rules must still be there when it does.
+        val saved = record("wiped", java.io.File(filesRoot, "wiped").absolutePath)
+        store.add(saved)
+        seedProfileMaps(saved.backendId)
+
+        DanglingBackendCleaner(prefs, store).cleanIfNeeded()
+
+        val a = ScheduledFolderStore(prefs).byUri("a")!!
+        assertEquals(saved.backendId, a.profile?.backendId)
+        assertEquals(saved.backendId, a.subfolderRules["Russian"]?.backendId)
+        assertEquals(saved.backendId, ScopeProfileStore(prefs).senderProfile("s1")?.backendId)
+        assertEquals(mapOf("ru" to saved.backendId), ScopeProfileStore(prefs).languageModels())
+    }
+
+    @Test
+    fun `profile maps naming built-ins are left alone`() = runTest {
+        seedProfileMaps("gigaam")
+
+        DanglingBackendCleaner(prefs, store).cleanIfNeeded()
+
+        assertEquals("gigaam", ScheduledFolderStore(prefs).byUri("a")?.profile?.backendId)
+        assertEquals(mapOf("ru" to "gigaam"), ScopeProfileStore(prefs).languageModels())
     }
 }

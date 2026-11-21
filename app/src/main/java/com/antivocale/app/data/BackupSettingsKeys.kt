@@ -90,6 +90,11 @@ object BackupSettingsKeys {
         // there and degrades to the active model.
         "voice_note_backend_id",
         "voice_note_business_backend_id",
+        // R6: per-sender profiles and the language->model map (JSON). A
+        // backendId the restoring install lacks is not loadable there and
+        // degrades to the active model (the resolver's rule 2).
+        "sender_profiles_json",
+        "language_model_map_json",
     )
 
     private val INT = setOf(

@@ -21,6 +21,7 @@ import com.antivocale.app.data.ShareShortcutManager
 import com.antivocale.app.data.TranscriptionCalibrator
 import com.antivocale.app.data.local.LogDao
 import com.antivocale.app.receiver.TaskerRequestReceiver
+import com.antivocale.app.transcription.BackendRetention
 import com.antivocale.app.transcription.DualRefinementPolicy
 import com.antivocale.app.transcription.TimedSegment
 import com.antivocale.app.transcription.TranscriptionBackendManager
@@ -578,6 +579,15 @@ class InferenceService : Service(), TranscriptionListener {
                                     delay(RunHeartbeat.TICK_MS)
                                 }
                             }
+                            // Peeked now, after this request was polled: the head is
+                            // the request that runs next. A cancel or clear that
+                            // changes the head afterwards leaves at most one model
+                            // resident, which the next ensureBackendLoaded swaps or
+                            // the drain's releaseKeptOverride unloads.
+                            val keepBackendLoaded = BackendRetention.keepLoaded(
+                                request.backendOverride,
+                                requestQueue.peek()?.backendOverride,
+                            )
                             try {
                                 orchestrator.processRequest(
                                     taskId = request.taskId,
@@ -594,7 +604,8 @@ class InferenceService : Service(), TranscriptionListener {
                                     context = applicationContext,
                                     cacheDir = cacheDir,
                                     listener = this@InferenceService,
-                                    coroutineScope = this
+                                    coroutineScope = this,
+                                    keepBackendLoaded = keepBackendLoaded,
                                 )
                             } finally {
                                 heartbeat.cancel()
@@ -652,6 +663,15 @@ class InferenceService : Service(), TranscriptionListener {
                 // (flag clause); a batch holding a started keepalive can
                 // never see batchIdle() true here.
                 if (batchIdle()) silentKeepalive.stop()
+            }
+
+            // A keepBackendLoaded decision is made from the queue head at
+            // poll time; a cancel or clear afterwards can empty the queue
+            // with the override model still resident, and nothing else
+            // unloads it. NonCancellable: a batch cancel reaches here with
+            // this coroutine cancelled, the exact case that strands it.
+            if (batchIdle()) {
+                withContext(NonCancellable) { orchestrator.releaseKeptOverride() }
             }
 
             // TASK-1010: a dictionary-change re-arm deferred while the batch

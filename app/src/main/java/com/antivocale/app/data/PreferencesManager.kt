@@ -90,6 +90,21 @@ interface PreferencesManager {
     /** The WhatsApp Business twin of [voiceNoteBackendId] (blank = active model). */
     val voiceNoteBusinessBackendId: Flow<String>
     suspend fun saveVoiceNoteBusinessBackendId(backendId: String)
+
+    /**
+     * R6: per-sender transcription profiles, one JSON object
+     * `{ senderStorageId: {backendId?, language?} }` ("" = none). Owned by
+     * [ScopeProfileStore]; read and write it only through that store.
+     */
+    val senderProfilesJson: Flow<String>
+    suspend fun saveSenderProfilesJson(json: String)
+
+    /**
+     * R6: the global model-per-language map, one JSON object
+     * `{ languageCode: backendId }` ("" = none). Owned by [ScopeProfileStore].
+     */
+    val languageModelMapJson: Flow<String>
+    suspend fun saveLanguageModelMapJson(json: String)
     /**
      * Saved model-path preference for a built-in sherpa-onnx catalog entry,
      * keyed by the entry id (BackendRegistry descriptors delegate to this).

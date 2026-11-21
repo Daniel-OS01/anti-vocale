@@ -223,6 +223,38 @@ class TranscriptionOrchestrator @Inject constructor(
     private val runMutex = Mutex()
 
     /**
+     * The override backend id the LAST finished request kept resident
+     * (keepBackendLoaded), recorded only when that id really became the
+     * active backend (a subtitle request that never loaded its override
+     * records nothing). Not reset at request start: a next request cancelled
+     * before its own cleanup must leave the record for the drain. Every
+     * release re-checks identity against the active backend, so a stale
+     * record can never unload a different (e.g. the global) model.
+     * Guarded by [runMutex].
+     */
+    private var keptOverrideId: String? = null
+
+    /**
+     * Unloads the override model the last request kept resident, if any, and
+     * clears the flag; a no-op otherwise (a global-model run is never
+     * unloaded here). The queue drain calls this when it finds the queue
+     * empty: the next request the keep was made for may have been cancelled
+     * or cleared after the decision, and nothing else unloads an override
+     * model (the keep-alive timer owns only the global one).
+     */
+    suspend fun releaseKeptOverride() {
+        runMutex.withLock {
+            val kept = keptOverrideId ?: return@withLock
+            keptOverrideId = null
+            if (backendManager.activeBackendId.value != kept) return@withLock
+            try {
+                backendManager.unloadActiveBackend()
+            } catch (_: Exception) {
+            }
+        }
+    }
+
+    /**
      * TASK-699 stage 2 (code-review F1/F2): whether THIS run has written a
      * seed. The run-level heartbeat ticks only when this is set, so a run
      * that never seeds (subtitle import/extract, text LLM) costs no ticks,
@@ -293,7 +325,13 @@ class TranscriptionOrchestrator @Inject constructor(
         context: Context,
         cacheDir: File,
         listener: TranscriptionListener,
-        coroutineScope: CoroutineScope
+        coroutineScope: CoroutineScope,
+        /**
+         * Skip the end-of-request unload of [backendOverride]'s model because
+         * the next queued request uses the same override (see
+         * [BackendRetention.keepLoaded]). False keeps the one-off behavior.
+         */
+        keepBackendLoaded: Boolean = false,
     ): Result<String> {
         runArmedSeed = false
         // TASK-699 stage 2: ONE heartbeat span for the whole run, the only
@@ -310,7 +348,8 @@ class TranscriptionOrchestrator @Inject constructor(
                 processRequestInner(
                     taskId, requestType, prompt, filePath, source, sourcePackage,
                     backendOverride, languageOverride, trackIndex, queuePosition,
-                    queueTotal, context, cacheDir, listener, coroutineScope)
+                    queueTotal, context, cacheDir, listener, coroutineScope,
+                    keepBackendLoaded)
             }
         }
     }
@@ -330,7 +369,8 @@ class TranscriptionOrchestrator @Inject constructor(
         context: Context,
         cacheDir: File,
         listener: TranscriptionListener,
-        coroutineScope: CoroutineScope
+        coroutineScope: CoroutineScope,
+        keepBackendLoaded: Boolean,
     ): Result<String> {
         val isShareRequest = source == InferenceService.SOURCE_SHARE
 
@@ -829,11 +869,18 @@ class TranscriptionOrchestrator @Inject constructor(
                 isDecodeError = isDecodeFamilyError(e))
             return Result.failure(e)
         } finally {
-            if (backendOverride != null) {
+            // keepBackendLoaded: the next queued request names the same
+            // override, so it reuses this model warm (BackendRetention).
+            if (backendOverride != null && !keepBackendLoaded) {
                 try {
                     backendManager.unloadActiveBackend()
                 } catch (_: Exception) {
                 }
+            }
+            // Recorded so the drain can release it if the request it was
+            // kept for never runs (cancelled or cleared after the peek).
+            keptOverrideId = backendOverride?.takeIf {
+                keepBackendLoaded && backendManager.activeBackendId.value == it
             }
         }
     }

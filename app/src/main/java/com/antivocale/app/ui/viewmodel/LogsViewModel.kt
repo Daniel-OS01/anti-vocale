@@ -24,6 +24,7 @@ import com.antivocale.app.data.local.LogEntity
 import com.antivocale.app.data.local.toEntity
 import com.antivocale.app.data.local.toLogEntry
 import com.antivocale.app.data.ActiveModelRepository
+import com.antivocale.app.data.InstalledBackend
 import com.antivocale.app.data.PreferencesManager
 import com.antivocale.app.data.ScheduledFolderStore
 import com.antivocale.app.data.SourceOrigin
@@ -32,6 +33,7 @@ import com.antivocale.app.data.WatchedFolder
 import com.antivocale.app.data.effectiveSourceOrigin
 import com.antivocale.app.data.VoiceNoteDuplicateGuard
 import com.antivocale.app.data.TranscriptionCalibrator
+import com.antivocale.app.data.TranscriptionProfile
 import com.antivocale.app.data.catalog.BundledCatalog
 import com.antivocale.app.receiver.TaskerRequestReceiver
 import com.antivocale.app.service.AudioRequestIntent
@@ -41,6 +43,10 @@ import com.antivocale.app.util.LocaleManager
 import com.antivocale.app.util.SharedAudioHandler
 import com.antivocale.app.util.parentFolderNameFromDocumentId
 import com.antivocale.app.transcription.BackendRegistry
+import com.antivocale.app.transcription.ScopeChain
+import com.antivocale.app.ui.tabs.HistoryGroupScope
+import com.antivocale.app.ui.tabs.storedRuleIn
+import com.antivocale.app.ui.tabs.watchedFolderIn
 import com.antivocale.app.transcription.BuiltInBackendIds
 import com.antivocale.app.transcription.TranscriptionBackendManager
 import com.antivocale.app.transcription.TranscriptionOrchestrator
@@ -190,6 +196,9 @@ class LogsViewModel @Inject constructor(
     private val duplicateGuard: VoiceNoteDuplicateGuard,
     /** R3: the watched folders History names its folder sections after. */
     private val scheduledFolderStore: ScheduledFolderStore,
+    /** R6: the rule editor's outcome line and language codes (shared with
+     *  the Settings rules pages, so the History long-press cannot drift). */
+    private val profileOutcomeSource: ProfileOutcomeSource,
     /** TASK-934: the staged-copy reclaims survive a ViewModel clear (a tap
      *  followed by leaving History must not cancel the delete; viewModelScope
      *  would). Tests omit this parameter; production gets @ApplicationScope. */
@@ -871,6 +880,86 @@ class LogsViewModel @Inject constructor(
             SharingStarted.WhileSubscribed(stopTimeoutMillis = 5000, replayExpirationMillis = 0),
             null,
         )
+
+    // ------------------------------------------------------------------
+    // R6: the History header long-press rule editor (a watched folder's
+    // default, or one subfolder rule). New files follow the saved rule;
+    // nothing here re-transcribes existing rows.
+    // ------------------------------------------------------------------
+
+    /** The installed models the editor's "pin a model" picker offers. */
+    val installedBackends: StateFlow<List<InstalledBackend>> = activeModelRepository.installedBackendsFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    /** The concrete language codes the editor's language picker offers. */
+    val ruleLanguageCodes: StateFlow<List<String>> = profileOutcomeSource.ruleLanguageCodes()
+        .flowOn(Dispatchers.Default)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    private val _folderRulePreview = MutableStateFlow<ProfilePreview?>(null)
+
+    /**
+     * The open editor's outcome line (null while none previews). The gate
+     * is the two-pass toggle alone: History does not track the Settings
+     * availability probe, so this may say "two-pass off" for a two-pass
+     * setup that could not run anyway.
+     */
+    val folderRuleOutcome: StateFlow<ProfileOutcomeUi?> =
+        profileOutcomeSource.outcomes(_folderRulePreview, preferencesManager.refinementEnabled)
+            .flowOn(Dispatchers.Default)
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    /**
+     * The rule stored at [scope], or null (no rule there, [HistoryGroupScope.None],
+     * or a folder no longer watched). Reads [watchedFolders], which History collects.
+     */
+    internal fun folderRuleFor(scope: HistoryGroupScope): TranscriptionProfile? {
+        val folder = scope.watchedFolderIn(watchedFolders.value.orEmpty()) ?: return null
+        return scope.storedRuleIn(folder)
+    }
+
+    /** Recomputes [folderRuleOutcome] for [profile] edited at [scope]. */
+    internal fun previewFolderRule(scope: HistoryGroupScope, profile: TranscriptionProfile?) {
+        _folderRulePreview.value = when (scope) {
+            is HistoryGroupScope.Folder -> ProfilePreview(EditedScope.FOLDER, ScopeChain(), profile)
+            is HistoryGroupScope.Subfolder -> {
+                // A subfolder rule sits over the folder default; a cleared
+                // rule falls back to the deepest ancestor rule, as a scan does.
+                val folder = scope.watchedFolderIn(watchedFolders.value.orEmpty())
+                ProfilePreview(
+                    EditedScope.SUBFOLDER,
+                    ScopeChain(folder = folder?.profile),
+                    FolderRulePaths.effectiveSubfolderProfile(
+                        folder?.subfolderRules.orEmpty(), scope.subPath, profile,
+                    ),
+                )
+            }
+            HistoryGroupScope.None -> null
+        }
+    }
+
+    fun clearFolderRulePreview() {
+        _folderRulePreview.value = null
+    }
+
+    /** Writes the rule at [scope]; null (or an empty profile) removes it. */
+    internal fun saveFolderRule(scope: HistoryGroupScope, profile: TranscriptionProfile?) {
+        viewModelScope.launch {
+            try {
+                when (scope) {
+                    is HistoryGroupScope.Folder -> scheduledFolderStore.setFolderProfile(scope.treeUri, profile)
+                    is HistoryGroupScope.Subfolder ->
+                        scheduledFolderStore.setSubfolderRule(scope.treeUri, scope.subPath, profile)
+                    HistoryGroupScope.None -> Unit
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // Never the folder name, tree uri or path: they can identify people.
+                Log.w(TAG, "history_scope_rule_write_failed", e)
+            }
+        }
+    }
 
     /** TASK-616: the technical processing-context line renders only when
      *  this is on (off by default); the data stays persisted either way. */

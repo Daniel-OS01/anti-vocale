@@ -1,6 +1,31 @@
 package com.antivocale.app.transcription
 
+import com.antivocale.app.data.ExternalModelRecord
 import com.antivocale.app.data.catalog.CatalogEntry
+
+/**
+ * R6: what [TranscriptionLanguagePolicy.support] judges a language against.
+ * [LanguageSupportLookup] maps a backend id to one at the I/O boundary.
+ */
+sealed interface LanguageTarget {
+    /** A bundled-catalog entry; [offered] is what
+     *  [TranscriptionLanguagePolicy.offeredLanguages] returns for the
+     *  INSTALLED variant (the codes it conditions on), [declared] what
+     *  [TranscriptionLanguagePolicy.declaredLanguages] returns for it (the
+     *  codes it transcribes at all, conditioning or not). */
+    data class BuiltIn(
+        val entry: CatalogEntry,
+        val offered: Set<String>,
+        val declared: Set<String>,
+    ) : LanguageTarget
+
+    /** A user-imported model. */
+    data class External(val record: ExternalModelRecord) : LanguageTarget
+
+    /** No language contract the app can read: the LLM (Gemma), the remote
+     *  offload, an unknown id. */
+    data object Opaque : LanguageTarget
+}
 
 /**
  * Maps the saved transcription-language preference to the language string a
@@ -95,7 +120,7 @@ object TranscriptionLanguagePolicy {
      * streaming zipformer, and CTC do not). The one rule [externalOverride]
      * and [offeredLanguagesForExternal] gate on.
      */
-    fun conditionsOnLanguage(record: com.antivocale.app.data.ExternalModelRecord): Boolean =
+    fun conditionsOnLanguage(record: ExternalModelRecord): Boolean =
         ModelFamilySupport.forFamily(record.family).languageCapable
 
     /**
@@ -123,6 +148,15 @@ object TranscriptionLanguagePolicy {
     }
 
     /**
+     * R6: the codes the INSTALLED variant of [entry] declares it transcribes,
+     * whether or not it conditions on language: the variant's own catalog
+     * list, else the entry-level one (the [offeredLanguages] variant
+     * derivation, without its conditioning gate). Empty means unknown.
+     */
+    fun declaredLanguages(modelPath: String?, entry: CatalogEntry): Set<String> =
+        entry.languagesFor(entry.variantForSavedPath(modelPath)).toSet()
+
+    /**
      * TASK-462: the override an EXTERNAL config consumes. The sentinels and
      * "" (auto/phone-unreadable) mean detection: "" (the family defaults
      * apply); a concrete pin passes through ONLY when the record's family
@@ -130,7 +164,7 @@ object TranscriptionLanguagePolicy {
      * the exact class the empty-set picker rule exists to prevent).
      */
     fun externalOverride(
-        record: com.antivocale.app.data.ExternalModelRecord,
+        record: ExternalModelRecord,
         preference: String,
         phoneLanguage: String? = null,
     ): String =
@@ -149,7 +183,7 @@ object TranscriptionLanguagePolicy {
      * list when the family can consume one (Whisper forced decoding,
      * SenseVoice, Canary), else the empty set (the disabled card, truthful).
      */
-    fun offeredLanguagesForExternal(record: com.antivocale.app.data.ExternalModelRecord): Set<String> =
+    fun offeredLanguagesForExternal(record: ExternalModelRecord): Set<String> =
         if (conditionsOnLanguage(record)) record.languages.toSet()
         else emptySet()
 
@@ -178,5 +212,46 @@ object TranscriptionLanguagePolicy {
             resolved in offered -> PinState.SUPPORTED_PIN
             else -> PinState.UNSUPPORTED_PIN
         }
+    }
+
+    /**
+     * R6: how [target] treats a pinned [language] (the profile resolver's
+     * support predicate). A model that conditions on language HONORS a
+     * language it offers and finds every other one UNSUPPORTED, including
+     * the empty offered set (matching [pinState], where an empty set renders
+     * every pin unsupported). A model that does not condition on language
+     * IGNORES the pin, unless its declared transcription languages are known
+     * and exclude it: then it is UNSUPPORTED (GigaAM is Russian-only, so a
+     * Hebrew pin on it is a wrong-model choice, not a no-op). An empty
+     * declared set is unknown and IGNORES; so does [LanguageTarget.Opaque].
+     * Codes compare on the FULL code, case-insensitively (`EN` == `en`, but
+     * `en-US` != `en`): the backends' adapters require an exact catalog code
+     * (Whistle detects silently on anything else), so a subtag match would
+     * report HONORS for a pin the model never receives.
+     */
+    fun support(target: LanguageTarget, language: String): LanguageSupport {
+        val (conditions, codes) = when (target) {
+            is LanguageTarget.BuiltIn ->
+                if (conditionsOnLanguage(target.entry)) true to target.offered else false to target.declared
+            is LanguageTarget.External ->
+                if (conditionsOnLanguage(target.record)) {
+                    true to offeredLanguagesForExternal(target.record)
+                } else {
+                    false to target.record.languages.toSet()
+                }
+            LanguageTarget.Opaque -> return LanguageSupport.IGNORES
+        }
+        val listed = listsLanguage(codes, language)
+        return when {
+            conditions && listed -> LanguageSupport.HONORS
+            conditions -> LanguageSupport.UNSUPPORTED
+            codes.isEmpty() || listed -> LanguageSupport.IGNORES
+            else -> LanguageSupport.UNSUPPORTED
+        }
+    }
+
+    private fun listsLanguage(codes: Set<String>, language: String): Boolean {
+        val wanted = language.trim()
+        return wanted.isNotEmpty() && codes.any { it.trim().equals(wanted, ignoreCase = true) }
     }
 }

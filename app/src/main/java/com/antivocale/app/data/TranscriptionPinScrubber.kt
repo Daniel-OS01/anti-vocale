@@ -15,12 +15,26 @@ import kotlinx.coroutines.flow.first
  * delete paths in ModelViewModel. [DanglingBackendCleaner] stays the
  * startup net for any path that misses this.
  *
- * A new pin location (folder or sender profiles, the language-model map)
- * is one more [Slot] in [slots]: every caller picks it up.
+ * A new single-preference pin is one more [Slot] in [slots]; the R6
+ * profile maps (folder profiles and subfolder rules, sender profiles, the
+ * language-model map) scrub through their stores' own locks. Every caller
+ * picks up both.
  */
 object TranscriptionPinScrubber {
 
-    enum class Pin { REFINEMENT, PREVIEW, VOICE_NOTE, VOICE_NOTE_BUSINESS }
+    enum class Pin {
+        REFINEMENT,
+        PREVIEW,
+        VOICE_NOTE,
+        VOICE_NOTE_BUSINESS,
+        /** A folder profile or subfolder rule named the model (its backendId
+         *  is blanked; a profile left empty is removed). */
+        FOLDER_PROFILE,
+        /** A sender profile named the model (same blanking). */
+        SENDER_PROFILE,
+        /** A language-model map entry named the model (entry removed). */
+        LANGUAGE_MODEL,
+    }
 
     private class Slot(
         val pin: Pin,
@@ -48,6 +62,13 @@ object TranscriptionPinScrubber {
             if (slot.read(prefs).first() == deletedBackendId) {
                 slot.clear(prefs)
                 cleared += slot.pin
+            }
+        }
+        if (ScheduledFolderStore.scrubBackendIn(prefs, deletedBackendId)) cleared += Pin.FOLDER_PROFILE
+        for (location in ScopeProfileStore.scrubBackendIn(prefs, deletedBackendId)) {
+            cleared += when (location) {
+                ScopeProfileStore.Location.SENDER_PROFILE -> Pin.SENDER_PROFILE
+                ScopeProfileStore.Location.LANGUAGE_MODEL -> Pin.LANGUAGE_MODEL
             }
         }
         return cleared

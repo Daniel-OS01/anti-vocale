@@ -38,7 +38,11 @@ import com.antivocale.app.data.ShareShortcutManager
 import com.antivocale.app.data.ShareTargetManager
 import com.antivocale.app.data.TranscriptionCalibrator
 import com.antivocale.app.data.WatchedFolder
-import com.antivocale.app.data.catalog.BundledCatalog
+import com.antivocale.app.data.ScopeProfileStore
+import com.antivocale.app.data.TranscriptionProfile
+import com.antivocale.app.transcription.LanguageSupport
+import com.antivocale.app.transcription.LanguageSupportLookup
+import com.antivocale.app.transcription.ScopeChain
 import com.antivocale.app.transcription.BuiltInBackendIds
 import com.antivocale.app.transcription.InferenceProvider
 import com.antivocale.app.transcription.Language
@@ -80,6 +84,7 @@ import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
@@ -131,6 +136,9 @@ class SettingsViewModel @Inject constructor(
     // simplify F2: the pipeline itself lives in SpeakerEnroller).
     private val speakerEnroller: SpeakerEnroller,
     private val speakerIdentityStore: SpeakerIdentityStore,
+    // R6: the language->model map and the per-language support predicate.
+    private val scopeProfileStore: ScopeProfileStore,
+    private val languageSupportLookup: LanguageSupportLookup,
 ) : AndroidViewModel(application) {
 
     companion object {
@@ -1500,6 +1508,103 @@ class SettingsViewModel @Inject constructor(
     fun scanWatchedFolderNow(treeUri: String) = launchFolderWatch { app ->
         ScheduledFolderScheduler.scanNow(app, treeUri)
     }
+
+    // ------------------------------------------------------------------
+    // R6: scope transcription profiles (the folder rules page and the
+    // model-per-language page). Storage and precedence live in the data
+    // layer and TranscriptionProfileResolver; this block only exposes them.
+    // ------------------------------------------------------------------
+
+    /** One folder's default profile; null or empty clears it. */
+    fun setFolderProfile(treeUri: String, profile: TranscriptionProfile?) = launchFolderWatch { _ ->
+        scheduledFolderStore.setFolderProfile(treeUri, profile)
+    }
+
+    /** One subfolder rule; null or empty removes it. A root path is rejected by the store. */
+    fun setSubfolderRule(treeUri: String, path: String, profile: TranscriptionProfile?) =
+        launchFolderWatch { _ ->
+            runCatching { scheduledFolderStore.setSubfolderRule(treeUri, path, profile) }
+                // Never the path: folder names can identify people.
+                .onFailure { Log.w(TAG, "scope_rule_write_failed scope=subfolder", it) }
+        }
+
+    /** The language→model map (keys lowercase: the resolver's lookup is exact). */
+    fun setLanguageModel(language: String, backendId: String?) {
+        val key = language.trim().lowercase()
+        viewModelScope.launch {
+            scopeProfileStore.setLanguageModel(key, backendId)
+            if (_languageModelDraft.value == key) _languageModelDraft.value = null
+        }
+    }
+
+    /** A language added on the page but not mapped yet (its row asks for a model). */
+    private val _languageModelDraft = MutableStateFlow<String?>(null)
+
+    fun startLanguageModelDraft(language: String?) {
+        _languageModelDraft.value = language?.trim()?.lowercase()?.takeUnless { it.isEmpty() }
+    }
+
+    /** The shared rule-editor inputs (History's long-press editor reads the same source). */
+    private val profileOutcomeSource = ProfileOutcomeSource(
+        scopeProfileStore, preferencesManager, activeModelRepository, languageSupportLookup, externalRecordsProvider,
+    )
+
+    /** The concrete language codes the rule pickers offer ([ProfileOutcomeSource.ruleLanguageCodes]). */
+    val ruleLanguageCodes: StateFlow<List<String>> =
+        profileOutcomeSource.ruleLanguageCodes()
+            .flowOn(Dispatchers.Default)
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    data class LanguageModelRow(
+        val language: String,
+        /** null = the draft row (added, no model chosen yet). */
+        val backendId: String?,
+        /** Installed models that do not find [language] UNSUPPORTED. */
+        val candidates: List<InstalledBackend>,
+    )
+
+    /** The model-per-language page: mapped languages in map order, then the draft. */
+    val languageModelRows: StateFlow<List<LanguageModelRow>> =
+        combine(
+            scopeProfileStore.languageModelsFlow,
+            activeModelRepository.installedBackendsFlow,
+            _languageModelDraft,
+        ) { map, installed, draft -> Triple(map, installed, draft) }
+            .map { (map, installed, draft) ->
+                val entries: List<Pair<String, String?>> =
+                    map.entries.map { it.key to it.value } +
+                        listOfNotNull(draft?.takeUnless { it in map }?.let { it to null })
+                entries.map { (language, backendId) ->
+                    LanguageModelRow(
+                        language = language,
+                        backendId = backendId,
+                        candidates = installed.filter {
+                            languageSupportLookup.support(it.backendId, language) != LanguageSupport.UNSUPPORTED
+                        },
+                    )
+                }
+            }
+            .flowOn(Dispatchers.Default)
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    private val _profilePreview = MutableStateFlow<ProfilePreview?>(null)
+
+    fun previewProfile(scope: EditedScope, base: ScopeChain, profile: TranscriptionProfile?) {
+        _profilePreview.value = ProfilePreview(scope, base, profile)
+    }
+
+    fun clearProfilePreview() {
+        _profilePreview.value = null
+    }
+
+    /** The open editor's outcome line (null while no editor previews). */
+    val profileOutcome: StateFlow<ProfileOutcomeUi?> =
+        profileOutcomeSource.outcomes(
+            _profilePreview,
+            combine(_refinementEnabled, _refinementAvailable) { on, available -> on && available },
+        )
+            .flowOn(Dispatchers.Default)
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
 
     /**

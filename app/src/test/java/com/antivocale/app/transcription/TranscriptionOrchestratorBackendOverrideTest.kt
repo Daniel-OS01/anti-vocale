@@ -370,4 +370,108 @@ class TranscriptionOrchestratorBackendOverrideTest : TranscriptionOrchestratorTe
         }
         verify { backendManager.unloadActiveBackend() }
     }
+
+    /** What the manager reports as resident; setActiveBackend/unload move it. */
+    private val activeId = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
+
+    private suspend fun kotlinx.coroutines.CoroutineScope.runParakeetOverride(
+        keepBackendLoaded: Boolean,
+        loadTakesEffect: Boolean = true,
+    ) {
+        val parakeetDir = createTempModelDir("parakeet")
+        every { preferencesManager.sherpaModelPath(BuiltInBackendIds.PARAKEET) } returns flowOf(parakeetDir.absolutePath)
+        every { preferencesManager.threadCount } returns flowOf(4)
+        every { preferencesManager.keepAliveTimeout } returns flowOf(5)
+        // No resident backend: ensureBackendLoaded makes no unload call of
+        // its own, so every counted unload comes from the request's finally.
+        every { backendManager.hasActiveBackend() } returns false
+        every { backendManager.activeBackendId } returns activeId
+        coEvery { backendManager.setActiveBackend(any(), any(), any()) } answers {
+            if (loadTakesEffect) activeId.value = firstArg()
+            Result.success(Unit)
+        }
+        every { backendManager.unloadActiveBackend() } answers { activeId.value = null }
+
+        orchestrator.processRequest(
+            taskId = "test-keep-$keepBackendLoaded",
+            requestType = "text",
+            prompt = "hi",
+            filePath = null,
+            source = "share",
+            sourcePackage = null,
+            backendOverride = BuiltInBackendIds.PARAKEET,
+            queuePosition = 1,
+            queueTotal = 2,
+            context = createMockContext(),
+            cacheDir = File("/cache"),
+            listener = listener,
+            coroutineScope = this,
+            keepBackendLoaded = keepBackendLoaded,
+        )
+    }
+
+    @Test
+    fun `override with keepBackendLoaded leaves the model resident`() = runTest {
+        runParakeetOverride(keepBackendLoaded = true)
+
+        coVerify { backendManager.setActiveBackend(BuiltInBackendIds.PARAKEET, any(), any()) }
+        verify(exactly = 0) { backendManager.unloadActiveBackend() }
+    }
+
+    @Test
+    fun `override without keepBackendLoaded unloads once`() = runTest {
+        runParakeetOverride(keepBackendLoaded = false)
+
+        verify(exactly = 1) { backendManager.unloadActiveBackend() }
+    }
+
+    @Test
+    fun `releaseKeptOverride unloads a kept override model once`() = runTest {
+        runParakeetOverride(keepBackendLoaded = true)
+        verify(exactly = 0) { backendManager.unloadActiveBackend() }
+
+        orchestrator.releaseKeptOverride()
+        verify(exactly = 1) { backendManager.unloadActiveBackend() }
+
+        // The flag is cleared: a second drain end unloads nothing more.
+        orchestrator.releaseKeptOverride()
+        verify(exactly = 1) { backendManager.unloadActiveBackend() }
+    }
+
+    @Test
+    fun `releaseKeptOverride never unloads a model other than the kept override`() = runTest {
+        runParakeetOverride(keepBackendLoaded = true)
+        // Something else (e.g. the global model) became resident since.
+        activeId.value = "global-model"
+
+        orchestrator.releaseKeptOverride()
+
+        verify(exactly = 0) { backendManager.unloadActiveBackend() }
+    }
+
+    @Test
+    fun `an override that never became resident is not recorded as kept`() = runTest {
+        // Review R6-2: the request returned without its override becoming the
+        // active backend (the subtitle-extraction shape); the global model
+        // stays resident and the drain must not unload it.
+        activeId.value = "global-model"
+        runParakeetOverride(keepBackendLoaded = true, loadTakesEffect = false)
+
+        orchestrator.releaseKeptOverride()
+
+        verify(exactly = 0) { backendManager.unloadActiveBackend() }
+    }
+
+    @Test
+    fun `releaseKeptOverride is a no-op when no override was kept`() = runTest {
+        every { backendManager.unloadActiveBackend() } returns Unit
+        orchestrator.releaseKeptOverride()
+        verify(exactly = 0) { backendManager.unloadActiveBackend() }
+
+        // An unkept override already unloaded in its own finally; the
+        // drain-end release adds nothing.
+        runParakeetOverride(keepBackendLoaded = false)
+        orchestrator.releaseKeptOverride()
+        verify(exactly = 1) { backendManager.unloadActiveBackend() }
+    }
 }

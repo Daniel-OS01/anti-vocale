@@ -24,10 +24,13 @@ import com.antivocale.app.data.SourceKind
 import com.antivocale.app.data.FileSnapshot
 import com.antivocale.app.data.FolderScanPlanner
 import com.antivocale.app.data.FolderWalk
+import com.antivocale.app.data.OriginFacts
 import com.antivocale.app.data.ScheduledFolderStore
+import com.antivocale.app.data.ScopeProfileSource
 import com.antivocale.app.service.AudioRequestIntent
 import com.antivocale.app.service.InferenceEnqueue
 import com.antivocale.app.service.InferenceService
+import com.antivocale.app.transcription.ResolvedProfile
 import com.antivocale.app.util.SharedAudioHandler
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
@@ -64,6 +67,7 @@ class ScheduledFolderWorker @AssistedInject constructor(
     @Assisted appContext: Context,
     @Assisted params: WorkerParameters,
     private val store: ScheduledFolderStore,
+    private val scopeProfileSource: ScopeProfileSource,
 ) : CoroutineWorker(appContext, params) {
 
     override suspend fun doWork(): Result {
@@ -187,8 +191,23 @@ class ScheduledFolderWorker @AssistedInject constructor(
             val working = plan.nextSnapshot.toMutableList()
             var enqueued = 0
             var failed = 0
+            // R6: each file's scope profile (folder profile, deepest
+            // subfolder rule, the language map), resolved before the
+            // enqueue. The inputs are the tree and the subfolder only, so one
+            // resolution per distinct subfolder covers every file in it.
+            val profiles: Map<String?, ResolvedProfile> = plan.toEnqueue
+                .map { FolderScanPlanner.subPathOf(it.name) }
+                .distinct()
+                .associateWith { subPath ->
+                    scopeProfileSource.resolve(OriginFacts(folderTreeUri = treeUriString, subPath = subPath))
+                }
+            fun profileOf(child: FolderScanPlanner.Child): ResolvedProfile? =
+                profiles[FolderScanPlanner.subPathOf(child.name)]
+            // Same-model files run back to back (fewer model swaps in the
+            // service queue); the global model's group goes first.
+            val ordered = orderByBackend(plan.toEnqueue) { profileOf(it)?.backendOverride }
             kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                for (child in plan.toEnqueue) {
+                for (child in ordered) {
                     val uri = childrenWithUris.firstOrNull { it.first.name == child.name }?.second
                     val stamped: FileSnapshot
                     if (uri == null) {
@@ -203,7 +222,10 @@ class ScheduledFolderWorker @AssistedInject constructor(
                             ?.let {
                                 InferenceEnqueue.start(
                                     applicationContext,
-                                    buildServiceIntent(applicationContext, it.path, child.name, treeUriString, folder.displayName),
+                                    buildServiceIntent(
+                                        applicationContext, it.path, child.name, treeUriString,
+                                        folder.displayName, profileOf(child),
+                                    ),
                                 )
                             }
                         if (copy is SharedAudioHandler.CopyResult.Success &&
@@ -258,6 +280,8 @@ class ScheduledFolderWorker @AssistedInject constructor(
          * planner's name (see FolderScanPlanner's IDENTITY); the caller lookup
          * reads its basename, the file name a recorder actually wrote, and its
          * parent directory rides as the History subfolder (null for a root file).
+         * [profile] is the file's already-resolved scope profile (R6; resolved
+         * by the scan, so this stays a pure builder); null sets no override.
          */
         internal fun buildServiceIntent(
             context: Context,
@@ -265,6 +289,7 @@ class ScheduledFolderWorker @AssistedInject constructor(
             relativePath: String,
             treeUri: String,
             folderName: String,
+            profile: ResolvedProfile? = null,
         ): Intent =
             // TASK-776: the shared audio-request factory; the taskId stays
             // local because its derivation is this worker's contract.
@@ -283,7 +308,17 @@ class ScheduledFolderWorker @AssistedInject constructor(
                 sourceFolderKey = treeUri,
                 sourceFolderName = folderName,
                 sourceSubPath = FolderScanPlanner.subPathOf(relativePath),
+                backendOverride = profile?.backendOverride,
+                languageOverride = profile?.languageOverride,
             )
+
+        /**
+         * R6: the scan's enqueue order, stably sorted by resolved backend
+         * override (null, the global model, first), so same-model files
+         * run back to back; the planner's order holds inside each group.
+         */
+        internal fun <T> orderByBackend(items: List<T>, backendOf: (T) -> String?): List<T> =
+            items.sortedWith(compareBy<T, String?>(nullsFirst(naturalOrder<String>())) { backendOf(it) })
 
         /** The per-folder serialization (see the class KDoc). */
         private val scanMutexes = java.util.concurrent.ConcurrentHashMap<String, Mutex>()

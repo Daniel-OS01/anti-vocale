@@ -96,4 +96,41 @@ class ScheduledFolderWorkerScanNowTest {
             assertTrue((callsNames intersect other).isEmpty())
         }
     }
+
+    // ---- R6: the resolved scope profile ----
+
+    @Test
+    fun `the folder-watch intent carries both resolved overrides`() {
+        val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
+        val tree = "content://tree/primary%3ARecordings"
+        val profile = com.antivocale.app.transcription.ResolvedProfile(
+            backendOverride = "gigaam",
+            languageOverride = "ru",
+            decidedBy = com.antivocale.app.transcription.ScopeKind.SUBFOLDER,
+        )
+        val intent = ScheduledFolderWorker.buildServiceIntent(
+            context, "/data/copy.m4a", "Russian/rec.m4a", tree, "Recordings", profile)
+        assertEquals("gigaam", intent.getStringExtra(InferenceService.EXTRA_BACKEND_OVERRIDE))
+        assertEquals("ru", intent.getStringExtra(InferenceService.EXTRA_LANGUAGE_OVERRIDE))
+        // The task-id format is another feature's contract.
+        assertTrue(checkNotNull(intent.getStringExtra(TaskerRequestReceiver.EXTRA_TASK_ID)).startsWith("fwatch_"))
+
+        val none = ScheduledFolderWorker.buildServiceIntent(context, "/data/copy.m4a", "rec.m4a", tree, "Recordings")
+        assertFalse(none.hasExtra(InferenceService.EXTRA_BACKEND_OVERRIDE))
+        assertFalse(none.hasExtra(InferenceService.EXTRA_LANGUAGE_OVERRIDE))
+    }
+
+    @Test
+    fun `the scan order groups files by resolved backend, global first, stable inside each group`() {
+        val files = listOf(
+            "a" to "whisper",
+            "b" to null,
+            "c" to "gigaam",
+            "d" to "whisper",
+            "e" to null,
+            "f" to "gigaam",
+        )
+        val ordered = ScheduledFolderWorker.orderByBackend(files) { it.second }.map { it.first }
+        assertEquals(listOf("b", "e", "c", "f", "a", "d"), ordered)
+    }
 }

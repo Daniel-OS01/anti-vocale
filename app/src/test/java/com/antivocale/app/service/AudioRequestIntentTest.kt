@@ -100,4 +100,19 @@ class AudioRequestIntentTest {
             context, InferenceService.SOURCE_VOICE_NOTE, "t7", "/local/e.opus")
         assertEquals(false, live.getBooleanExtra(InferenceService.EXTRA_CATCHUP, false))
     }
+
+    @Test
+    fun `the language override rides when set and is omitted when null or blank`() {
+        val pinned = AudioRequestIntent.make(
+            context, InferenceService.SOURCE_FOLDER_WATCH, "t8", "/local/f.m4a", languageOverride = "ru")
+        assertEquals("ru", pinned.getStringExtra(InferenceService.EXTRA_LANGUAGE_OVERRIDE))
+
+        val none = AudioRequestIntent.make(
+            context, InferenceService.SOURCE_FOLDER_WATCH, "t9", "/local/g.m4a")
+        assertEquals(false, none.hasExtra(InferenceService.EXTRA_LANGUAGE_OVERRIDE))
+
+        val blank = AudioRequestIntent.make(
+            context, InferenceService.SOURCE_FOLDER_WATCH, "t10", "/local/h.m4a", languageOverride = "  ")
+        assertEquals(false, blank.hasExtra(InferenceService.EXTRA_LANGUAGE_OVERRIDE))
+    }
 }
