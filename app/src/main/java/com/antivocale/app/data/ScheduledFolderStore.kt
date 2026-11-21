@@ -29,8 +29,11 @@ import javax.inject.Singleton
  *
  * Unlike ExternalModelStore (whose defaulted dirExists param is invisible to
  * Dagger and needs an AppModule provider), the constructor is fully
- * injectable. @Singleton is NOT optional: the mutex's lost-update
- * rationale assumes every injection site shares ONE instance.
+ * injectable. The read-modify-write lock is process-wide (companion), so
+ * the delete-time scrub ([scrubBackendIn], reached through
+ * [TranscriptionPinScrubber] with only a [PreferencesManager]) serializes
+ * with the store's own writes; @Singleton stays so every site shares one
+ * flow.
  */
 @Singleton
 class ScheduledFolderStore @Inject constructor(
@@ -57,6 +60,46 @@ class ScheduledFolderStore @Inject constructor(
         require(periodHours in 1..24) { "periodHours must be 1..24 (was $periodHours)" }
         list.map { if (it.treeUri == treeUri) it.copy(periodHours = periodHours) else it }
     }
+
+    /**
+     * R6: the folder's own profile (null or empty clears it). Writes
+     * through the current record like [updatePeriod].
+     */
+    suspend fun setFolderProfile(treeUri: String, profile: TranscriptionProfile?): List<WatchedFolder> =
+        mutate { list ->
+            list.map {
+                if (it.treeUri == treeUri) it.copy(profile = profile?.takeUnless { p -> p.isEmpty }) else it
+            }
+        }
+
+    /**
+     * R6: one subfolder rule, keyed by [SubfolderPaths.normalize] of [path];
+     * a null or empty [profile] removes it. A path that normalizes to the
+     * root is rejected: the root's profile is [setFolderProfile].
+     */
+    suspend fun setSubfolderRule(
+        treeUri: String,
+        path: String,
+        profile: TranscriptionProfile?,
+    ): List<WatchedFolder> {
+        val key = requireNotNull(SubfolderPaths.normalize(path)) {
+            "a subfolder rule needs a non-root path; use setFolderProfile for the root"
+        }
+        return mutate { list ->
+            list.map {
+                if (it.treeUri != treeUri) {
+                    it
+                } else if (profile == null || profile.isEmpty) {
+                    it.copy(subfolderRules = it.subfolderRules - key)
+                } else {
+                    it.copy(subfolderRules = it.subfolderRules + (key to profile))
+                }
+            }
+        }
+    }
+
+    /** Blanks [backendId] in every folder profile and subfolder rule. */
+    suspend fun scrubBackend(backendId: String): Boolean = scrubBackendIn(preferencesManager, backendId)
 
     /** The scan memory for one folder (empty until the first scan lands). */
     suspend fun snapshotFor(treeUri: String): List<FileSnapshot> =
@@ -101,13 +144,55 @@ class ScheduledFolderStore @Inject constructor(
         }
     }
 
-    private suspend fun mutate(block: (List<WatchedFolder>) -> List<WatchedFolder>): List<WatchedFolder> = mutateMutex.withLock {
-        val next = block(folders())
-        preferencesManager.saveScheduledFoldersJson(ScheduledFoldersJson.encode(next))
-        next
-    }
+    private suspend fun mutate(block: (List<WatchedFolder>) -> List<WatchedFolder>): List<WatchedFolder> =
+        mutateIn(preferencesManager, block)
 
-    private val mutateMutex = Mutex()
+    companion object {
+        /** Process-wide: see the class KDoc. */
+        private val mutateMutex = Mutex()
+
+        private suspend fun mutateIn(
+            prefs: PreferencesManager,
+            block: (List<WatchedFolder>) -> List<WatchedFolder>,
+        ): List<WatchedFolder> = mutateMutex.withLock {
+            val next = block(ScheduledFoldersJson.decode(prefs.scheduledFoldersJson.first()))
+            prefs.saveScheduledFoldersJson(ScheduledFoldersJson.encode(next))
+            next
+        }
+
+        /**
+         * R6 delete-time scrub: [backendId] is blanked in every folder
+         * profile and subfolder rule (a profile left empty is removed).
+         * Writes only when something changed; returns whether it did.
+         */
+        suspend fun scrubBackendIn(prefs: PreferencesManager, backendId: String): Boolean {
+            if (backendId.isBlank()) return false
+            return mutateMutex.withLock {
+                val current = ScheduledFoldersJson.decode(prefs.scheduledFoldersJson.first())
+                val next = current.map { it.withoutBackend(backendId) }
+                if (next != current) {
+                    prefs.saveScheduledFoldersJson(ScheduledFoldersJson.encode(next))
+                    true
+                } else {
+                    false
+                }
+            }
+        }
+
+        /** Every backend id a folder profile or subfolder rule names. */
+        suspend fun referencedBackendIdsIn(prefs: PreferencesManager): Set<String> =
+            ScheduledFoldersJson.decode(prefs.scheduledFoldersJson.first()).flatMapTo(mutableSetOf()) { folder ->
+                listOfNotNull(folder.profile?.backendId) +
+                    folder.subfolderRules.values.mapNotNull { it.backendId }
+            }
+
+        private fun WatchedFolder.withoutBackend(backendId: String): WatchedFolder = copy(
+            profile = TranscriptionProfileJson.withoutBackend(profile, backendId),
+            subfolderRules = subfolderRules.mapNotNull { (path, rule) ->
+                TranscriptionProfileJson.withoutBackend(rule, backendId)?.let { path to it }
+            }.toMap(),
+        )
+    }
 }
 
 /**
@@ -137,6 +222,12 @@ data class WatchedFolder(
     val snapshot: List<FileSnapshot> = emptyList(),
     val recursiveBaselined: Boolean = true,
     val recursiveBaselineCutoff: Long? = null,
+    /** R6: the folder's own profile (null = none). Device-bound, like the
+     *  whole record (scheduled_folders_json is excluded from backup). */
+    val profile: TranscriptionProfile? = null,
+    /** R6: subfolder profiles keyed by [SubfolderPaths.normalize]d relative
+     *  path; the deepest match wins ([SubfolderPaths.longestMatch]). */
+    val subfolderRules: Map<String, TranscriptionProfile> = emptyMap(),
 ) {
     companion object {
         const val DEFAULT_PERIOD_HOURS = 6
@@ -166,11 +257,19 @@ object ScheduledFoldersJson {
                 .put("enqueuedAt", snap.enqueuedAt ?: JSONObject.NULL)
         }))
         .apply { recursiveBaselineCutoff?.let { put("recursiveBaselineCutoff", it) } }
+        // R6: written only when set, so a record without profiles keeps
+        // its pre-R6 shape.
+        .apply { profile?.takeUnless { it.isEmpty }?.let { put("profile", TranscriptionProfileJson.toJson(it)) } }
+        .apply {
+            if (subfolderRules.isNotEmpty()) {
+                put("subfolderRules", TranscriptionProfileJson.encodeMap(subfolderRules))
+            }
+        }
 
     private fun fromJson(o: JSONObject): WatchedFolder? {
         val uri = o.optString("treeUri")
         if (uri.isBlank()) return null
-        return runCatching {
+        val folder = runCatching {
             val snaps = o.optJSONArray("snapshot") ?: JSONArray()
             WatchedFolder(
                 treeUri = uri,
@@ -200,7 +299,18 @@ object ScheduledFoldersJson {
                     null
                 },
             )
-        }.getOrNull()
+        }.getOrNull() ?: return null
+        // R6: the profile fields parse in their OWN containment: a malformed
+        // profile or rule map reads as unset instead of dropping the folder
+        // record (and with it the folder's scan memory) on the next write.
+        val profile = runCatching { TranscriptionProfileJson.fromJson(o.optJSONObject("profile")) }
+            .onFailure { Log.w(TAG, "watched_folder_profile_malformed") }
+            .getOrNull()
+        val rules = runCatching {
+            TranscriptionProfileJson.decodeMap(o.optJSONObject("subfolderRules"), SubfolderPaths::normalize)
+        }.onFailure { Log.w(TAG, "watched_folder_subfolder_rules_malformed") }
+            .getOrDefault(emptyMap())
+        return folder.copy(profile = profile, subfolderRules = rules)
     }
 
     private fun enqueuedAt(o: JSONObject): Long? =

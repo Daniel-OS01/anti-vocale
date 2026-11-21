@@ -64,6 +64,9 @@ class PreferencesManagerImpl(
         private val VOICE_NOTE_BACKEND_ID = stringPreferencesKey("voice_note_backend_id")
         private val VOICE_NOTE_BUSINESS_BACKEND_ID =
             stringPreferencesKey("voice_note_business_backend_id")
+        // R6: per-sender profiles and the language->model map (ScopeProfileStore).
+        private val SENDER_PROFILES_JSON = stringPreferencesKey("sender_profiles_json")
+        private val LANGUAGE_MODEL_MAP_JSON = stringPreferencesKey("language_model_map_json")
         private val WIPED_REPAIR_CAPTURED_ACTIVE =
             stringPreferencesKey("wiped_repair_captured_active")
         private val WIPED_REPAIR_CAPTURED_PIN =
@@ -197,6 +200,8 @@ class PreferencesManagerImpl(
         val previewModelBackendId: String = "",
         val voiceNoteBackendId: String = "",
         val voiceNoteBusinessBackendId: String = "",
+        val senderProfilesJson: String = "",
+        val languageModelMapJson: String = "",
         val sherpaModelPaths: Map<String, String?> = emptyMap(),
         val customTransducerModelPath: String? = null,
         val customTransducerModelType: String = PreferencesManager.DEFAULT_CUSTOM_TRANSDUCER_MODEL_TYPE,
@@ -277,6 +282,8 @@ class PreferencesManagerImpl(
         previewModelBackendId = this[PREVIEW_MODEL_BACKEND_ID] ?: "",
         voiceNoteBackendId = this[VOICE_NOTE_BACKEND_ID] ?: "",
         voiceNoteBusinessBackendId = this[VOICE_NOTE_BUSINESS_BACKEND_ID] ?: "",
+        senderProfilesJson = this[SENDER_PROFILES_JSON] ?: "",
+        languageModelMapJson = this[LANGUAGE_MODEL_MAP_JSON] ?: "",
         sherpaModelPaths = LEGACY_MODEL_PATH_KEYS.entries.associate { (entryId, legacyKey) ->
             entryId to (this[sherpaModelPathKey(entryId)] ?: this[legacyKey])
         },
@@ -563,6 +570,30 @@ class PreferencesManagerImpl(
             preferences[VOICE_NOTE_BUSINESS_BACKEND_ID] = backendId
         }
         cache.updateAndGet { it.copy(voiceNoteBusinessBackendId = backendId) }
+    }
+
+    override val senderProfilesJson: Flow<String> =
+        dataStore.data.map { it[SENDER_PROFILES_JSON] ?: "" }
+            .onStart { emit(cache.get().senderProfilesJson) }
+            .distinctUntilChanged()
+
+    override suspend fun saveSenderProfilesJson(json: String) {
+        dataStore.edit { preferences ->
+            preferences[SENDER_PROFILES_JSON] = json
+        }
+        cache.updateAndGet { it.copy(senderProfilesJson = json) }
+    }
+
+    override val languageModelMapJson: Flow<String> =
+        dataStore.data.map { it[LANGUAGE_MODEL_MAP_JSON] ?: "" }
+            .onStart { emit(cache.get().languageModelMapJson) }
+            .distinctUntilChanged()
+
+    override suspend fun saveLanguageModelMapJson(json: String) {
+        dataStore.edit { preferences ->
+            preferences[LANGUAGE_MODEL_MAP_JSON] = json
+        }
+        cache.updateAndGet { it.copy(languageModelMapJson = json) }
     }
 
     override suspend fun saveTranscriptionBackend(backendId: String) {

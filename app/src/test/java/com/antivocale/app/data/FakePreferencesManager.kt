@@ -339,6 +339,17 @@ internal class FakePreferencesManager : PreferencesManager {
     override suspend fun saveVoiceNoteBusinessBackendId(backendId: String) {
         _voiceNoteBusinessBackendId.value = backendId
     }
+    // R6: per-sender profiles and the language->model map ("" = none).
+    val _senderProfilesJson = MutableStateFlow("")
+    override val senderProfilesJson: Flow<String> = _senderProfilesJson
+    override suspend fun saveSenderProfilesJson(json: String) {
+        _senderProfilesJson.value = json
+    }
+    val _languageModelMapJson = MutableStateFlow("")
+    override val languageModelMapJson: Flow<String> = _languageModelMapJson
+    override suspend fun saveLanguageModelMapJson(json: String) {
+        _languageModelMapJson.value = json
+    }
 
     // TASK-588.1: the advanced-reveal state (default collapsed, like prod).
     val _transcriptionAdvancedExpanded = MutableStateFlow(false)

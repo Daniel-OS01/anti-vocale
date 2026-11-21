@@ -196,4 +196,110 @@ class ScheduledFolderStoreTest {
         assertEquals(emptyList<WatchedFolder>(), ScheduledFoldersJson.decode("not json at all"))
         assertEquals(emptyList<WatchedFolder>(), ScheduledFoldersJson.decode(null))
     }
+
+    // ---- R6: folder profiles and subfolder rules ----
+
+    private val ru = TranscriptionProfile(backendId = "gigaam", language = "ru")
+
+    @Test
+    fun `profile and subfolder rules round-trip through the JSON`() {
+        val f = folder(uri = "u").copy(
+            profile = TranscriptionProfile(language = "it"),
+            subfolderRules = mapOf("Russian" to ru, "Russian/2024" to TranscriptionProfile(backendId = "whisper")),
+        )
+        assertEquals(f, ScheduledFoldersJson.decode(ScheduledFoldersJson.encode(listOf(f))).single())
+    }
+
+    @Test
+    fun `a folder without profiles encodes no profile keys and decodes unchanged`() {
+        val encoded = ScheduledFoldersJson.encode(listOf(folder(uri = "u")))
+        val o = JSONArray(encoded).getJSONObject(0)
+        assertFalse(o.has("profile"))
+        assertFalse(o.has("subfolderRules"))
+        assertEquals(folder(uri = "u"), ScheduledFoldersJson.decode(encoded).single())
+    }
+
+    @Test
+    fun `null profile fields are omitted from the JSON`() {
+        val encoded = ScheduledFoldersJson.encode(
+            listOf(folder(uri = "u").copy(profile = TranscriptionProfile(backendId = "gigaam"))))
+        val profile = JSONArray(encoded).getJSONObject(0).getJSONObject("profile")
+        assertEquals("gigaam", profile.getString("backendId"))
+        assertFalse(profile.has("language"))
+    }
+
+    @Test
+    fun `old JSON without the R6 keys decodes with no profile and no rules`() {
+        val old = JSONObject().put("treeUri", "u").put("displayName", "Rec").put("periodHours", 6)
+            .put("recursiveBaselined", true).put("snapshot", JSONArray())
+        val decoded = ScheduledFoldersJson.decode(JSONArray(listOf(old)).toString()).single()
+        assertNull(decoded.profile)
+        assertEquals(emptyMap<String, TranscriptionProfile>(), decoded.subfolderRules)
+    }
+
+    @Test
+    fun `malformed R6 keys read as unset and the folder survives`() {
+        val snaps = JSONArray(listOf(JSONObject().put("name", "a.m4a").put("size", 3)))
+        val bad = JSONObject().put("treeUri", "u").put("displayName", "Rec").put("periodHours", 6)
+            .put("recursiveBaselined", true).put("snapshot", snaps)
+            .put("profile", "not an object")
+            .put("subfolderRules", JSONArray(listOf(1, 2)))
+        val decoded = ScheduledFoldersJson.decode(JSONArray(listOf(bad)).toString()).single()
+        assertEquals("u", decoded.treeUri)
+        assertEquals("a.m4a", decoded.snapshot.single().name)
+        assertNull(decoded.profile)
+        assertEquals(emptyMap<String, TranscriptionProfile>(), decoded.subfolderRules)
+    }
+
+    @Test
+    fun `a malformed rule drops alone, empty and blank profiles decode to null, keys normalize`() {
+        val rules = JSONObject()
+            .put("/Russian//2024/", JSONObject().put("backendId", "gigaam"))
+            .put("Bad", "string")
+            .put("Empty", JSONObject())
+            .put("Blank", JSONObject().put("backendId", "  ").put("language", ""))
+        val o = JSONObject().put("treeUri", "u").put("displayName", "Rec").put("periodHours", 6)
+            .put("recursiveBaselined", true).put("snapshot", JSONArray())
+            .put("profile", JSONObject().put("backendId", " ").put("language", JSONObject.NULL))
+            .put("subfolderRules", rules)
+        val decoded = ScheduledFoldersJson.decode(JSONArray(listOf(o)).toString()).single()
+        assertNull(decoded.profile)
+        assertEquals(mapOf("Russian/2024" to TranscriptionProfile(backendId = "gigaam")), decoded.subfolderRules)
+    }
+
+    @Test
+    fun `setFolderProfile and setSubfolderRule edit only the target folder`() = runTest {
+        store.add(folder(uri = "a"))
+        store.add(folder(uri = "b"))
+        store.setFolderProfile("a", TranscriptionProfile(language = "it"))
+        store.setSubfolderRule("a", "/Russian/", ru)
+        val a = store.byUri("a")!!
+        assertEquals(TranscriptionProfile(language = "it"), a.profile)
+        assertEquals(mapOf("Russian" to ru), a.subfolderRules)
+        assertNull(store.byUri("b")?.profile)
+        // Null or empty removes; the state survives a fresh decode.
+        store.setSubfolderRule("a", "Russian", TranscriptionProfile())
+        store.setFolderProfile("a", null)
+        assertEquals(emptyMap<String, TranscriptionProfile>(), ScheduledFolderStore(fake).byUri("a")?.subfolderRules)
+        assertNull(store.byUri("a")?.profile)
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun `a root subfolder rule is rejected`() = runTest {
+        store.add(folder(uri = "a"))
+        store.setSubfolderRule("a", " / ", ru)
+    }
+
+    @Test
+    fun `scrubBackend blanks the id in profiles and rules and keeps the rest`() = runTest {
+        store.add(folder(uri = "a"))
+        store.setFolderProfile("a", ru)
+        store.setSubfolderRule("a", "Russian", TranscriptionProfile(backendId = "gigaam"))
+        store.setSubfolderRule("a", "Italian", TranscriptionProfile(backendId = "whisper"))
+        assertTrue(store.scrubBackend("gigaam"))
+        val a = store.byUri("a")!!
+        assertEquals(TranscriptionProfile(language = "ru"), a.profile)
+        assertEquals(mapOf("Italian" to TranscriptionProfile(backendId = "whisper")), a.subfolderRules)
+        assertFalse(store.scrubBackend("gigaam"))
+    }
 }
