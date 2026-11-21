@@ -59,7 +59,7 @@ class LogsViewModelSelectionTest : ViewModelTeardownTest() {
         Dispatchers.setMain(testDispatcher)
         logDao = mockk(relaxed = true)
         every { logDao.getAll() } returns rows
-        viewModel = register(LogsViewModel(mockk(relaxed = true), logDao, stubPreferencesManager(), staticRegistry(), mockk(relaxed = true), mockk(relaxed = true), mockk(relaxed = true), mockk(relaxed = true), orchestrator = mockk(relaxed = true), duplicateGuard = mockk(relaxed = true), scheduledFolderStore = mockk(relaxed = true), historyBulkRedo = mockk(relaxed = true), profileOutcomeSource = mockk(relaxed = true), appScope = appScope))
+        viewModel = register(LogsViewModel(mockk(relaxed = true), logDao, stubPreferencesManager(), staticRegistry(), mockk(relaxed = true), mockk(relaxed = true), mockk(relaxed = true), mockk(relaxed = true), orchestrator = mockk(relaxed = true), duplicateGuard = mockk(relaxed = true), scheduledFolderStore = mockk(relaxed = true), historyBulkRedo = mockk(relaxed = true), scopeProfileStore = mockk(relaxed = true), profileOutcomeSource = mockk(relaxed = true), appScope = appScope))
     }
 
     // (deleted, skipped): the id is unique per delete, so tests compare counts.
