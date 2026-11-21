@@ -48,7 +48,7 @@ class ScopeProfileSource @Inject constructor(
     private val preferencesManager: PreferencesManager,
     private val folderStore: ScheduledFolderStore,
     private val scopeProfileStore: ScopeProfileStore,
-    private val activeModelRepository: ActiveModelRepository,
+    private val backendLoadability: BackendLoadability,
     private val languageSupportLookup: LanguageSupportLookup,
 ) {
 
@@ -83,14 +83,13 @@ class ScopeProfileSource @Inject constructor(
     private suspend fun resolveChain(chain: ScopeChain): ResolvedProfile {
         val languageModels = scopeProfileStore.languageModels()
         val globalBackendId = preferencesManager.transcriptionBackend.first()
-        val installed: Set<String> =
-            activeModelRepository.installedBackendsFlow.first().mapTo(HashSet()) { it.backendId }
+        val loadable = loadableCandidates(chain, languageModels)
         val supportTable = supportTable(chain, languageModels, globalBackendId)
         return TranscriptionProfileResolver.resolve(
             chain = chain,
             languageModels = languageModels,
             globalBackendId = globalBackendId,
-            isLoadable = { id -> id.isNotBlank() && id in installed },
+            isLoadable = { id -> id.trim() in loadable },
             support = { backend, language ->
                 // Every pair the resolver can ask about is in the table by
                 // construction (see supportTable); a miss is a broken
@@ -99,6 +98,25 @@ class ScopeProfileSource @Inject constructor(
                     ?: error("scope profile support pair was not pre-resolved")
             },
         )
+    }
+
+    /**
+     * The resolver asks `isLoadable` only about scope pins and
+     * `languageModels[L]` for a scope language L, so those are the only
+     * ids checked. Loadability is read from persisted state
+     * ([BackendLoadability]), never the cold-start-empty records StateFlow.
+     */
+    private suspend fun loadableCandidates(
+        chain: ScopeChain,
+        languageModels: Map<String, String>,
+    ): Set<String> {
+        val scopes = listOf(chain.sender, chain.subfolder, chain.folder, chain.sourceDefault)
+        val candidates = buildSet {
+            scopes.forEach { scope -> scope?.backendId.nonBlank()?.let { add(it) } }
+            scopes.mapNotNull { it?.language.nonBlank() }
+                .forEach { language -> languageModels[language].nonBlank()?.let { add(it) } }
+        }
+        return candidates.filterTo(HashSet()) { backendLoadability.isLoadable(it) }
     }
 
     /**
@@ -121,9 +139,9 @@ class ScopeProfileSource @Inject constructor(
         if (languages.isEmpty()) return emptyMap()
         val backends = buildSet {
             add(globalBackendId)
-            chain.explicit?.backendId.nonBlank()?.let(::add)
-            scopes.forEach { scope -> scope?.backendId.nonBlank()?.let(::add) }
-            languages.forEach { language -> languageModels[language].nonBlank()?.let(::add) }
+            chain.explicit?.backendId.nonBlank()?.let { add(it) }
+            scopes.forEach { scope -> scope?.backendId.nonBlank()?.let { add(it) } }
+            languages.forEach { language -> languageModels[language].nonBlank()?.let { add(it) } }
         }
         val table = HashMap<Pair<String, String>, LanguageSupport>()
         for (backend in backends) {

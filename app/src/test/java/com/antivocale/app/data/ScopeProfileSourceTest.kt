@@ -5,10 +5,7 @@ import com.antivocale.app.transcription.LanguageSupportLookup
 import com.antivocale.app.transcription.ScopeKind
 import io.mockk.coEvery
 import io.mockk.coVerify
-import io.mockk.every
 import io.mockk.mockk
-import io.mockk.verify
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -29,13 +26,13 @@ class ScopeProfileSourceTest {
     private val scopes = ScopeProfileStore(prefs)
 
     private var installed = listOf("parakeet", "whisper", "gigaam", "qwen")
-    private val activeModels = mockk<ActiveModelRepository> {
-        every { installedBackendsFlow } answers { flowOf(installed.map { InstalledBackend(it, it) }) }
+    private val activeModels = mockk<BackendLoadability> {
+        coEvery { isLoadable(any()) } coAnswers { firstArg<String>() in installed }
     }
 
     /** Whisper and gigaam honor ru; everything else ignores languages. */
     private val support = mockk<LanguageSupportLookup> {
-        coEvery { support(any(), any()) } answers {
+        coEvery { support(any(), any()) } coAnswers {
             val backend = firstArg<String>()
             val language = secondArg<String>()
             when {
@@ -144,7 +141,7 @@ class ScopeProfileSourceTest {
         assertNull(resolved.backendOverride)
         assertNull(resolved.languageOverride)
         assertEquals(ScopeKind.GLOBAL, resolved.decidedBy)
-        verify(exactly = 0) { activeModels.installedBackendsFlow }
+        coVerify(exactly = 0) { activeModels.isLoadable(any()) }
         coVerify(exactly = 0) { support.support(any(), any()) }
     }
 

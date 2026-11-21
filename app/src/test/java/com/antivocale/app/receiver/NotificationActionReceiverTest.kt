@@ -149,4 +149,35 @@ class NotificationActionReceiverTest {
         verify(exactly = 0) { clipboardManager.setPrimaryClip(any()) }
         verify(exactly = 0) { context.startActivity(any()) }
     }
+
+    // ---- R6: the suspension re-run re-resolves from the row's facts ----
+
+    private fun rerunIntent(kind: String?, pkg: String?, folderKey: String?, subPath: String?): Intent =
+        mockk<Intent>(relaxed = true).also {
+            every { it.getStringExtra(com.antivocale.app.service.InferenceService.EXTRA_SOURCE_KIND) } returns kind
+            every { it.getStringExtra(NotificationActionReceiver.EXTRA_SOURCE_PACKAGE) } returns pkg
+            every { it.getStringExtra(com.antivocale.app.service.InferenceService.EXTRA_SOURCE_FOLDER_KEY) } returns folderKey
+            every { it.getStringExtra(com.antivocale.app.service.InferenceService.EXTRA_SOURCE_SUB_PATH) } returns subPath
+        }
+
+    @Test
+    fun `a folder-watch rerun re-resolves from its tree and subfolder`() {
+        val facts = NotificationActionReceiver.rerunOriginFacts(
+            rerunIntent(com.antivocale.app.data.SourceKind.FOLDER_WATCH, null, "content://tree/rec", "Russian"))
+        org.junit.Assert.assertEquals("content://tree/rec", facts.folderTreeUri)
+        org.junit.Assert.assertEquals("Russian", facts.subPath)
+        org.junit.Assert.assertNull(facts.voiceNoteSource)
+        org.junit.Assert.assertNull(facts.senderStorageId)
+    }
+
+    @Test
+    fun `a WhatsApp Business voice-note rerun carries its source, a shared WhatsApp file does not`() {
+        val note = NotificationActionReceiver.rerunOriginFacts(
+            rerunIntent(com.antivocale.app.data.SourceKind.VOICE_NOTE, "com.whatsapp.w4b", null, null))
+        org.junit.Assert.assertEquals(com.antivocale.app.data.VoiceNoteSource.WHATSAPP_BUSINESS, note.voiceNoteSource)
+
+        val share = NotificationActionReceiver.rerunOriginFacts(
+            rerunIntent(com.antivocale.app.data.SourceKind.SHARE, "com.whatsapp.w4b", null, null))
+        org.junit.Assert.assertNull(share.voiceNoteSource)
+    }
 }

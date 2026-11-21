@@ -57,6 +57,16 @@ class VoiceNoteAutoTranscriberTest {
         return BackendLoadability(prefs, store)
     }
 
+    /** R6: the pins now resolve through ScopeProfileSource (real stores
+     *  over [prefs]; no scope here asks the language lookup). */
+    private fun scopeSource(activeModels: BackendLoadability) = ScopeProfileSource(
+        prefs,
+        ScheduledFolderStore(prefs),
+        ScopeProfileStore(prefs),
+        activeModels,
+        mockk<com.antivocale.app.transcription.LanguageSupportLookup>(),
+    )
+
     private fun impl(
         resolveResult: String?,
         alreadyTranscribed: Boolean = false,
@@ -78,8 +88,7 @@ class VoiceNoteAutoTranscriberTest {
                 alreadyTranscribed
             }
         },
-        prefs,
-        activeModels,
+        scopeSource(activeModels),
     )
 
     @Test
@@ -176,8 +185,7 @@ class VoiceNoteAutoTranscriberTest {
             mockk<AudioPreprocessor>(),
             cache,
             mockk { coEvery { alreadyTranscribed(any()) } returns false },
-            prefs,
-            installed(),
+            scopeSource(installed()),
         )
         val outcome = transcriber.enqueue(
             "/storage/emulated/0/Music/Signal/note.m4a", 1_000L,
@@ -257,8 +265,7 @@ class VoiceNoteAutoTranscriberTest {
             // no race-window wait).
             mockk<VoiceNoteIdentityCache> { every { accepting } returns false },
             mockk { coEvery { alreadyTranscribed(any()) } returns false },
-            prefs,
-            activeModels,
+            scopeSource(activeModels),
         )
         val outcome = transcriber.enqueue("/w/PTT-1.opus", 1_000L, treeUri = "content://tree/t", source = source)
         assertEquals(VoiceNoteAutoTranscriber.EnqueueOutcome.ENQUEUED, outcome)
