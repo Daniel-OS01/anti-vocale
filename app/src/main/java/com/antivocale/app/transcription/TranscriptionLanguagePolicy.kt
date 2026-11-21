@@ -1,6 +1,25 @@
 package com.antivocale.app.transcription
 
+import com.antivocale.app.data.ExternalModelRecord
 import com.antivocale.app.data.catalog.CatalogEntry
+
+/**
+ * R6: what [TranscriptionLanguagePolicy.support] judges a language against.
+ * [LanguageSupportLookup] maps a backend id to one at the I/O boundary.
+ */
+sealed interface LanguageTarget {
+    /** A bundled-catalog entry; [offered] is what
+     *  [TranscriptionLanguagePolicy.offeredLanguages] returns for the
+     *  INSTALLED variant. */
+    data class BuiltIn(val entry: CatalogEntry, val offered: Set<String>) : LanguageTarget
+
+    /** A user-imported model. */
+    data class External(val record: ExternalModelRecord) : LanguageTarget
+
+    /** No language contract the app can read: the LLM (Gemma), the remote
+     *  offload, an unknown id. */
+    data object Opaque : LanguageTarget
+}
 
 /**
  * Maps the saved transcription-language preference to the language string a
@@ -112,7 +131,7 @@ object TranscriptionLanguagePolicy {
      * the exact class the empty-set picker rule exists to prevent).
      */
     fun externalOverride(
-        record: com.antivocale.app.data.ExternalModelRecord,
+        record: ExternalModelRecord,
         preference: String,
         phoneLanguage: String? = null,
     ): String =
@@ -131,7 +150,7 @@ object TranscriptionLanguagePolicy {
      * list when the family can consume one (Whisper forced decoding,
      * SenseVoice, Canary), else the empty set (the disabled card, truthful).
      */
-    fun offeredLanguagesForExternal(record: com.antivocale.app.data.ExternalModelRecord): Set<String> =
+    fun offeredLanguagesForExternal(record: ExternalModelRecord): Set<String> =
         if (ModelFamilySupport.forFamily(record.family).languageCapable) record.languages.toSet()
         else emptySet()
 
@@ -161,4 +180,46 @@ object TranscriptionLanguagePolicy {
             else -> PinState.UNSUPPORTED_PIN
         }
     }
+
+    /**
+     * R6: how [target] treats a pinned [language] (the profile resolver's
+     * support predicate). A model that does not condition on language
+     * IGNORES it (so does [LanguageTarget.Opaque]); one that conditions
+     * HONORS a language it offers and finds every other one UNSUPPORTED,
+     * including the empty offered set (matching [pinState], where an empty
+     * set renders every pin unsupported). Codes compare on the primary
+     * subtag, case-insensitively (`ru` == `ru-RU`).
+     */
+    fun support(target: LanguageTarget, language: String): LanguageSupport {
+        val offered = when (target) {
+            is LanguageTarget.BuiltIn ->
+                if (conditionsOnLanguage(target.entry)) target.offered else return LanguageSupport.IGNORES
+            is LanguageTarget.External ->
+                if (conditionsOnLanguage(target.record)) {
+                    offeredLanguagesForExternal(target.record)
+                } else {
+                    return LanguageSupport.IGNORES
+                }
+            LanguageTarget.Opaque -> return LanguageSupport.IGNORES
+        }
+        val wanted = primarySubtag(language)
+        return if (wanted.isNotEmpty() && offered.any { primarySubtag(it) == wanted }) {
+            LanguageSupport.HONORS
+        } else {
+            LanguageSupport.UNSUPPORTED
+        }
+    }
+
+    /** A built-in conditions on language when either catalog language flag
+     *  is set (the [resolveForEntry] axis). */
+    private fun conditionsOnLanguage(entry: CatalogEntry): Boolean =
+        entry.flags.languageOption || entry.flags.passLanguage
+
+    /** An external conditions on language when its family can consume one
+     *  (the [externalOverride] axis). */
+    private fun conditionsOnLanguage(record: ExternalModelRecord): Boolean =
+        ModelFamilySupport.forFamily(record.family).languageCapable
+
+    private fun primarySubtag(code: String): String =
+        code.trim().substringBefore('-').substringBefore('_').lowercase()
 }
