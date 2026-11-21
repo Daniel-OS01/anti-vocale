@@ -22,9 +22,11 @@ class UpstreamVersionKeysTest {
                 "(versionName ${BuildConfig.VERSION_NAME})",
             asset.isFile,
         )
-        assertEquals(
-            "external-catalog/index-${BuildConfig.UPSTREAM_VERSION_NAME.substringBefore("-")}.json",
-            BuildConfig.CATALOG_INDEX_ASSET,
+        val index = "external-catalog/index-${BuildConfig.UPSTREAM_VERSION_NAME.substringBefore("-")}.json"
+        assertEquals(index, BuildConfig.CATALOG_INDEX_ASSET)
+        assertTrue(
+            "CATALOG_INDEX_URL is not keyed on the upstream version: ${BuildConfig.CATALOG_INDEX_URL}",
+            BuildConfig.CATALOG_INDEX_URL.endsWith("/app/src/main/assets/$index"),
         )
     }
 }
