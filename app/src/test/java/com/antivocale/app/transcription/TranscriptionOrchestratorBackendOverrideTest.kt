@@ -370,4 +370,48 @@ class TranscriptionOrchestratorBackendOverrideTest : TranscriptionOrchestratorTe
         }
         verify { backendManager.unloadActiveBackend() }
     }
+
+    private suspend fun kotlinx.coroutines.CoroutineScope.runParakeetOverride(keepBackendLoaded: Boolean) {
+        val parakeetDir = createTempModelDir("parakeet")
+        every { preferencesManager.sherpaModelPath(BuiltInBackendIds.PARAKEET) } returns flowOf(parakeetDir.absolutePath)
+        every { preferencesManager.threadCount } returns flowOf(4)
+        every { preferencesManager.keepAliveTimeout } returns flowOf(5)
+        // No resident backend: ensureBackendLoaded makes no unload call of
+        // its own, so every counted unload comes from the request's finally.
+        every { backendManager.hasActiveBackend() } returns false
+        coEvery { backendManager.setActiveBackend(any(), any(), any()) } returns Result.success(Unit)
+        every { backendManager.unloadActiveBackend() } returns Unit
+
+        orchestrator.processRequest(
+            taskId = "test-keep-$keepBackendLoaded",
+            requestType = "text",
+            prompt = "hi",
+            filePath = null,
+            source = "share",
+            sourcePackage = null,
+            backendOverride = BuiltInBackendIds.PARAKEET,
+            queuePosition = 1,
+            queueTotal = 2,
+            context = createMockContext(),
+            cacheDir = File("/cache"),
+            listener = listener,
+            coroutineScope = this,
+            keepBackendLoaded = keepBackendLoaded,
+        )
+    }
+
+    @Test
+    fun `override with keepBackendLoaded leaves the model resident`() = runTest {
+        runParakeetOverride(keepBackendLoaded = true)
+
+        coVerify { backendManager.setActiveBackend(BuiltInBackendIds.PARAKEET, any(), any()) }
+        verify(exactly = 0) { backendManager.unloadActiveBackend() }
+    }
+
+    @Test
+    fun `override without keepBackendLoaded unloads once`() = runTest {
+        runParakeetOverride(keepBackendLoaded = false)
+
+        verify(exactly = 1) { backendManager.unloadActiveBackend() }
+    }
 }
