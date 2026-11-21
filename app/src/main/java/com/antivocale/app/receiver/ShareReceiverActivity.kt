@@ -761,7 +761,10 @@ class ShareReceiverActivity : ComponentActivity() {
                 this@ShareReceiverActivity, taskId, localPath,
                 source = InferenceService.SOURCE_SHARE,
                 sourcePackage = sourcePackage,
-                backendOverride = backendOverride,
+                // The sender-resolved backend, the same one the duplicate
+                // check used (equal to the alias's when there is no sender).
+                // The subtitle path carries no language override yet.
+                backendOverride = sender.backendOverride,
                 contentHash = contentHash,
                 sourceKind = SourceKind.SHARE,
             )

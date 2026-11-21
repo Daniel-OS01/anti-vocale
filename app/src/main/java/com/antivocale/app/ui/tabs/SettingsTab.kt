@@ -4643,7 +4643,8 @@ internal val SETTINGS_SEARCH_CARDS: List<SettingsSearchCard> = listOf(
         SettingsSearchId.SENDER_RULES_HUB, SettingsSearchSection.ADVANCED,
         listOf(
             R.string.sender_rules_title, R.string.sender_rules_summary,
-            R.string.sender_rules_section_calls, R.string.sender_rules_note),
+            R.string.sender_rules_section_calls, R.string.sender_rules_note,
+            R.string.sender_rules_empty),
         group = SettingsSearchGroup.INTEGRATIONS,
     ),
     SettingsSearchCard(
