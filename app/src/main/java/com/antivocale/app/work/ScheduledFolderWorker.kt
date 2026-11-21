@@ -369,6 +369,35 @@ internal object FolderListing {
         )
     }
 
+    /** [listDirectory]'s answer: [FolderWalk.DirFiles] with uris in place of document ids. */
+    sealed class DirListing {
+        /** The directory's file children: (relative path from the tree root, uri). */
+        data class Files(val files: List<Pair<String, Uri>>) : DirListing()
+        object NotFound : DirListing()
+        object Ambiguous : DirListing()
+        object Unavailable : DirListing()
+    }
+
+    /**
+     * ONE directory of the tree, the one whose files [listWithStatus] names
+     * under [subPath] (null = the root), fully listed one level deep with no
+     * cap. The segment resolution and path joining are [FolderWalk.listDirectory].
+     * A throwing query propagates, as in [listWithStatus].
+     */
+    fun listDirectory(context: Context, treeUri: Uri, subPath: String?): DirListing {
+        val root = DocumentsContract.getTreeDocumentId(treeUri)
+        return when (val dir = FolderWalk.listDirectory(root, subPath) { id -> queryChildren(context, treeUri, id) }) {
+            is FolderWalk.DirFiles.Found -> DirListing.Files(
+                dir.files.map { (relPath, docId) ->
+                    relPath to DocumentsContract.buildDocumentUriUsingTree(treeUri, docId)
+                },
+            )
+            FolderWalk.DirFiles.NotFound -> DirListing.NotFound
+            FolderWalk.DirFiles.Ambiguous -> DirListing.Ambiguous
+            FolderWalk.DirFiles.Unavailable -> DirListing.Unavailable
+        }
+    }
+
     /**
      * A child cursor is a COMPLETE listing only when its extras carry
      * neither [DocumentsContract.EXTRA_LOADING] = true (the provider is still

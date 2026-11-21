@@ -135,4 +135,88 @@ class FolderWalkTest {
         assertEquals(6, FolderWalk.MAX_DEPTH)
         assertEquals(2000, FolderWalk.MAX_ENTRIES)
     }
+
+    // ---- listDirectory: one directory, by the subPath the walk gives its files ----
+
+    @Test
+    fun `a nested subPath resolves segment by segment and lists only that directory's files`() {
+        val tree = mapOf(
+            "root" to listOf(file("top.m4a", "t1"), dir("Calls", "calls")),
+            "calls" to listOf(file("c.m4a", "c1"), dir("Russian", "ru"), dir("English", "en")),
+            "ru" to listOf(dir("2024", "y24"), dir("2025", "y25")),
+            "y24" to listOf(file("a.m4a", "a1"), file("b.m4a", "b1"), dir("deeper", "d")),
+            "en" to listOf(file("x.m4a", "x1")),
+        )
+        assertEquals(
+            FolderWalk.DirFiles.Found(listOf("Calls/Russian/2024/a.m4a" to "a1", "Calls/Russian/2024/b.m4a" to "b1")),
+            FolderWalk.listDirectory("root", "Calls/Russian/2024", provider(tree)),
+        )
+    }
+
+    @Test
+    fun `listDirectory paths round-trip with the walk's paths`() {
+        val tree = mapOf(
+            "root" to listOf(dir("Calls", "calls")),
+            "calls" to listOf(dir("Russian", "ru")),
+            "ru" to listOf(dir("2024", "y24")),
+            "y24" to listOf(file("a.m4a", "a1")),
+        )
+        val walked = FolderWalk.walk("root", listDir = provider(tree))!!.entries.single()
+        val listed = FolderWalk.listDirectory(
+            "root", FolderScanPlanner.subPathOf(walked.child.name), provider(tree),
+        ) as FolderWalk.DirFiles.Found
+        assertEquals(listOf(walked.child.name to walked.documentId), listed.files)
+    }
+
+    @Test
+    fun `a missing segment is not found`() {
+        val tree = mapOf(
+            "root" to listOf(dir("Calls", "calls")),
+            "calls" to listOf(dir("English", "en"), file("Russian", "not-a-dir")),
+            "en" to emptyList<FolderWalk.Row>(),
+        )
+        assertEquals(FolderWalk.DirFiles.NotFound, FolderWalk.listDirectory("root", "Calls/Russian/2024", provider(tree)))
+    }
+
+    @Test
+    fun `two same-named directories are ambiguous`() {
+        val tree = mapOf(
+            "root" to listOf(dir("Calls", "calls-1"), dir("Calls", "calls-2")),
+            "calls-1" to listOf(file("a.m4a", "a1")),
+            "calls-2" to listOf(file("a.m4a", "a2")),
+        )
+        assertEquals(FolderWalk.DirFiles.Ambiguous, FolderWalk.listDirectory("root", "Calls", provider(tree)))
+    }
+
+    @Test
+    fun `a null query at any level is unavailable`() {
+        // "ru" has no entry: its query answers null.
+        val tree = mapOf(
+            "root" to listOf(dir("Calls", "calls")),
+            "calls" to listOf(dir("Russian", "ru")),
+        )
+        assertEquals(FolderWalk.DirFiles.Unavailable, FolderWalk.listDirectory("root", "Calls/Russian", provider(tree)))
+        assertEquals(FolderWalk.DirFiles.Unavailable, FolderWalk.listDirectory("gone", null, provider(tree)))
+        assertEquals(FolderWalk.DirFiles.Unavailable, FolderWalk.listDirectory("gone", "Calls", provider(tree)))
+    }
+
+    @Test
+    fun `a null subPath lists the root's files under bare names`() {
+        val tree = mapOf(
+            "root" to listOf(file("rec.m4a", "r1"), dir("Calls", "calls")),
+            "calls" to listOf(file("a.m4a", "c1")),
+        )
+        assertEquals(
+            FolderWalk.DirFiles.Found(listOf("rec.m4a" to "r1")),
+            FolderWalk.listDirectory("root", null, provider(tree)),
+        )
+    }
+
+    @Test
+    fun `listDirectory is not capped by the walk's entry budget`() {
+        val many = (0 until FolderWalk.MAX_ENTRIES + 10).map { file("r$it.m4a", "id$it") }
+        val tree = mapOf("root" to listOf(dir("Calls", "calls")), "calls" to many)
+        val found = FolderWalk.listDirectory("root", "Calls", provider(tree)) as FolderWalk.DirFiles.Found
+        assertEquals(FolderWalk.MAX_ENTRIES + 10, found.files.size)
+    }
 }

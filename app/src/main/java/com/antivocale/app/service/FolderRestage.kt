@@ -8,6 +8,8 @@ import com.antivocale.app.util.SharedAudioHandler
 import com.antivocale.app.util.TreeUris
 import com.antivocale.app.work.FolderListing
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
 import kotlin.coroutines.cancellation.CancellationException
 
@@ -33,8 +35,8 @@ object FolderRestage {
     }
 
     /**
-     * Pure: each target against one tree's [listing] of (relative path, uri)
-     * pairs. Generic in the uri so it is testable without Android.
+     * Pure: each target against a [listing] of (relative path, uri) pairs
+     * (in [restage], its one directory's files). Generic in the uri so it is testable without Android.
      */
     fun <U> match(
         targets: List<BulkRedoItem.NeedsRestage>,
@@ -52,53 +54,81 @@ object FolderRestage {
     }
 
     /**
-     * Lists each target tree ONCE, matches, and copies every found file with
-     * [SharedAudioHandler.copyToAppStorage]. A lost grant, or a failed or
-     * throwing listing, gives FOLDER_UNAVAILABLE for that tree's targets; a
-     * copy that does not succeed gives FILE_GONE.
+     * Lists each target's ONE directory (its subfolder in its tree) once,
+     * fully and one level deep, matches inside it, and copies every found
+     * file with [SharedAudioHandler.copyToAppStorage]. Every candidate for a
+     * target lives in that directory, so no capped recursive walk can hide a
+     * same-hash twin. A lost grant, or a failed or throwing listing, gives
+     * FOLDER_UNAVAILABLE; a missing directory NOT_FOUND_IN_FOLDER; two
+     * same-named directories AMBIGUOUS; a copy that does not succeed FILE_GONE.
+     *
+     * [onStaged] gets each copy's path as soon as it exists, so a caller
+     * can reclaim the copies of a restage that throws or is cancelled
+     * partway. The loop checks for cancellation before every listing and
+     * every copy, and deletes a copy that finished after cancellation.
      */
     suspend fun restage(
         context: Context,
         targets: List<BulkRedoItem.NeedsRestage>,
+        onStaged: (String) -> Unit = {},
     ): Map<BulkRedoItem.NeedsRestage, RestageResult> = withContext(Dispatchers.IO) {
         val results = LinkedHashMap<BulkRedoItem.NeedsRestage, RestageResult>()
-        for ((tree, group) in targets.groupBy { it.treeUri }) {
+        for ((tree, treeGroup) in targets.groupBy { it.treeUri }) {
             val treeUri = Uri.parse(tree)
-            val listing = if (TreeUris.holdsPersistableReadGrant(context, treeUri)) {
-                listOrNull(context, treeUri)
-            } else {
+            if (!TreeUris.holdsPersistableReadGrant(context, treeUri)) {
                 Log.w(TAG, "event=restage_grant_missing")
-                null
-            }
-            if (listing == null) {
-                group.forEach { results[it] = RestageResult.Failed(SkipReason.FOLDER_UNAVAILABLE) }
+                treeGroup.forEach { results[it] = RestageResult.Failed(SkipReason.FOLDER_UNAVAILABLE) }
                 continue
             }
-            if (listing.truncated) Log.w(TAG, "event=restage_listing_truncated")
-            val pairs = listing.children.map { (child, uri) -> child.name to uri }
-            for ((target, found) in match(group, pairs)) {
-                results[target] = when (found) {
-                    is RestageMatch.Found -> copy(context, found.uri)
-                    RestageMatch.NotFound -> RestageResult.Failed(SkipReason.NOT_FOUND_IN_FOLDER)
-                    RestageMatch.Ambiguous -> RestageResult.Failed(SkipReason.AMBIGUOUS)
+            for ((subPath, group) in treeGroup.groupBy { it.subPath }) {
+                ensureActive()
+                val failure = when (val dir = listOrUnavailable(context, treeUri, subPath)) {
+                    is FolderListing.DirListing.Files -> {
+                        for ((target, found) in match(group, dir.files)) {
+                            results[target] = when (found) {
+                                is RestageMatch.Found -> {
+                                    ensureActive()
+                                    val copied = copy(context, found.uri)
+                                    if (copied is RestageResult.Staged) {
+                                        if (!isActive) {
+                                            SharedAudioHandler.deleteStagedCopy(copied.localPath)
+                                            ensureActive()
+                                        }
+                                        onStaged(copied.localPath)
+                                    }
+                                    copied
+                                }
+                                RestageMatch.NotFound -> RestageResult.Failed(SkipReason.NOT_FOUND_IN_FOLDER)
+                                RestageMatch.Ambiguous -> RestageResult.Failed(SkipReason.AMBIGUOUS)
+                            }
+                        }
+                        null
+                    }
+                    FolderListing.DirListing.NotFound -> SkipReason.NOT_FOUND_IN_FOLDER
+                    FolderListing.DirListing.Ambiguous -> SkipReason.AMBIGUOUS
+                    FolderListing.DirListing.Unavailable -> SkipReason.FOLDER_UNAVAILABLE
                 }
+                if (failure != null) group.forEach { results[it] = RestageResult.Failed(failure) }
             }
         }
         results
     }
 
-    private fun listOrNull(context: Context, treeUri: Uri): FolderListing.Listing? {
+    private fun listOrUnavailable(context: Context, treeUri: Uri, subPath: String?): FolderListing.DirListing {
         val listing = try {
-            FolderListing.listWithStatus(context, treeUri)
+            FolderListing.listDirectory(context, treeUri, subPath)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            // The worker reads a throwing listing as scan-abandoned; a redo
-            // reads it as the folder being unavailable, like a null listing.
+            // A redo reads a throwing listing as the folder being unavailable.
             Log.w(TAG, "event=restage_listing_threw", e)
-            return null
+            return FolderListing.DirListing.Unavailable
         }
-        if (listing == null) Log.w(TAG, "event=restage_listing_failed")
+        when (listing) {
+            FolderListing.DirListing.Unavailable -> Log.w(TAG, "event=restage_listing_failed")
+            FolderListing.DirListing.Ambiguous -> Log.w(TAG, "event=restage_dir_ambiguous")
+            else -> Unit
+        }
         return listing
     }
 

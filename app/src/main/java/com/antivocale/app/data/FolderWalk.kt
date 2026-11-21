@@ -119,4 +119,52 @@ object FolderWalk {
         }
         return Result(entries, truncated)
     }
+
+    /** [listDirectory]'s answer for one subfolder of the tree. */
+    sealed class DirFiles {
+        /** The directory's FILE children, fully listed: (relative path, document id). */
+        data class Found(val files: List<Pair<String, String>>) : DirFiles()
+
+        /** Some segment of the subfolder has no directory of that name. */
+        object NotFound : DirFiles()
+
+        /** Some segment names two or more directories: no single directory to read. */
+        object Ambiguous : DirFiles()
+
+        /** A directory's query answered null (no answer, partial or errored). */
+        object Unavailable : DirFiles()
+    }
+
+    /**
+     * One directory of the tree, by the [subPath] that [walk] would give its
+     * files (null = the root): resolves it segment by segment from
+     * [rootDocId], picking at each level the child DIRECTORY whose name
+     * equals the segment, then lists that directory's file children one
+     * level deep and uncapped. Relative paths are joined exactly as [walk]
+     * joins them ('/' between names, a bare name at the root), so a path the
+     * walk recorded round-trips. Not capped by [MAX_ENTRIES]: the work is
+     * one query per segment plus one listing.
+     */
+    fun listDirectory(
+        rootDocId: String,
+        subPath: String?,
+        listDir: (dirDocId: String) -> List<Row>?,
+    ): DirFiles {
+        var dirDocId = rootDocId
+        for (segment in subPath?.split('/').orEmpty()) {
+            val rows = listDir(dirDocId) ?: return DirFiles.Unavailable
+            val dirs = rows.filter { it.isDirectory && it.name == segment }
+            dirDocId = when (dirs.size) {
+                0 -> return DirFiles.NotFound
+                1 -> dirs.single().documentId
+                else -> return DirFiles.Ambiguous
+            }
+        }
+        val rows = listDir(dirDocId) ?: return DirFiles.Unavailable
+        return DirFiles.Found(
+            rows.filter { !it.isDirectory }.map { row ->
+                (if (subPath == null) row.name else "$subPath/${row.name}") to row.documentId
+            },
+        )
+    }
 }
