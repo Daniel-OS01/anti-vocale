@@ -581,14 +581,22 @@ class LogsViewModel @Inject constructor(
         _pendingBrowseDuplicate.asStateFlow()
 
     /** Either arm's dismissal; also the dialog's cancel path (open).
-     *  Completes the pending state's gate (BEFORE the slot clears) so the
-     *  sequential intake loop starts the next file (review V1; the ordering
-     *  the gate leans on). */
+     *  Clears the slot, THEN completes the pending state's gate so the
+     *  sequential intake loop starts the next file (review V1). The order
+     *  matters: the gate resumes the intake on an IO thread, so completing
+     *  first let the next file's dialog land before this clear and be wiped,
+     *  parking the rest of the batch. */
     fun clearPendingBrowseDuplicate() {
-        _pendingBrowseDuplicate.value?.let { pending ->
-            pending.resolved.complete(Unit)
-            _pendingBrowseDuplicate.value = null
-        }
+        releasePendingBrowseDuplicate()
+    }
+
+    /** Clear-then-complete (see [clearPendingBrowseDuplicate]); only the
+     *  slot it read is cleared, never a newer one. */
+    private fun releasePendingBrowseDuplicate(): PendingBrowseDuplicate? {
+        val pending = _pendingBrowseDuplicate.value ?: return null
+        _pendingBrowseDuplicate.compareAndSet(pending, null)
+        pending.resolved.complete(Unit)
+        return pending
     }
 
     /**
@@ -601,9 +609,7 @@ class LogsViewModel @Inject constructor(
     fun onBrowseDuplicateOpen(existingTaskId: String) {
         // Highlight even when the slot was already consumed (a stale tap or
         // a recomposition racing a clear must still navigate, review F4).
-        _pendingBrowseDuplicate.value?.let { pending ->
-            pending.resolved.complete(Unit)
-            _pendingBrowseDuplicate.value = null
+        releasePendingBrowseDuplicate()?.let { pending ->
             appScope.launch(Dispatchers.IO) {
                 SharedAudioHandler.deleteStagedCopy(pending.localPath)
             }
