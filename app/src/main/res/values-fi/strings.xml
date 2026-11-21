@@ -1261,4 +1261,15 @@
     <string name="models_fit_summary_off">Puhelimellesi sopivat mallit: %1$d/%2$d</string>
     <string name="models_fit_badge_heavy">Raskas</string>
     <string name="models_header_toggle_title">Suodattimet ja yhteensopivuus</string>
+    <string name="scope_rule_language_label">Kieli</string>
+    <string name="scope_rule_language_inherit">Ei sääntöä (peri)</string>
+    <string name="scope_rule_language_auto">Tunnista automaattisesti (ei kiinnitystä)</string>
+    <string name="scope_rule_advanced_pin">Lisäasetus: kiinnitä malli</string>
+    <string name="scope_rule_model_default">Käytä kielen mallia/oletusta</string>
+    <string name="scope_rule_outcome">Nämä tiedostot: %1$s</string>
+    <string name="scope_rule_outcome_two_pass_off">Nämä tiedostot: %1$s · kaksivaiheinen pois</string>
+    <string name="scope_rule_unsupported">Tämä malli ei osaa litteroida kieltä: %1$s</string>
+    <string name="scope_rule_set_language_model">Valitse malli tälle kielelle</string>
+    <string name="scope_rule_remove">Poista sääntö</string>
+    <string name="scope_rule_model_unknown">Oletusmalli</string>
 </resources>

@@ -1247,4 +1247,15 @@
     <string name="models_fit_summary_off">适合你手机的模型：%2$d 个中的 %1$d 个</string>
     <string name="models_fit_badge_heavy">较重</string>
     <string name="models_header_toggle_title">筛选与设备适配</string>
+    <string name="scope_rule_language_label">语言</string>
+    <string name="scope_rule_language_inherit">无规则（继承）</string>
+    <string name="scope_rule_language_auto">自动检测（不固定）</string>
+    <string name="scope_rule_advanced_pin">高级：固定模型</string>
+    <string name="scope_rule_model_default">按语言/默认</string>
+    <string name="scope_rule_outcome">这些文件：%1$s</string>
+    <string name="scope_rule_outcome_two_pass_off">这些文件：%1$s · 两遍转写已关闭</string>
+    <string name="scope_rule_unsupported">此模型无法转写该语言：%1$s</string>
+    <string name="scope_rule_set_language_model">为此语言设置模型</string>
+    <string name="scope_rule_remove">移除规则</string>
+    <string name="scope_rule_model_unknown">默认模型</string>
 </resources>

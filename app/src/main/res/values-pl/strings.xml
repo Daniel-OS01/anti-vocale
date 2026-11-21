@@ -1451,4 +1451,15 @@
     <string name="models_fit_summary_off">Modele pasujące do twojego telefonu: %1$d z %2$d</string>
     <string name="models_fit_badge_heavy">Ciężki</string>
     <string name="models_header_toggle_title">Filtry i dopasowanie</string>
+    <string name="scope_rule_language_label">Język</string>
+    <string name="scope_rule_language_inherit">Brak reguły (dziedzicz)</string>
+    <string name="scope_rule_language_auto">Wykrywaj automatycznie (bez przypinania)</string>
+    <string name="scope_rule_advanced_pin">Zaawansowane: przypnij model</string>
+    <string name="scope_rule_model_default">Użyj modelu języka/domyślnego</string>
+    <string name="scope_rule_outcome">Te pliki: %1$s</string>
+    <string name="scope_rule_outcome_two_pass_off">Te pliki: %1$s · dwa przebiegi wyłączone</string>
+    <string name="scope_rule_unsupported">Ten model nie transkrybuje języka: %1$s</string>
+    <string name="scope_rule_set_language_model">Ustaw model dla tego języka</string>
+    <string name="scope_rule_remove">Usuń regułę</string>
+    <string name="scope_rule_model_unknown">Model domyślny</string>
 </resources>

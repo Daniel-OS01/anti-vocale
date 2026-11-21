@@ -1426,4 +1426,15 @@
     <string name="models_fit_summary_off">مدل‌های مناسب گوشی شما: %1$d از %2$d</string>
     <string name="models_fit_badge_heavy">سنگین</string>
     <string name="models_header_toggle_title">فیلترها و سازگاری</string>
+    <string name="scope_rule_language_label">زبان</string>
+    <string name="scope_rule_language_inherit">بدون قانون (ارث‌بری)</string>
+    <string name="scope_rule_language_auto">تشخیص خودکار (بدون تثبیت)</string>
+    <string name="scope_rule_advanced_pin">پیشرفته: تثبیت یک مدل</string>
+    <string name="scope_rule_model_default">استفاده از مدل زبان/پیش‌فرض</string>
+    <string name="scope_rule_outcome">این فایل‌ها: %1$s</string>
+    <string name="scope_rule_outcome_two_pass_off">این فایل‌ها: %1$s · دو مرحله‌ای خاموش</string>
+    <string name="scope_rule_unsupported">این مدل نمی‌تواند این زبان را رونویسی کند: %1$s</string>
+    <string name="scope_rule_set_language_model">تعیین مدل برای این زبان</string>
+    <string name="scope_rule_remove">حذف قانون</string>
+    <string name="scope_rule_model_unknown">مدل پیش‌فرض</string>
 </resources>

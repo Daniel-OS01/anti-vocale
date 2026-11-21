@@ -1420,4 +1420,15 @@
     <string name="models_fit_summary_off">आपके फ़ोन के लिए उपयुक्त मॉडल: %2$d में से %1$d</string>
     <string name="models_fit_badge_heavy">भारी</string>
     <string name="models_header_toggle_title">फ़िल्टर और अनुकूलता</string>
+    <string name="scope_rule_language_label">भाषा</string>
+    <string name="scope_rule_language_inherit">कोई नियम नहीं (विरासत)</string>
+    <string name="scope_rule_language_auto">स्वतः पहचानें (पिन न करें)</string>
+    <string name="scope_rule_advanced_pin">उन्नत: एक मॉडल पिन करें</string>
+    <string name="scope_rule_model_default">भाषा/डिफ़ॉल्ट मॉडल उपयोग करें</string>
+    <string name="scope_rule_outcome">ये फ़ाइलें: %1$s</string>
+    <string name="scope_rule_outcome_two_pass_off">ये फ़ाइलें: %1$s · दो-चरण बंद</string>
+    <string name="scope_rule_unsupported">यह मॉडल इस भाषा का ट्रांसक्रिप्शन नहीं कर सकता: %1$s</string>
+    <string name="scope_rule_set_language_model">इस भाषा के लिए मॉडल चुनें</string>
+    <string name="scope_rule_remove">नियम हटाएँ</string>
+    <string name="scope_rule_model_unknown">डिफ़ॉल्ट मॉडल</string>
 </resources>

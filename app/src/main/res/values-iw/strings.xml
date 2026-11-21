@@ -1434,4 +1434,15 @@
     <string name="models_fit_summary_off">דגמים המתאימים לטלפון שלך: %1$d מתוך %2$d</string>
     <string name="models_fit_badge_heavy">כבד</string>
     <string name="models_header_toggle_title">מסננים והתאמה</string>
+    <string name="scope_rule_language_label">שפה</string>
+    <string name="scope_rule_language_inherit">ללא כלל (ירושה)</string>
+    <string name="scope_rule_language_auto">זיהוי אוטומטי (ללא קיבוע)</string>
+    <string name="scope_rule_advanced_pin">מתקדם: קיבוע מודל</string>
+    <string name="scope_rule_model_default">לפי השפה/ברירת מחדל</string>
+    <string name="scope_rule_outcome">קבצים אלה: %1$s</string>
+    <string name="scope_rule_outcome_two_pass_off">קבצים אלה: %1$s · שני מעברים כבוי</string>
+    <string name="scope_rule_unsupported">המודל הזה לא יכול לתמלל את השפה: %1$s</string>
+    <string name="scope_rule_set_language_model">בחירת מודל לשפה הזו</string>
+    <string name="scope_rule_remove">הסרת הכלל</string>
+    <string name="scope_rule_model_unknown">מודל ברירת המחדל</string>
 </resources>

@@ -1289,4 +1289,15 @@
     <string name="models_fit_summary_off">Modelos aptos para tu teléfono: %1$d de %2$d</string>
     <string name="models_fit_badge_heavy">Pesado</string>
     <string name="models_header_toggle_title">Filtros y compatibilidad</string>
+    <string name="scope_rule_language_label">Idioma</string>
+    <string name="scope_rule_language_inherit">Sin regla (heredar)</string>
+    <string name="scope_rule_language_auto">Detección automática (sin fijar)</string>
+    <string name="scope_rule_advanced_pin">Avanzado: fijar un modelo</string>
+    <string name="scope_rule_model_default">Usar idioma/predeterminado</string>
+    <string name="scope_rule_outcome">Estos archivos: %1$s</string>
+    <string name="scope_rule_outcome_two_pass_off">Estos archivos: %1$s · doble pasada desactivada</string>
+    <string name="scope_rule_unsupported">Este modelo no puede transcribir este idioma: %1$s</string>
+    <string name="scope_rule_set_language_model">Elegir un modelo para este idioma</string>
+    <string name="scope_rule_remove">Quitar regla</string>
+    <string name="scope_rule_model_unknown">Modelo predeterminado</string>
 </resources>
