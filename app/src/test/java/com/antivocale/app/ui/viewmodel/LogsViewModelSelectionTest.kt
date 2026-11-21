@@ -69,23 +69,27 @@ class LogsViewModelSelectionTest : ViewModelTeardownTest() {
     fun `two consecutive identical delete results publish two distinct values`() = runTest {
         rows.value = listOf(entity("a", "SUCCESS"), entity("b", "SUCCESS"))
         coEvery { logDao.deleteByIds(any()) } returns 1
-        val seen = mutableListOf<LogsViewModel.BulkDeleteResult>()
         backgroundScope.launch { viewModel.selection.collect { } }
-        backgroundScope.launch { viewModel.bulkDeleteResult.collect { result -> result?.let(seen::add) } }
         advanceUntilIdle()
 
         // No consume in between: the snackbar is still showing the first one.
+        // A StateFlow conflates, so a collector is not guaranteed to observe
+        // both writes; the contract is that the second result is a DIFFERENT
+        // value, which is what re-keys the snackbar effect.
         viewModel.enterSelection("a")
         advanceUntilIdle()
         viewModel.deleteSelected()
         advanceUntilIdle()
+        val first = viewModel.bulkDeleteResult.value
         viewModel.enterSelection("b")
         advanceUntilIdle()
         viewModel.deleteSelected()
         advanceUntilIdle()
+        val second = viewModel.bulkDeleteResult.value
 
-        assertEquals(listOf(1 to 0, 1 to 0), seen.map { it.deleted to it.skipped })
-        assertNotEquals(seen[0], seen[1])
+        assertEquals(1 to 0, first?.let { it.deleted to it.skipped })
+        assertEquals(1 to 0, second?.let { it.deleted to it.skipped })
+        assertNotEquals(first, second)
     }
 
     @Test
