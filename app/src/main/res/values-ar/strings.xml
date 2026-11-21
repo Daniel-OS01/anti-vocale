@@ -1382,4 +1382,98 @@
     <string name="history_scope_rule_folder_title">تفريغ هذا المجلد كـ…</string>
     <string name="history_scope_rule_subfolder_title">تفريغ هذا المجلد الفرعي كـ…</string>
     <string name="history_scope_rule_long_press_label">تعيين قاعدة التفريغ</string>
+    <string name="bulk_redo_single_pass_hint">وضع التمريرتين معطّل لهذه الإعادة: تمريرة واحدة بالنموذج المختار.</string>
+    <string name="bulk_redo_language_model_default">افتراضي النموذج</string>
+    <string name="bulk_redo_preparing">جارٍ التحضير %1$d من %2$d</string>
+    <string name="bulk_redo_all">إعادة الكل</string>
+    <string name="bulk_redo_skip_long">تخطّي الطويلة</string>
+    <string name="history_select_with_subfolders">تحديد مع المجلدات الفرعية</string>
+    <plurals name="bulk_redo_title">
+        <item quantity="zero">إعادة %d تسجيل</item>
+        <item quantity="one">إعادة %d تسجيل</item>
+        <item quantity="two">إعادة %d تسجيلين</item>
+        <item quantity="few">إعادة %d تسجيلات</item>
+        <item quantity="many">إعادة %d تسجيلاً</item>
+        <item quantity="other">إعادة %d تسجيل</item>
+    </plurals>
+    <plurals name="bulk_redo_summary_ready">
+        <item quantity="zero">سيُعاد %1$d تسجيل باستخدام %2$s</item>
+        <item quantity="one">سيُعاد %1$d تسجيل باستخدام %2$s</item>
+        <item quantity="two">سيُعاد %1$d تسجيلين باستخدام %2$s</item>
+        <item quantity="few">ستُعاد %1$d تسجيلات باستخدام %2$s</item>
+        <item quantity="many">سيُعاد %1$d تسجيلاً باستخدام %2$s</item>
+        <item quantity="other">سيُعاد %1$d تسجيل باستخدام %2$s</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_not_audio">
+        <item quantity="zero">تم تخطي %d: ليس صوتًا</item>
+        <item quantity="one">تم تخطي %d: ليس صوتًا</item>
+        <item quantity="two">تم تخطي %d: ليس صوتًا</item>
+        <item quantity="few">تم تخطي %d: ليس صوتًا</item>
+        <item quantity="many">تم تخطي %d: ليس صوتًا</item>
+        <item quantity="other">تم تخطي %d: ليس صوتًا</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_in_flight">
+        <item quantity="zero">تم تخطي %d: لا يزال قيد المعالجة</item>
+        <item quantity="one">تم تخطي %d: لا يزال قيد المعالجة</item>
+        <item quantity="two">تم تخطي %d: لا يزال قيد المعالجة</item>
+        <item quantity="few">تم تخطي %d: لا يزال قيد المعالجة</item>
+        <item quantity="many">تم تخطي %d: لا يزال قيد المعالجة</item>
+        <item quantity="other">تم تخطي %d: لا يزال قيد المعالجة</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_file_gone">
+        <item quantity="zero">تم تخطي %d: الملف لم يعد متاحًا</item>
+        <item quantity="one">تم تخطي %d: الملف لم يعد متاحًا</item>
+        <item quantity="two">تم تخطي %d: الملف لم يعد متاحًا</item>
+        <item quantity="few">تم تخطي %d: الملف لم يعد متاحًا</item>
+        <item quantity="many">تم تخطي %d: الملف لم يعد متاحًا</item>
+        <item quantity="other">تم تخطي %d: الملف لم يعد متاحًا</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_folder_unavailable">
+        <item quantity="zero">تم تخطي %d: المجلد المراقَب غير متاح</item>
+        <item quantity="one">تم تخطي %d: المجلد المراقَب غير متاح</item>
+        <item quantity="two">تم تخطي %d: المجلد المراقَب غير متاح</item>
+        <item quantity="few">تم تخطي %d: المجلد المراقَب غير متاح</item>
+        <item quantity="many">تم تخطي %d: المجلد المراقَب غير متاح</item>
+        <item quantity="other">تم تخطي %d: المجلد المراقَب غير متاح</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_not_found_in_folder">
+        <item quantity="zero">تم تخطي %d: غير موجود في المجلد المراقَب</item>
+        <item quantity="one">تم تخطي %d: غير موجود في المجلد المراقَب</item>
+        <item quantity="two">تم تخطي %d: غير موجود في المجلد المراقَب</item>
+        <item quantity="few">تم تخطي %d: غير موجود في المجلد المراقَب</item>
+        <item quantity="many">تم تخطي %d: غير موجود في المجلد المراقَب</item>
+        <item quantity="other">تم تخطي %d: غير موجود في المجلد المراقَب</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_ambiguous">
+        <item quantity="zero">تم تخطي %d: أكثر من ملف مطابق في المجلد</item>
+        <item quantity="one">تم تخطي %d: أكثر من ملف مطابق في المجلد</item>
+        <item quantity="two">تم تخطي %d: أكثر من ملف مطابق في المجلد</item>
+        <item quantity="few">تم تخطي %d: أكثر من ملف مطابق في المجلد</item>
+        <item quantity="many">تم تخطي %d: أكثر من ملف مطابق في المجلد</item>
+        <item quantity="other">تم تخطي %d: أكثر من ملف مطابق في المجلد</item>
+    </plurals>
+    <plurals name="bulk_redo_long">
+        <item quantity="zero">%1$d طويلة (الأطول %2$s)</item>
+        <item quantity="one">%1$d طويلة (الأطول %2$s)</item>
+        <item quantity="two">%1$d طويلة (الأطول %2$s)</item>
+        <item quantity="few">%1$d طويلة (الأطول %2$s)</item>
+        <item quantity="many">%1$d طويلة (الأطول %2$s)</item>
+        <item quantity="other">%1$d طويلة (الأطول %2$s)</item>
+    </plurals>
+    <plurals name="bulk_redo_queued">
+        <item quantity="zero">%d في قائمة الانتظار</item>
+        <item quantity="one">%d في قائمة الانتظار</item>
+        <item quantity="two">%d في قائمة الانتظار</item>
+        <item quantity="few">%d في قائمة الانتظار</item>
+        <item quantity="many">%d في قائمة الانتظار</item>
+        <item quantity="other">%d في قائمة الانتظار</item>
+    </plurals>
+    <plurals name="bulk_redo_failed_to_start">
+        <item quantity="zero">تعذّر بدء %d</item>
+        <item quantity="one">تعذّر بدء %d</item>
+        <item quantity="two">تعذّر بدء %d</item>
+        <item quantity="few">تعذّر بدء %d</item>
+        <item quantity="many">تعذّر بدء %d</item>
+        <item quantity="other">تعذّر بدء %d</item>
+    </plurals>
 </resources>

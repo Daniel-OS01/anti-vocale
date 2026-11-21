@@ -1488,4 +1488,65 @@
     <string name="history_scope_rule_folder_title">תמלול התיקייה הזו כ…</string>
     <string name="history_scope_rule_subfolder_title">תמלול תיקיית המשנה הזו כ…</string>
     <string name="history_scope_rule_long_press_label">הגדרת כלל תמלול</string>
+    <string name="bulk_redo_single_pass_hint">מצב שני מעברים כבוי בחזרה הזו: מעבר אחד עם המודל שנבחר.</string>
+    <string name="bulk_redo_language_model_default">ברירת המחדל של המודל</string>
+    <string name="bulk_redo_preparing">מכין %1$d מתוך %2$d</string>
+    <string name="bulk_redo_all">לחזור על הכול</string>
+    <string name="bulk_redo_skip_long">לדלג על הארוכות</string>
+    <string name="history_select_with_subfolders">בחירה כולל תיקיות משנה</string>
+    <plurals name="bulk_redo_title">
+        <item quantity="one">חזרה על %d הקלטה</item>
+        <item quantity="two">חזרה על %d הקלטות</item>
+        <item quantity="other">חזרה על %d הקלטות</item>
+    </plurals>
+    <plurals name="bulk_redo_summary_ready">
+        <item quantity="one">%1$d הקלטה תתומלל מחדש עם %2$s</item>
+        <item quantity="two">%1$d הקלטות יתומללו מחדש עם %2$s</item>
+        <item quantity="other">%1$d הקלטות יתומללו מחדש עם %2$s</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_not_audio">
+        <item quantity="one">%d דולגה: לא קובץ שמע</item>
+        <item quantity="two">%d דולגו: לא קובץ שמע</item>
+        <item quantity="other">%d דולגו: לא קובץ שמע</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_in_flight">
+        <item quantity="one">%d דולגה: עדיין בעיבוד</item>
+        <item quantity="two">%d דולגו: עדיין בעיבוד</item>
+        <item quantity="other">%d דולגו: עדיין בעיבוד</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_file_gone">
+        <item quantity="one">%d דולגה: הקובץ כבר לא זמין</item>
+        <item quantity="two">%d דולגו: הקובץ כבר לא זמין</item>
+        <item quantity="other">%d דולגו: הקובץ כבר לא זמין</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_folder_unavailable">
+        <item quantity="one">%d דולגה: התיקייה במעקב לא זמינה</item>
+        <item quantity="two">%d דולגו: התיקייה במעקב לא זמינה</item>
+        <item quantity="other">%d דולגו: התיקייה במעקב לא זמינה</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_not_found_in_folder">
+        <item quantity="one">%d דולגה: חסרה בתיקייה במעקב</item>
+        <item quantity="two">%d דולגו: חסרה בתיקייה במעקב</item>
+        <item quantity="other">%d דולגו: חסרה בתיקייה במעקב</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_ambiguous">
+        <item quantity="one">%d דולגה: כמה קבצים תואמים בתיקייה</item>
+        <item quantity="two">%d דולגו: כמה קבצים תואמים בתיקייה</item>
+        <item quantity="other">%d דולגו: כמה קבצים תואמים בתיקייה</item>
+    </plurals>
+    <plurals name="bulk_redo_long">
+        <item quantity="one">%1$d ארוכה (הארוכה ביותר %2$s)</item>
+        <item quantity="two">%1$d ארוכות (הארוכה ביותר %2$s)</item>
+        <item quantity="other">%1$d ארוכות (הארוכה ביותר %2$s)</item>
+    </plurals>
+    <plurals name="bulk_redo_queued">
+        <item quantity="one">%d בתור</item>
+        <item quantity="two">%d בתור</item>
+        <item quantity="other">%d בתור</item>
+    </plurals>
+    <plurals name="bulk_redo_failed_to_start">
+        <item quantity="one">%d לא התחילה</item>
+        <item quantity="two">%d לא התחילו</item>
+        <item quantity="other">%d לא התחילו</item>
+    </plurals>
 </resources>

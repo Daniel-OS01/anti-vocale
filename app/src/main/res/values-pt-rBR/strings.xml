@@ -1341,4 +1341,54 @@
     <string name="history_scope_rule_folder_title">Transcrever esta pasta como…</string>
     <string name="history_scope_rule_subfolder_title">Transcrever esta subpasta como…</string>
     <string name="history_scope_rule_long_press_label">Definir regra de transcrição</string>
+    <string name="bulk_redo_single_pass_hint">O modo de duas passagens está desativado para esta repetição: uma passagem com o modelo escolhido.</string>
+    <string name="bulk_redo_language_model_default">Padrão do modelo</string>
+    <string name="bulk_redo_preparing">Preparando %1$d de %2$d</string>
+    <string name="bulk_redo_all">Refazer todas</string>
+    <string name="bulk_redo_skip_long">Pular as longas</string>
+    <string name="history_select_with_subfolders">Selecionar com subpastas</string>
+    <plurals name="bulk_redo_title">
+        <item quantity="one">Refazer %d gravação</item>
+        <item quantity="other">Refazer %d gravações</item>
+    </plurals>
+    <plurals name="bulk_redo_summary_ready">
+        <item quantity="one">%1$d gravação será refeita com %2$s</item>
+        <item quantity="other">%1$d gravações serão refeitas com %2$s</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_not_audio">
+        <item quantity="one">%d ignorada: não é áudio</item>
+        <item quantity="other">%d ignoradas: não é áudio</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_in_flight">
+        <item quantity="one">%d ignorada: ainda em processamento</item>
+        <item quantity="other">%d ignoradas: ainda em processamento</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_file_gone">
+        <item quantity="one">%d ignorada: o arquivo não está mais disponível</item>
+        <item quantity="other">%d ignoradas: o arquivo não está mais disponível</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_folder_unavailable">
+        <item quantity="one">%d ignorada: pasta monitorada indisponível</item>
+        <item quantity="other">%d ignoradas: pasta monitorada indisponível</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_not_found_in_folder">
+        <item quantity="one">%d ignorada: ausente na pasta monitorada</item>
+        <item quantity="other">%d ignoradas: ausente na pasta monitorada</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_ambiguous">
+        <item quantity="one">%d ignorada: mais de um arquivo correspondente na pasta</item>
+        <item quantity="other">%d ignoradas: mais de um arquivo correspondente na pasta</item>
+    </plurals>
+    <plurals name="bulk_redo_long">
+        <item quantity="one">%1$d é longa (a mais longa %2$s)</item>
+        <item quantity="other">%1$d são longas (a mais longa %2$s)</item>
+    </plurals>
+    <plurals name="bulk_redo_queued">
+        <item quantity="one">%d na fila</item>
+        <item quantity="other">%d na fila</item>
+    </plurals>
+    <plurals name="bulk_redo_failed_to_start">
+        <item quantity="one">%d não pôde iniciar</item>
+        <item quantity="other">%d não puderam iniciar</item>
+    </plurals>
 </resources>

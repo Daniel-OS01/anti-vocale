@@ -1499,4 +1499,54 @@
     <string name="history_scope_rule_folder_title">Transcribe this folder as…</string>
     <string name="history_scope_rule_subfolder_title">Transcribe this subfolder as…</string>
     <string name="history_scope_rule_long_press_label">Set transcription rule</string>
+    <string name="bulk_redo_single_pass_hint">Two-pass is off for this redo: one pass with the chosen model.</string>
+    <string name="bulk_redo_language_model_default">Model default</string>
+    <string name="bulk_redo_preparing">Preparing %1$d of %2$d</string>
+    <string name="bulk_redo_all">Redo all</string>
+    <string name="bulk_redo_skip_long">Skip long ones</string>
+    <string name="history_select_with_subfolders">Select with subfolders</string>
+    <plurals name="bulk_redo_title">
+        <item quantity="one">Redo %d recording</item>
+        <item quantity="other">Redo %d recordings</item>
+    </plurals>
+    <plurals name="bulk_redo_summary_ready">
+        <item quantity="one">%1$d recording will be redone with %2$s</item>
+        <item quantity="other">%1$d recordings will be redone with %2$s</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_not_audio">
+        <item quantity="one">%d skipped: not audio</item>
+        <item quantity="other">%d skipped: not audio</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_in_flight">
+        <item quantity="one">%d skipped: still processing</item>
+        <item quantity="other">%d skipped: still processing</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_file_gone">
+        <item quantity="one">%d skipped: file no longer available</item>
+        <item quantity="other">%d skipped: file no longer available</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_folder_unavailable">
+        <item quantity="one">%d skipped: watched folder unavailable</item>
+        <item quantity="other">%d skipped: watched folder unavailable</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_not_found_in_folder">
+        <item quantity="one">%d skipped: not found in the watched folder</item>
+        <item quantity="other">%d skipped: not found in the watched folder</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_ambiguous">
+        <item quantity="one">%d skipped: more than one matching file in the folder</item>
+        <item quantity="other">%d skipped: more than one matching file in the folder</item>
+    </plurals>
+    <plurals name="bulk_redo_long">
+        <item quantity="one">%1$d is long (longest %2$s)</item>
+        <item quantity="other">%1$d are long (longest %2$s)</item>
+    </plurals>
+    <plurals name="bulk_redo_queued">
+        <item quantity="one">%d queued</item>
+        <item quantity="other">%d queued</item>
+    </plurals>
+    <plurals name="bulk_redo_failed_to_start">
+        <item quantity="one">%d could not start</item>
+        <item quantity="other">%d could not start</item>
+    </plurals>
 </resources>

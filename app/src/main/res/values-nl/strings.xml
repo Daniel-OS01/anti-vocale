@@ -1489,4 +1489,54 @@
     <string name="history_scope_rule_folder_title">Deze map transcriberen als…</string>
     <string name="history_scope_rule_subfolder_title">Deze submap transcriberen als…</string>
     <string name="history_scope_rule_long_press_label">Transcriptieregel instellen</string>
+    <string name="bulk_redo_single_pass_hint">Twee-pass staat uit voor deze herhaling: één pass met het gekozen model.</string>
+    <string name="bulk_redo_language_model_default">Modelstandaard</string>
+    <string name="bulk_redo_preparing">Voorbereiden %1$d van %2$d</string>
+    <string name="bulk_redo_all">Alles opnieuw</string>
+    <string name="bulk_redo_skip_long">Lange overslaan</string>
+    <string name="history_select_with_subfolders">Selecteren met submappen</string>
+    <plurals name="bulk_redo_title">
+        <item quantity="one">%d opname opnieuw doen</item>
+        <item quantity="other">%d opnames opnieuw doen</item>
+    </plurals>
+    <plurals name="bulk_redo_summary_ready">
+        <item quantity="one">%1$d opname wordt opnieuw gedaan met %2$s</item>
+        <item quantity="other">%1$d opnames worden opnieuw gedaan met %2$s</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_not_audio">
+        <item quantity="one">%d overgeslagen: geen audio</item>
+        <item quantity="other">%d overgeslagen: geen audio</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_in_flight">
+        <item quantity="one">%d overgeslagen: nog in verwerking</item>
+        <item quantity="other">%d overgeslagen: nog in verwerking</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_file_gone">
+        <item quantity="one">%d overgeslagen: bestand niet meer beschikbaar</item>
+        <item quantity="other">%d overgeslagen: bestand niet meer beschikbaar</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_folder_unavailable">
+        <item quantity="one">%d overgeslagen: bewaakte map niet beschikbaar</item>
+        <item quantity="other">%d overgeslagen: bewaakte map niet beschikbaar</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_not_found_in_folder">
+        <item quantity="one">%d overgeslagen: niet gevonden in de bewaakte map</item>
+        <item quantity="other">%d overgeslagen: niet gevonden in de bewaakte map</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_ambiguous">
+        <item quantity="one">%d overgeslagen: meerdere overeenkomende bestanden in de map</item>
+        <item quantity="other">%d overgeslagen: meerdere overeenkomende bestanden in de map</item>
+    </plurals>
+    <plurals name="bulk_redo_long">
+        <item quantity="one">%1$d is lang (langste %2$s)</item>
+        <item quantity="other">%1$d zijn lang (langste %2$s)</item>
+    </plurals>
+    <plurals name="bulk_redo_queued">
+        <item quantity="one">%d in wachtrij</item>
+        <item quantity="other">%d in wachtrij</item>
+    </plurals>
+    <plurals name="bulk_redo_failed_to_start">
+        <item quantity="one">%d kon niet starten</item>
+        <item quantity="other">%d konden niet starten</item>
+    </plurals>
 </resources>

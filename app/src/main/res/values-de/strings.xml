@@ -1473,4 +1473,54 @@
     <string name="history_scope_rule_folder_title">Diesen Ordner transkribieren als…</string>
     <string name="history_scope_rule_subfolder_title">Diesen Unterordner transkribieren als…</string>
     <string name="history_scope_rule_long_press_label">Transkriptionsregel festlegen</string>
+    <string name="bulk_redo_single_pass_hint">Zwei-Durchgang-Modus ist für diese Wiederholung aus: ein Durchgang mit dem gewählten Modell.</string>
+    <string name="bulk_redo_language_model_default">Modellstandard</string>
+    <string name="bulk_redo_preparing">Vorbereitung %1$d von %2$d</string>
+    <string name="bulk_redo_all">Alle wiederholen</string>
+    <string name="bulk_redo_skip_long">Lange überspringen</string>
+    <string name="history_select_with_subfolders">Mit Unterordnern auswählen</string>
+    <plurals name="bulk_redo_title">
+        <item quantity="one">%d Aufnahme wiederholen</item>
+        <item quantity="other">%d Aufnahmen wiederholen</item>
+    </plurals>
+    <plurals name="bulk_redo_summary_ready">
+        <item quantity="one">%1$d Aufnahme wird mit %2$s neu transkribiert</item>
+        <item quantity="other">%1$d Aufnahmen werden mit %2$s neu transkribiert</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_not_audio">
+        <item quantity="one">%d übersprungen: kein Audio</item>
+        <item quantity="other">%d übersprungen: kein Audio</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_in_flight">
+        <item quantity="one">%d übersprungen: wird noch verarbeitet</item>
+        <item quantity="other">%d übersprungen: wird noch verarbeitet</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_file_gone">
+        <item quantity="one">%d übersprungen: Datei nicht mehr verfügbar</item>
+        <item quantity="other">%d übersprungen: Datei nicht mehr verfügbar</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_folder_unavailable">
+        <item quantity="one">%d übersprungen: überwachter Ordner nicht verfügbar</item>
+        <item quantity="other">%d übersprungen: überwachter Ordner nicht verfügbar</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_not_found_in_folder">
+        <item quantity="one">%d übersprungen: im überwachten Ordner nicht gefunden</item>
+        <item quantity="other">%d übersprungen: im überwachten Ordner nicht gefunden</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_ambiguous">
+        <item quantity="one">%d übersprungen: mehrere passende Dateien im Ordner</item>
+        <item quantity="other">%d übersprungen: mehrere passende Dateien im Ordner</item>
+    </plurals>
+    <plurals name="bulk_redo_long">
+        <item quantity="one">%1$d ist lang (längste %2$s)</item>
+        <item quantity="other">%1$d sind lang (längste %2$s)</item>
+    </plurals>
+    <plurals name="bulk_redo_queued">
+        <item quantity="one">%d in der Warteschlange</item>
+        <item quantity="other">%d in der Warteschlange</item>
+    </plurals>
+    <plurals name="bulk_redo_failed_to_start">
+        <item quantity="one">%d konnte nicht starten</item>
+        <item quantity="other">%d konnten nicht starten</item>
+    </plurals>
 </resources>

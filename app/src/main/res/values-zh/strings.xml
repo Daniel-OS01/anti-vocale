@@ -1297,4 +1297,43 @@
     <string name="history_scope_rule_folder_title">将此文件夹转写为…</string>
     <string name="history_scope_rule_subfolder_title">将此子文件夹转写为…</string>
     <string name="history_scope_rule_long_press_label">设置转写规则</string>
+    <string name="bulk_redo_single_pass_hint">本次重做关闭双遍模式：使用所选模型单遍转写。</string>
+    <string name="bulk_redo_language_model_default">模型默认</string>
+    <string name="bulk_redo_preparing">正在准备 %1$d / %2$d</string>
+    <string name="bulk_redo_all">全部重做</string>
+    <string name="bulk_redo_skip_long">跳过较长的</string>
+    <string name="history_select_with_subfolders">连同子文件夹选择</string>
+    <plurals name="bulk_redo_title">
+        <item quantity="other">重做 %d 条录音</item>
+    </plurals>
+    <plurals name="bulk_redo_summary_ready">
+        <item quantity="other">%1$d 条录音将使用 %2$s 重做</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_not_audio">
+        <item quantity="other">已跳过 %d 条：不是音频</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_in_flight">
+        <item quantity="other">已跳过 %d 条：仍在处理中</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_file_gone">
+        <item quantity="other">已跳过 %d 条：文件已不可用</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_folder_unavailable">
+        <item quantity="other">已跳过 %d 条：监视的文件夹不可用</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_not_found_in_folder">
+        <item quantity="other">已跳过 %d 条：在监视的文件夹中未找到</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_ambiguous">
+        <item quantity="other">已跳过 %d 条：文件夹中有多个匹配的文件</item>
+    </plurals>
+    <plurals name="bulk_redo_long">
+        <item quantity="other">%1$d 条较长（最长 %2$s）</item>
+    </plurals>
+    <plurals name="bulk_redo_queued">
+        <item quantity="other">已排队 %d 条</item>
+    </plurals>
+    <plurals name="bulk_redo_failed_to_start">
+        <item quantity="other">%d 条无法启动</item>
+    </plurals>
 </resources>

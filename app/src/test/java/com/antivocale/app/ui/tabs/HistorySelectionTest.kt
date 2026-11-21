@@ -1,5 +1,6 @@
 package com.antivocale.app.ui.tabs
 
+import com.antivocale.app.ui.viewmodel.LogEntry
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -77,5 +78,30 @@ class HistorySelectionTest {
         assertEquals(0, HistorySelection.hiddenCount(setOf("a"), setOf("a", "b")))
         assertEquals(2, HistorySelection.hiddenCount(setOf("a", "h1", "h2"), setOf("a")))
         assertEquals(1, HistorySelection.hiddenCount(setOf("h"), emptySet()))
+    }
+
+    private fun subGroup(key: String, vararg ids: String) = SubGroup(
+        key = key,
+        label = key,
+        logs = ids.map { LogEntry(id = it, taskId = "task-$it", type = LogEntry.Type.AUDIO, status = LogEntry.Status.SUCCESS) },
+    )
+
+    @Test
+    fun `select with subfolders takes the subfolder and its descendants only`() {
+        val section = listOf(
+            subGroup("dir:Russian", "r1", "r2"),
+            subGroup("dir:Russian/2024", "r3"),
+            subGroup("dir:Russians", "x1"),
+            subGroup("who:x", "w1"),
+        )
+        assertEquals(setOf("r1", "r2", "r3"), HistorySelection.subfolderTreeIds("dir:Russian", section))
+        // From a deeper level: the parent is not "below" it.
+        assertEquals(setOf("r3"), HistorySelection.subfolderTreeIds("dir:Russian/2024", section))
+    }
+
+    @Test
+    fun `select with subfolders from a sender sub-group selects nothing`() {
+        val section = listOf(subGroup("who:x", "w1"), subGroup("dir:x", "d1"))
+        assertEquals(emptySet<String>(), HistorySelection.subfolderTreeIds("who:x", section))
     }
 }

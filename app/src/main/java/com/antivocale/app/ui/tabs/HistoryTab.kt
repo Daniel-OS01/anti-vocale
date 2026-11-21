@@ -66,6 +66,7 @@ import com.antivocale.app.data.local.FailureContextJson
 import com.antivocale.app.data.local.ProcessingContextConverter
 import com.antivocale.app.util.AppInfoUtils
 import com.antivocale.app.util.AudioDurationFormat
+import com.antivocale.app.ui.dialogs.BulkRedoDialogs
 import com.antivocale.app.util.ClipboardWriter
 import com.antivocale.app.util.DecodedOfTotalFormat
 import com.antivocale.app.util.SharedAudioHandler
@@ -807,6 +808,9 @@ fun HistoryTab(
     BackHandler(enabled = selectionMode) { viewModel.exitSelection() }
     var showBulkDeleteDialog by remember { mutableStateOf(false) }
     var bulkDeleteResult by remember { mutableStateOf<LogsViewModel.BulkDeleteResult?>(null) }
+    // Bulk redo: the picker is tab-local; the prepare/summary/done flow is the VM's.
+    var showBulkRedoPicker by remember { mutableStateOf(false) }
+    val bulkRedoState by viewModel.bulkRedoState.collectAsState()
     // The bar lives in the non-empty branch: an emptied history must not
     // leave an invisible mode holding the Back key.
     LaunchedEffect(selectionMode, logs.isEmpty()) {
@@ -954,6 +958,27 @@ fun HistoryTab(
         )
     }
 
+    if (showBulkRedoPicker) {
+        val bulkRedoBackends by produceState(initialValue = emptyList<LogsViewModel.BackendOption>()) {
+            value = viewModel.getAvailableAudioBackendsWithModels(context)
+        }
+        RetranscribeDialog(
+            availableBackends = bulkRedoBackends,
+            onProfileSelected = { profile ->
+                showBulkRedoPicker = false
+                viewModel.redoSelected(profile)
+            },
+            onDismiss = { showBulkRedoPicker = false },
+            rowCount = selection.size,
+            offeredLanguages = viewModel::offeredLanguagesFor,
+        )
+    }
+    BulkRedoDialogs(
+        state = bulkRedoState,
+        onConfirm = viewModel::confirmBulkRedo,
+        onCancel = viewModel::cancelBulkRedo,
+    )
+
     // Long-audio advisory (TASK-432): renders only after the retranscribe gate
     // decides a warning is warranted; state lives in the view model so
     // Confirm/Cancel survive recomposition.
@@ -1004,6 +1029,21 @@ fun HistoryTab(
         ).joinToString(" · ")
         if (message.isNotEmpty()) snackbarHostState.showSnackbar(message)
         bulkDeleteResult = null
+    }
+    // Bulk redo outcome: queued, plus the requests that could not start.
+    // Dismissed AFTER the snackbar: dismissing first would change this
+    // effect's key and cancel it before the snackbar shows.
+    val bulkRedoDone = bulkRedoState as? LogsViewModel.BulkRedoUiState.Done
+    LaunchedEffect(bulkRedoDone) {
+        val report = bulkRedoDone?.report ?: return@LaunchedEffect
+        val res = context.resources
+        val message = listOfNotNull(
+            res.getQuantityString(R.plurals.bulk_redo_queued, report.queued, report.queued),
+            report.failedToStart.takeIf { it > 0 }
+                ?.let { res.getQuantityString(R.plurals.bulk_redo_failed_to_start, it, it) },
+        ).joinToString(" · ")
+        snackbarHostState.showSnackbar(message)
+        viewModel.dismissBulkRedoResult()
     }
 
     // TASK-750: the flat render model both the LazyColumn and the scroll
@@ -1241,6 +1281,11 @@ fun HistoryTab(
                         onExit = viewModel::exitSelection,
                         onSelectAllVisible = { on -> viewModel.setGroupSelected(visibleIds, on) },
                         onDelete = { showBulkDeleteDialog = true },
+                        extraActions = {
+                            IconButton(onClick = { showBulkRedoPicker = true }, enabled = selection.isNotEmpty()) {
+                                Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.retranscribe))
+                            }
+                        },
                     )
                 } else {
                     OutlinedTextField(
@@ -1608,6 +1653,20 @@ fun HistoryTab(
                                     onLongPress = if (selectionMode) null else ruleScope?.let { scope -> { ruleEditorScope = scope } },
                                     selectionState = if (selectionMode) HistorySelection.triState(subGroupIds, selection) else null,
                                     onSelectionToggle = { viewModel.toggleGroupSelected(subGroupIds) },
+                                    // Selection mode only, folder sub-groups only: the
+                                    // section's visible sub-groups at or below this path.
+                                    onSelectWithSubfolders = if (selectionMode && folderSubPathOf(row.sender.key) != null) {
+                                        {
+                                            val sectionSubGroups = historyRows
+                                                .filterIsInstance<HistoryRow.SenderHeaderRow>()
+                                                .filter { it.groupKey == row.groupKey }
+                                                .map { it.sender }
+                                            viewModel.setGroupSelected(
+                                                HistorySelection.subfolderTreeIds(row.sender.key, sectionSubGroups),
+                                                on = true,
+                                            )
+                                        }
+                                    } else null,
                                 )
                             }
                             is HistoryRow.DateHeaderRow -> DateGroupHeader(label = row.label, count = row.count)
@@ -3154,6 +3213,8 @@ private fun CollapsibleGroupHeader(
     onLongPress: (() -> Unit)? = null,
     selectionState: GroupSelection? = null,
     onSelectionToggle: () -> Unit = {},
+    /** An optional end-of-row control (the sub-group's ⋮ menu). */
+    trailing: (@Composable () -> Unit)? = null,
 ) {
     val context = LocalContext.current
     // TASK-384: clickable Surface has no role; announce expand/collapse state to talkback
@@ -3235,6 +3296,7 @@ private fun CollapsibleGroupHeader(
                 color = metaColor
             )
             Spacer(modifier = Modifier.width(4.dp))
+            trailing?.invoke()
         }
     }
 }
@@ -3255,6 +3317,8 @@ private fun SenderGroupHeader(
     /** Multi-select: the sub-group's visible rows; null outside selection mode. */
     selectionState: GroupSelection? = null,
     onSelectionToggle: () -> Unit = {},
+    /** Non-null = a ⋮ menu offering "Select with subfolders". */
+    onSelectWithSubfolders: (() -> Unit)? = null,
 ) {
     CollapsibleGroupHeader(
         title = senderName,
@@ -3270,7 +3334,34 @@ private fun SenderGroupHeader(
         rowVerticalPadding = 6.dp,
         selectionState = selectionState,
         onSelectionToggle = onSelectionToggle,
+        trailing = if (onSelectWithSubfolders != null) {
+            { SubfolderSelectMenu(onSelectWithSubfolders) }
+        } else null,
     )
+}
+
+/** The folder sub-group's ⋮ menu (selection mode): "Select with subfolders". */
+@Composable
+private fun SubfolderSelectMenu(onSelect: () -> Unit) {
+    var menuOpen by remember { mutableStateOf(false) }
+    Box {
+        IconButton(onClick = { menuOpen = true }, modifier = Modifier.size(32.dp)) {
+            Icon(
+                Icons.Default.MoreVert,
+                contentDescription = stringResource(R.string.history_select_with_subfolders),
+                modifier = Modifier.size(18.dp),
+            )
+        }
+        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.history_select_with_subfolders)) },
+                onClick = {
+                    menuOpen = false
+                    onSelect()
+                },
+            )
+        }
+    }
 }
 
 /**

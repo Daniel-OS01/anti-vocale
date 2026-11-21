@@ -1473,4 +1473,54 @@
     <string name="history_scope_rule_folder_title">Bu klasörü şöyle yazıya dök…</string>
     <string name="history_scope_rule_subfolder_title">Bu alt klasörü şöyle yazıya dök…</string>
     <string name="history_scope_rule_long_press_label">Yazıya dökme kuralı belirle</string>
+    <string name="bulk_redo_single_pass_hint">Bu yineleme için iki geçiş kapalı: seçilen modelle tek geçiş.</string>
+    <string name="bulk_redo_language_model_default">Model varsayılanı</string>
+    <string name="bulk_redo_preparing">Hazırlanıyor: %1$d / %2$d</string>
+    <string name="bulk_redo_all">Tümünü yinele</string>
+    <string name="bulk_redo_skip_long">Uzunları atla</string>
+    <string name="history_select_with_subfolders">Alt klasörlerle seç</string>
+    <plurals name="bulk_redo_title">
+        <item quantity="one">%d kaydı yinele</item>
+        <item quantity="other">%d kaydı yinele</item>
+    </plurals>
+    <plurals name="bulk_redo_summary_ready">
+        <item quantity="one">%1$d kayıt %2$s ile yinelenecek</item>
+        <item quantity="other">%1$d kayıt %2$s ile yinelenecek</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_not_audio">
+        <item quantity="one">%d atlandı: ses değil</item>
+        <item quantity="other">%d atlandı: ses değil</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_in_flight">
+        <item quantity="one">%d atlandı: hâlâ işleniyor</item>
+        <item quantity="other">%d atlandı: hâlâ işleniyor</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_file_gone">
+        <item quantity="one">%d atlandı: dosya artık mevcut değil</item>
+        <item quantity="other">%d atlandı: dosya artık mevcut değil</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_folder_unavailable">
+        <item quantity="one">%d atlandı: izlenen klasör kullanılamıyor</item>
+        <item quantity="other">%d atlandı: izlenen klasör kullanılamıyor</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_not_found_in_folder">
+        <item quantity="one">%d atlandı: izlenen klasörde bulunamadı</item>
+        <item quantity="other">%d atlandı: izlenen klasörde bulunamadı</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_ambiguous">
+        <item quantity="one">%d atlandı: klasörde birden fazla eşleşen dosya</item>
+        <item quantity="other">%d atlandı: klasörde birden fazla eşleşen dosya</item>
+    </plurals>
+    <plurals name="bulk_redo_long">
+        <item quantity="one">%1$d tanesi uzun (en uzunu %2$s)</item>
+        <item quantity="other">%1$d tanesi uzun (en uzunu %2$s)</item>
+    </plurals>
+    <plurals name="bulk_redo_queued">
+        <item quantity="one">%d sırada</item>
+        <item quantity="other">%d sırada</item>
+    </plurals>
+    <plurals name="bulk_redo_failed_to_start">
+        <item quantity="one">%d başlatılamadı</item>
+        <item quantity="other">%d başlatılamadı</item>
+    </plurals>
 </resources>

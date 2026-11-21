@@ -1341,4 +1341,54 @@
     <string name="history_scope_rule_folder_title">Transcrire ce dossier en…</string>
     <string name="history_scope_rule_subfolder_title">Transcrire ce sous-dossier en…</string>
     <string name="history_scope_rule_long_press_label">Définir une règle de transcription</string>
+    <string name="bulk_redo_single_pass_hint">Le mode deux passes est désactivé pour cette reprise : une seule passe avec le modèle choisi.</string>
+    <string name="bulk_redo_language_model_default">Par défaut du modèle</string>
+    <string name="bulk_redo_preparing">Préparation %1$d sur %2$d</string>
+    <string name="bulk_redo_all">Tout refaire</string>
+    <string name="bulk_redo_skip_long">Ignorer les longs</string>
+    <string name="history_select_with_subfolders">Sélectionner avec les sous-dossiers</string>
+    <plurals name="bulk_redo_title">
+        <item quantity="one">Refaire %d enregistrement</item>
+        <item quantity="other">Refaire %d enregistrements</item>
+    </plurals>
+    <plurals name="bulk_redo_summary_ready">
+        <item quantity="one">%1$d enregistrement sera refait avec %2$s</item>
+        <item quantity="other">%1$d enregistrements seront refaits avec %2$s</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_not_audio">
+        <item quantity="one">%d ignoré : pas un audio</item>
+        <item quantity="other">%d ignorés : pas un audio</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_in_flight">
+        <item quantity="one">%d ignoré : encore en traitement</item>
+        <item quantity="other">%d ignorés : encore en traitement</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_file_gone">
+        <item quantity="one">%d ignoré : fichier plus disponible</item>
+        <item quantity="other">%d ignorés : fichier plus disponible</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_folder_unavailable">
+        <item quantity="one">%d ignoré : dossier surveillé indisponible</item>
+        <item quantity="other">%d ignorés : dossier surveillé indisponible</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_not_found_in_folder">
+        <item quantity="one">%d ignoré : introuvable dans le dossier surveillé</item>
+        <item quantity="other">%d ignorés : introuvable dans le dossier surveillé</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_ambiguous">
+        <item quantity="one">%d ignoré : plusieurs fichiers correspondants dans le dossier</item>
+        <item quantity="other">%d ignorés : plusieurs fichiers correspondants dans le dossier</item>
+    </plurals>
+    <plurals name="bulk_redo_long">
+        <item quantity="one">%1$d est long (le plus long %2$s)</item>
+        <item quantity="other">%1$d sont longs (le plus long %2$s)</item>
+    </plurals>
+    <plurals name="bulk_redo_queued">
+        <item quantity="one">%d en file d\'attente</item>
+        <item quantity="other">%d en file d\'attente</item>
+    </plurals>
+    <plurals name="bulk_redo_failed_to_start">
+        <item quantity="one">%d n\'a pas pu démarrer</item>
+        <item quantity="other">%d n\'ont pas pu démarrer</item>
+    </plurals>
 </resources>

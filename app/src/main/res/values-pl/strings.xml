@@ -1507,4 +1507,76 @@
     <string name="history_scope_rule_folder_title">Transkrybuj ten folder jako…</string>
     <string name="history_scope_rule_subfolder_title">Transkrybuj ten podfolder jako…</string>
     <string name="history_scope_rule_long_press_label">Ustaw regułę transkrypcji</string>
+    <string name="bulk_redo_single_pass_hint">Tryb dwuprzebiegowy jest wyłączony dla tego powtórzenia: jeden przebieg wybranym modelem.</string>
+    <string name="bulk_redo_language_model_default">Domyślny modelu</string>
+    <string name="bulk_redo_preparing">Przygotowywanie %1$d z %2$d</string>
+    <string name="bulk_redo_all">Powtórz wszystkie</string>
+    <string name="bulk_redo_skip_long">Pomiń długie</string>
+    <string name="history_select_with_subfolders">Zaznacz z podfolderami</string>
+    <plurals name="bulk_redo_title">
+        <item quantity="one">Powtórz %d nagranie</item>
+        <item quantity="few">Powtórz %d nagrania</item>
+        <item quantity="many">Powtórz %d nagrań</item>
+        <item quantity="other">Powtórz %d nagrania</item>
+    </plurals>
+    <plurals name="bulk_redo_summary_ready">
+        <item quantity="one">%1$d nagranie zostanie powtórzone modelem %2$s</item>
+        <item quantity="few">%1$d nagrania zostaną powtórzone modelem %2$s</item>
+        <item quantity="many">%1$d nagrań zostanie powtórzonych modelem %2$s</item>
+        <item quantity="other">%1$d nagrania zostanie powtórzone modelem %2$s</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_not_audio">
+        <item quantity="one">Pominięto %d: to nie audio</item>
+        <item quantity="few">Pominięto %d: to nie audio</item>
+        <item quantity="many">Pominięto %d: to nie audio</item>
+        <item quantity="other">Pominięto %d: to nie audio</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_in_flight">
+        <item quantity="one">Pominięto %d: nadal w przetwarzaniu</item>
+        <item quantity="few">Pominięto %d: nadal w przetwarzaniu</item>
+        <item quantity="many">Pominięto %d: nadal w przetwarzaniu</item>
+        <item quantity="other">Pominięto %d: nadal w przetwarzaniu</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_file_gone">
+        <item quantity="one">Pominięto %d: plik nie jest już dostępny</item>
+        <item quantity="few">Pominięto %d: plik nie jest już dostępny</item>
+        <item quantity="many">Pominięto %d: plik nie jest już dostępny</item>
+        <item quantity="other">Pominięto %d: plik nie jest już dostępny</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_folder_unavailable">
+        <item quantity="one">Pominięto %d: obserwowany folder niedostępny</item>
+        <item quantity="few">Pominięto %d: obserwowany folder niedostępny</item>
+        <item quantity="many">Pominięto %d: obserwowany folder niedostępny</item>
+        <item quantity="other">Pominięto %d: obserwowany folder niedostępny</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_not_found_in_folder">
+        <item quantity="one">Pominięto %d: brak w obserwowanym folderze</item>
+        <item quantity="few">Pominięto %d: brak w obserwowanym folderze</item>
+        <item quantity="many">Pominięto %d: brak w obserwowanym folderze</item>
+        <item quantity="other">Pominięto %d: brak w obserwowanym folderze</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_ambiguous">
+        <item quantity="one">Pominięto %d: kilka pasujących plików w folderze</item>
+        <item quantity="few">Pominięto %d: kilka pasujących plików w folderze</item>
+        <item quantity="many">Pominięto %d: kilka pasujących plików w folderze</item>
+        <item quantity="other">Pominięto %d: kilka pasujących plików w folderze</item>
+    </plurals>
+    <plurals name="bulk_redo_long">
+        <item quantity="one">%1$d jest długie (najdłuższe %2$s)</item>
+        <item quantity="few">%1$d są długie (najdłuższe %2$s)</item>
+        <item quantity="many">%1$d jest długich (najdłuższe %2$s)</item>
+        <item quantity="other">%1$d jest długiego (najdłuższe %2$s)</item>
+    </plurals>
+    <plurals name="bulk_redo_queued">
+        <item quantity="one">%d w kolejce</item>
+        <item quantity="few">%d w kolejce</item>
+        <item quantity="many">%d w kolejce</item>
+        <item quantity="other">%d w kolejce</item>
+    </plurals>
+    <plurals name="bulk_redo_failed_to_start">
+        <item quantity="one">Nie udało się uruchomić: %d</item>
+        <item quantity="few">Nie udało się uruchomić: %d</item>
+        <item quantity="many">Nie udało się uruchomić: %d</item>
+        <item quantity="other">Nie udało się uruchomić: %d</item>
+    </plurals>
 </resources>
