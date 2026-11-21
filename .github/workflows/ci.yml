@@ -10,6 +10,8 @@ on:
       - 'docs/**'
       - 'fastlane/**'
       - 'metadata/**'
+      # A publish-workflow-only change does not change the app: no new release.
+      - '.github/workflows/publish-apk.yml'
   pull_request:
     branches: [ main ]
   workflow_dispatch:

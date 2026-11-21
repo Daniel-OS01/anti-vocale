@@ -132,7 +132,8 @@ jobs:
           VERSION_NAME: ${{ steps.version.outputs.version_name }}
           VERSION_CODE: ${{ steps.version.outputs.version_code }}
         run: |
-          cert=$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' apksigner.txt)
+          # apksigner prints "Signer #1 certificate ..." (older) or "V2 Signer: certificate ..." (newer).
+          cert=$(sed -nE 's/^(Signer #1|V2 Signer):? certificate SHA-256 digest: //p' apksigner.txt | head -1)
           notes=$(cat <<EOF
           Anti-Vocale Fork $VERSION_NAME (versionCode $((VERSION_CODE * 10 + 2)), arm64-v8a), built from $RELEASE_SHA.
 
