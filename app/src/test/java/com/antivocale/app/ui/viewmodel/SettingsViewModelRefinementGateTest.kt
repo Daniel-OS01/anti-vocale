@@ -1,7 +1,9 @@
 package com.antivocale.app.ui.viewmodel
 
 import com.antivocale.app.data.ExternalModelRecord
+import com.antivocale.app.data.ExternalModelSource
 import com.antivocale.app.data.FakePreferencesManager
+import com.antivocale.app.data.ModelFamily
 import com.antivocale.app.transcription.SherpaModelManager
 import io.mockk.coEvery
 import io.mockk.mockkObject
@@ -163,6 +165,57 @@ class SettingsViewModelRefinementGateTest : ViewModelTeardownTest() {
         awaitGate { viewModel.fastBackendId.value == "whisper" }
         assertEquals("whisper", viewModel.fastBackendId.value)
         assertFalse(viewModel.refinementAvailable.value)
+    }
+
+    /** A loadable external record (the provider's snapshot is the valid set). */
+    private fun external(
+        id: String,
+        family: ModelFamily,
+        streaming: Boolean = false,
+    ) = ExternalModelRecord(
+        id = id,
+        displayName = "Imported $id",
+        dir = "/models/external/$id",
+        family = family,
+        modelType = if (family == ModelFamily.TRANSDUCER) "zipformer2" else "",
+        languages = emptyList(),
+        source = ExternalModelSource.LOCAL,
+        sourceUrl = null,
+        files = emptyMap(),
+        sizeBytes = 1L,
+        importedAt = 0L,
+        streaming = streaming,
+    )
+
+    private val importedStreaming = external("zip-stream", ModelFamily.TRANSDUCER, streaming = true)
+    private val importedWhisper = external("whisper-big", ModelFamily.WHISPER)
+
+    @Test
+    fun `only imported models - a streaming transducer and a pinned whisper unlock two-pass`() = runTest {
+        // No built-in model is installed: the built-in probe finds nothing.
+        // The fast arm must come from the imports (the streaming transducer,
+        // which ExternalSherpaBackend runs in batch mode), so the toggle is
+        // available with zero configuration.
+        coEvery { SherpaModelManager.installedFastEntryId(any(), any()) } returns null
+        externalRecords.value = listOf(importedStreaming, importedWhisper)
+        fakePrefs._transcriptionBackend.value = importedStreaming.backendId
+        fakePrefs._refinementModelBackendId.value = importedWhisper.backendId
+        // The target is assigned in the same block AFTER the fast arm, so
+        // seeing it proves the combine settled on this input.
+        awaitGate { viewModel.refinementTargetBackendId.value == importedWhisper.backendId }
+        assertEquals(importedWhisper.backendId, viewModel.refinementTargetBackendId.value)
+        assertEquals(importedStreaming.backendId, viewModel.fastBackendId.value)
+        assertTrue(viewModel.refinementAvailable.value)
+    }
+
+    @Test
+    fun `only imported models - a selected whisper import pairs with the streaming import`() = runTest {
+        coEvery { SherpaModelManager.installedFastEntryId(any(), any()) } returns null
+        externalRecords.value = listOf(importedStreaming, importedWhisper)
+        fakePrefs._transcriptionBackend.value = importedWhisper.backendId
+        awaitGate { viewModel.refinementTargetBackendId.value == importedWhisper.backendId }
+        assertEquals(importedStreaming.backendId, viewModel.fastBackendId.value)
+        assertTrue(viewModel.refinementAvailable.value)
     }
 
     @Test
