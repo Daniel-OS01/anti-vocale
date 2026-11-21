@@ -121,9 +121,9 @@ class ScopeProfileSource @Inject constructor(
         if (languages.isEmpty()) return emptyMap()
         val backends = buildSet {
             add(globalBackendId)
-            chain.explicit?.backendId.nonBlank()?.let(::add)
-            scopes.forEach { scope -> scope?.backendId.nonBlank()?.let(::add) }
-            languages.forEach { language -> languageModels[language].nonBlank()?.let(::add) }
+            chain.explicit?.backendId.nonBlank()?.let { add(it) }
+            scopes.forEach { scope -> scope?.backendId.nonBlank()?.let { add(it) } }
+            languages.forEach { language -> languageModels[language].nonBlank()?.let { add(it) } }
         }
         val table = HashMap<Pair<String, String>, LanguageSupport>()
         for (backend in backends) {

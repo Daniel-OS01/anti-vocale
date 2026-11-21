@@ -7,15 +7,34 @@ import android.util.Log
 import android.widget.Toast
 import androidx.work.WorkManager
 import com.antivocale.app.R
+import com.antivocale.app.data.OriginFacts
+import com.antivocale.app.data.ScopeProfileSource
+import com.antivocale.app.data.SourceKind
 import com.antivocale.app.service.InferenceService
 import com.antivocale.app.util.ClipboardWriter
 import com.antivocale.app.util.CrashReporter
 import com.antivocale.app.util.ShareBackHelper
+import dagger.hilt.EntryPoint
+import dagger.hilt.InstallIn
+import dagger.hilt.android.EntryPointAccessors
+import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+
+/**
+ * R6: the suspension re-run re-resolves the row's scope profile; the
+ * annotation-free receiver reaches [ScopeProfileSource] through this
+ * entry point (the [SubtitlePrefsEntryPoint] pattern).
+ */
+@EntryPoint
+@InstallIn(SingletonComponent::class)
+interface ScopeProfileEntryPoint {
+    val scopeProfileSource: ScopeProfileSource
+}
 
 /**
  * BroadcastReceiver for handling notification actions.
@@ -43,6 +62,24 @@ class NotificationActionReceiver : BroadcastReceiver() {
         const val ACTION_PAGE_PREV = "com.antivocale.app.PAGE_PREV"
         const val ACTION_PAGE_NEXT = "com.antivocale.app.PAGE_NEXT"
         const val EXTRA_TASK_ID = "task_id"
+
+        /**
+         * R6: the scope facts a suspension re-run re-resolves from: the
+         * folder-watch row's tree and subfolder, and, for a voice-note row
+         * from one of the two WhatsApp packages, that source (its default
+         * pin). A shared WhatsApp file carries the package too but is not a
+         * voice-note row, so the kind gates the source.
+         */
+        internal fun rerunOriginFacts(intent: Intent): OriginFacts = OriginFacts(
+            voiceNoteSource =
+                if (intent.getStringExtra(InferenceService.EXTRA_SOURCE_KIND) == SourceKind.VOICE_NOTE) {
+                    ScopeProfileSource.voiceNoteSourceForPackage(intent.getStringExtra(EXTRA_SOURCE_PACKAGE))
+                } else {
+                    null
+                },
+            folderTreeUri = intent.getStringExtra(InferenceService.EXTRA_SOURCE_FOLDER_KEY),
+            subPath = intent.getStringExtra(InferenceService.EXTRA_SOURCE_SUB_PATH),
+        )
         // TASK-764: the sixteen result-spec round-trip extras moved to
         // ResultNotificationSpecNav (the one write/read owner, values
         // frozen for pre-update notifications); only the keys other
@@ -133,8 +170,10 @@ class NotificationActionReceiver : BroadcastReceiver() {
     /**
      * TASK-684 (GH #109): the suspension notification's one-tap re-run.
      * Re-enqueues the suspended run's audio through [InferenceEnqueue] with a
-     * FRESH task id under the ACTIVE backend (the Logs-tab retranscribe
-     * scaffold's dispatch shape; the row pins no backend). The notification
+     * FRESH task id (the Logs-tab retranscribe scaffold's dispatch shape).
+     * R6: the backend and language are RE-RESOLVED from the row's origin
+     * facts ([rerunOriginFacts]), so a rule the user added since the first
+     * run applies; with no rule anywhere this is the active backend. The notification
      * tap is user-initiated, so the FGS start rides the same exemption the
      * subtitle choice above relies on, and a still-restricted start survives
      * on the trampoline notification. NOT a passthrough: this arm mints its
@@ -178,13 +217,42 @@ class NotificationActionReceiver : BroadcastReceiver() {
                 putExtra(InferenceService.EXTRA_SOURCE_SUB_PATH, it)
             }
         }
-        when (com.antivocale.app.service.InferenceEnqueue.start(context, serviceIntent)) {
-            com.antivocale.app.service.InferenceEnqueue.Outcome.Started,
-            com.antivocale.app.service.InferenceEnqueue.Outcome.FallbackNotificationPosted ->
-                Log.i(TAG, "Suspension re-run enqueued (file=$filePath)")
-            is com.antivocale.app.service.InferenceEnqueue.Outcome.Failed -> {
-                Log.e(TAG, "Suspension re-run enqueue FAILED: request lost")
-                Toast.makeText(context, context.getString(R.string.transcription_failed), Toast.LENGTH_LONG).show()
+        val facts = rerunOriginFacts(intent)
+        val appContext = context.applicationContext
+        val pendingResult = goAsync()
+        CoroutineScope(Dispatchers.IO + SupervisorJob() + CrashReporter.handler).launch {
+            try {
+                val profile = try {
+                    EntryPointAccessors.fromApplication(appContext, ScopeProfileEntryPoint::class.java)
+                        .scopeProfileSource.resolve(facts)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    // A user tap must not be dropped over a preference read:
+                    // the re-run proceeds on the active model, loudly.
+                    Log.w(TAG, "scope_profile_rerun_resolve_failed error=${e.javaClass.simpleName}", e)
+                    null
+                }
+                profile?.backendOverride?.let { serviceIntent.putExtra(InferenceService.EXTRA_BACKEND_OVERRIDE, it) }
+                profile?.languageOverride?.takeIf { it.isNotBlank() }?.let {
+                    serviceIntent.putExtra(InferenceService.EXTRA_LANGUAGE_OVERRIDE, it)
+                }
+                // The FGS start and the toast belong on the main thread.
+                withContext(Dispatchers.Main) {
+                    when (com.antivocale.app.service.InferenceEnqueue.start(appContext, serviceIntent)) {
+                        com.antivocale.app.service.InferenceEnqueue.Outcome.Started,
+                        com.antivocale.app.service.InferenceEnqueue.Outcome.FallbackNotificationPosted ->
+                            Log.i(TAG, "Suspension re-run enqueued (file=$filePath)")
+                        is com.antivocale.app.service.InferenceEnqueue.Outcome.Failed -> {
+                            Log.e(TAG, "Suspension re-run enqueue FAILED: request lost")
+                            Toast.makeText(
+                                appContext, appContext.getString(R.string.transcription_failed), Toast.LENGTH_LONG,
+                            ).show()
+                        }
+                    }
+                }
+            } finally {
+                pendingResult.finish()
             }
         }
     }

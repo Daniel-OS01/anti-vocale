@@ -35,7 +35,7 @@ class ScopeProfileSourceTest {
 
     /** Whisper and gigaam honor ru; everything else ignores languages. */
     private val support = mockk<LanguageSupportLookup> {
-        coEvery { support(any(), any()) } answers {
+        coEvery { support(any(), any()) } coAnswers {
             val backend = firstArg<String>()
             val language = secondArg<String>()
             when {
