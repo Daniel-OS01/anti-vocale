@@ -46,6 +46,11 @@ class ShareReceiverActivityDialogStateTest {
         localPath = "/data/voice.m4a",
         backendOverride = null,
         contentHash = "hash",
+        sender = ShareReceiverActivity.ShareSenderDecision(
+            senderName = null,
+            backendOverride = null,
+            languageOverride = null,
+        ),
     )
 
     private fun chooser(taskId: String) = ShareReceiverActivity.PendingDialog.ExternalChooser(

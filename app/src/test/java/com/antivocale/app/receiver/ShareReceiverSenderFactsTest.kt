@@ -1,7 +1,11 @@
 package com.antivocale.app.receiver
 
+import com.antivocale.app.data.OriginFacts
 import com.antivocale.app.data.SenderKey
 import com.antivocale.app.data.TranscriptionProfile
+import com.antivocale.app.transcription.ResolvedProfile
+import com.antivocale.app.transcription.ScopeKind
+import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -38,5 +42,42 @@ class ShareReceiverSenderFactsTest {
     fun `a share from another app makes no resolve call`() {
         assertNull(ShareReceiverActivity.shareSenderOriginFacts("org.example.messenger", "Test Contact", "whisper"))
         assertNull(ShareReceiverActivity.shareSenderOriginFacts(null, "Test Contact", null))
+    }
+
+    @Test
+    fun `a sender profile that picks a model drives both the duplicate lookup and the intent`() = runTest {
+        var calls = 0
+        val decision = ShareReceiverActivity.shareSenderDecision("com.whatsapp", "Test Contact", null) { facts ->
+            calls++
+            assertEquals(SenderKey.WhatsApp("com.whatsapp", "Test Contact").storageId(), facts.senderStorageId)
+            ResolvedProfile(backendOverride = "model-b", languageOverride = "he", decidedBy = ScopeKind.SENDER)
+        }
+        assertEquals(1, calls)
+        // The ONE field both offerDuplicateDialogIfNeeded's lookup and
+        // dispatch's AudioRequestIntent read: the sender's model, not the
+        // global one the share would otherwise default to.
+        assertEquals("model-b", decision.backendOverride)
+        assertEquals("he", decision.languageOverride)
+        assertEquals("Test Contact", decision.senderName)
+    }
+
+    @Test
+    fun `a share with no sender key keeps the alias backend and makes no resolve call`() = runTest {
+        var calls = 0
+        val countingResolve: suspend (OriginFacts) -> ResolvedProfile = {
+            calls++
+            ResolvedProfile(backendOverride = "model-b", languageOverride = "he", decidedBy = ScopeKind.SENDER)
+        }
+        val unlabeled = ShareReceiverActivity.shareSenderDecision("com.whatsapp", null, "whisper", countingResolve)
+        val otherApp = ShareReceiverActivity.shareSenderDecision("org.example.messenger", "Test Contact", "whisper", countingResolve)
+
+        assertEquals(0, calls)
+        val expected = ShareReceiverActivity.ShareSenderDecision(
+            senderName = null,
+            backendOverride = "whisper",
+            languageOverride = null,
+        )
+        assertEquals(expected, unlabeled)
+        assertEquals(expected.copy(senderName = "Test Contact"), otherApp)
     }
 }
