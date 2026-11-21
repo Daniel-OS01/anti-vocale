@@ -6,6 +6,13 @@ import android.telephony.TelephonyManager
 import java.text.Normalizer
 import java.util.Locale
 
+// File-level rather than companion-private: the interface's default
+// storageId() reads them, and a private companion member read from an
+// interface body needs a synthetic accessor the JVM default-method mode
+// may not generate.
+private const val WA_PREFIX = "wa:"
+private const val CALL_PREFIX = "call:"
+
 /**
  * The stable, normalized identity a per-sender rule is keyed on.
  *
@@ -39,9 +46,6 @@ sealed interface SenderKey {
     }
 
     companion object {
-        private val WA_PREFIX = "wa:"
-        private val CALL_PREFIX = "call:"
-
         internal val WHATSAPP_PACKAGES = setOf(
             PerAppPreferencesManager.WHATSAPP,
             PerAppPreferencesManager.WHATSAPP_BUSINESS,
