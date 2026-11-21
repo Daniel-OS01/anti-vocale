@@ -103,6 +103,30 @@ class SettingsViewModelFolderAddTest : ViewModelTeardownTest() {
     }
 
     @Test
+    fun `cancel keeps the grant when voice-note detection uses the same tree`() = runBlocking {
+        harness.fakePrefs._voiceNoteTreeUri.value = key
+        every { FolderListing.listWithStatus(harness.application, uri) } returns listing(recording to uri)
+        withTimeout(5000) { viewModel.addWatchedFolder(uri).join() }
+        withTimeout(5000) { viewModel.cancelPendingFolderAdd(uri).join() }
+
+        assertNull(store.byUri(key))
+        verify(exactly = 0) { TreeUris.releasePersistableReadGrant(any(), any()) }
+    }
+
+    @Test
+    fun `removing a watch keeps the grant when the export folder is the same tree`() = runBlocking {
+        harness.fakePrefs._outputFolderUri.value = key
+        every { FolderListing.listWithStatus(harness.application, uri) } returns null
+        every { ScheduledFolderScheduler.cancel(harness.application, key) } just Runs
+        every { ScheduledFolderScheduler.disarmMediaTrigger(harness.application) } just Runs
+        withTimeout(5000) { viewModel.addWatchedFolder(uri).join() }
+        withTimeout(5000) { viewModel.removeWatchedFolder(key).join() }
+
+        assertNull(store.byUri(key))
+        verify(exactly = 0) { TreeUris.releasePersistableReadGrant(any(), any()) }
+    }
+
+    @Test
     fun `only new files on a capped listing keeps baselining newly visible subfolder files`() = runBlocking {
         every { FolderListing.listWithStatus(harness.application, uri) } returns
             listing(recording to uri, truncated = true)
