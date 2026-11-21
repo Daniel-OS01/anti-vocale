@@ -1,8 +1,9 @@
 name: Publish APK
 
 # Builds a SIGNED arm64-v8a APK of the fork build type (package com.antivocale.app.fork,
-# label "Anti-Vocale Fork", installs next to the store app) and publishes it as a GitHub
-# Release with an auto-incremented version: v<upstream base>-fork.<N>
+# label "Anti-Vocale-Fork", installs next to the store app) and publishes it as the GitHub
+# Release "Anti-Vocale-Fork vX.Y.Z", tag fork-vX.Y.Z. The fork has its own version: the patch
+# goes up by itself each release, a minor bump is a one-line edit of .fork-version
 # (scripts/ci/resolve-fork-version.sh). Runs after CI succeeds on a push to main, or by hand.
 #
 # Required repository secrets (the job fails rather than publish an unsigned APK):
@@ -131,13 +132,15 @@ jobs:
           TAG: ${{ steps.version.outputs.tag }}
           VERSION_NAME: ${{ steps.version.outputs.version_name }}
           VERSION_CODE: ${{ steps.version.outputs.version_code }}
+          UPSTREAM: ${{ steps.version.outputs.upstream }}
         run: |
           # apksigner prints "Signer #1 certificate ..." (older) or "V2 Signer: certificate ..." (newer).
           cert=$(sed -nE 's/^(Signer #1|V2 Signer):? certificate SHA-256 digest: //p' apksigner.txt | head -1)
           notes=$(cat <<EOF
-          Anti-Vocale Fork $VERSION_NAME (versionCode $((VERSION_CODE * 10 + 2)), arm64-v8a), built from $RELEASE_SHA.
+          Anti-Vocale-Fork v$VERSION_NAME (versionCode $((VERSION_CODE * 10 + 2)), arm64-v8a), built from $RELEASE_SHA.
 
-          - Package \`com.antivocale.app.fork\`, launcher name **Anti-Vocale Fork**: installs next to the Play Store / F-Droid Anti-Vocale, with its own data.
+          - Based on upstream [Anti-Vocale](https://github.com/RisorseArtificiali/anti-vocale) ${UPSTREAM:-(no upstream release tag found)}, plus the upstream changes merged since.
+          - Package \`com.antivocale.app.fork\`, launcher name **Anti-Vocale-Fork**: installs next to the Play Store / F-Droid Anti-Vocale, with its own data.
           - Signed with the fork release key (certificate SHA-256 \`$cert\`); later fork releases update in place.
           - Fork changes: imported models are no longer deleted on app start (see README).
           EOF
@@ -147,5 +150,5 @@ jobs:
             gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false --latest
           else
             gh release create "$TAG" "dist/$APK_NAME" --repo "$GITHUB_REPOSITORY" \
-              --target "$RELEASE_SHA" --title "Anti-Vocale Fork $VERSION_NAME" --notes "$notes" --latest
+              --target "$RELEASE_SHA" --title "Anti-Vocale-Fork v$VERSION_NAME" --notes "$notes" --latest
           fi

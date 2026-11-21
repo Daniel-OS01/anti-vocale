@@ -32,6 +32,9 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      - name: Test the fork release version resolver
+        run: bash scripts/ci/test-resolve-fork-version.sh
+
       - uses: actions/setup-java@v6
         with:
           distribution: 'temurin'
@@ -50,8 +53,12 @@ jobs:
       # fdroid flavor: no Firebase google-services.json needed. A few upstream tests wait on
       # wall-clock timeouts and fail intermittently on busy runners; the script re-runs up to
       # 3 failed classes once and names them in the job summary (see its header).
+      # CI_VERSION_NAME: build the way a fork release does (its own version, unrelated to
+      # upstream's), so upstream-keyed lookups that leak the fork version fail here.
       - name: Run unit tests (fdroid debug)
         timeout-minutes: 45
+        env:
+          CI_VERSION_NAME: 1.2.0
         run: ./scripts/ci/unit-tests-retry-flaky.sh
 
       - name: Upload test results on failure

@@ -2281,7 +2281,7 @@ fun SettingsTab(
         // TASK-936: a version without notes (a SNAPSHOT build) hides the
         // row instead of leaving a visible no-op behind the empty guard.
         val whatsNewNotes = remember(currentLanguage) {
-            ReleaseNotes.notesFor(currentLanguage, BuildConfig.VERSION_NAME, context.assets)
+            ReleaseNotes.notesFor(currentLanguage, BuildConfig.UPSTREAM_VERSION_NAME, context.assets)
         }
         if (feedbackVisible && whatsNewNotes.isNotEmpty()) {
             SearchFilterRow(searchQuery, SettingsSearchId.WHATS_NEW, searchState) {
