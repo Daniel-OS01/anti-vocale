@@ -1,14 +1,13 @@
-<p align="center">
-  <a href="https://f-droid.org/packages/com.antivocale.app/"><img alt="Get it on F-Droid" src="https://f-droid.org/badge/get-it-on.png" width="240"/></a>
-  &nbsp;
-  <a href="https://play.google.com/store/apps/details?id=com.antivocale.app"><img alt="Get it on Google Play" src="https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png" width="240"/></a>
-</p>
+# Anti-Vocale (fork)
 
-<p align="center">
-  <a href="#how-this-project-is-built"><img alt="AI-assisted, human-owned development" src="docs/badges/ai-assisted.svg"/></a>
-</p>
+> **This is a fork of [RisorseArtificiali/anti-vocale](https://github.com/RisorseArtificiali/anti-vocale).**
+> All credit for the app goes to the upstream project. This fork adds:
+>
+> - **Imported models are no longer deleted on app start.** Upstream's startup orphan sweep for the built-in Gemma (`llm`) entry treats `files/models/external`, the folder holding every user-imported model, as a stale Gemma variant and deletes it whenever the Models screen opens. The sweep now protects that folder (`OrphanedModelDirCleaner.kt`, `ModelViewModel.kt`, regression test `OrphanedModelDirCleanerTest`).
+> - **GitHub-only releases.** `.github/workflows/android-release.yml` runs the unit tests on every push and pull request and publishes APKs to this repository's [Releases](../../releases) when a `v*` tag is pushed. There is no Play Store or F-Droid publishing.
+>
+> The debug APKs from this fork install next to a store-installed Anti-Vocale (package `com.antivocale.app.debug`, own data). The release APK keeps the store package name `com.antivocale.app` but has a different signature, so it installs only after uninstalling the store version.
 
-# Anti-Vocale
 
 Android app for transcribing voice messages locally on-device, with no internet required.
 
@@ -27,14 +26,6 @@ The big messengers transcribe voice messages only partially, or not at all:
 - **Signal** ships no voice transcription at all.
 
 Anti-Vocale closes that gap with a different trade-off. It runs entirely on your phone, so audio never leaves the device, whatever chat it came from. Any messaging app can share into it through the standard Android share sheet, and you can also pick an audio or video file straight from storage inside the app. It is free. And it transcribes any language the installed models cover, including community fine-tunes imported from the model catalog, so coverage is not decided by a platform vendor.
-
-## How this project is built
-
-Anti-Vocale is developed with heavy AI assistance and human ownership: a coding agent executes, the maintainer designs, reviews, and owns every change, and one human signs every release. The badge above says it plainly and links here: AI-assisted, human-owned (blue = AI-assisted in the open [AI disclosure badge](https://disclosingai.com) convention).
-
-This is a deliberate choice, not a shortcut. The compatibility space this app lives in is a matrix of devices, inference backends, models, and per-language quality, and it is too vast to validate the way a narrower domain could. Published WER numbers almost never match real-phone experience: they are typically measured on full-precision models running on desktops, before quantization and before vendor-specific Android quirks. That complexity is exactly why the project is only sustainable with heavy AI-assisted development plus feedback from the community on real devices.
-
-What keeps that honest is the verification bar: every code change passes the automated test suite, and behavior changes are verified on a real device before release; the measurements and device logs behind the fixes are public in the issues. Much of the day-to-day development happens over chat from a phone, sometimes while walking down the street: decisions land where life happens, and the verification pipeline is what makes that safe. If you want to contribute, [CONTRIBUTING.md](CONTRIBUTING.md) says what we ask of AI-assisted contributions.
 
 ## Model catalog
 
@@ -215,7 +206,7 @@ Import any sherpa-onnx model (transducer, Whisper, CTC, SenseVoice, Canary, Moon
 | **playStore** | Crashlytics + Analytics | Google Play distribution |
 | **fdroid** | None | F-Droid / FOSS distribution |
 
-Both flavors share the same `applicationId` and feature set. The only difference is crash reporting (Firebase vs logcat-only).
+Both flavors share the same `applicationId` and feature set. The only difference is crash reporting (Firebase vs logcat-only). This fork's releases are built from the **fdroid** flavor (no Firebase).
 
 ## Getting Started
 
@@ -229,11 +220,10 @@ Common questions (model limits, chunking, queue behavior, where to find transcri
 
 ### Install
 
-**Play Store:** [Get it on Google Play](https://play.google.com/store/apps/details?id=com.antivocale.app)
+Download the APKs from this fork's [Releases](../../releases):
 
-**F-Droid:** [Get it on F-Droid](https://f-droid.org/packages/com.antivocale.app/)
-
-**GitHub Releases:** Download the APK from [Releases](../../releases)
+- `...-debug.apk` (per ABI; most phones need `arm64-v8a`): installs as-is next to any store version, package `com.antivocale.app.debug`.
+- `...-release.apk`: signed only if the repository has release-keystore secrets (see the workflow header). Otherwise it is marked `UNSIGNED` and must be signed before installing.
 
 Or build from source:
 
@@ -326,4 +316,4 @@ Apps that implement the open [Open Transcribe contract](https://github.com/23rd/
 
 ## License
 
-See [LICENSE](LICENSE) for details.
+See [LICENSE](LICENSE) for details. Original project: [RisorseArtificiali/anti-vocale](https://github.com/RisorseArtificiali/anti-vocale).
