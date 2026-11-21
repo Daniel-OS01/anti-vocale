@@ -15,7 +15,7 @@ import javax.inject.Singleton
  *
  * - `external:` ids: the [ExternalModelStore] record (any record: whether
  *   it is loadable is the resolver's separate question).
- * - built-ins: the bundled catalog entry, with the offered set derived
+ * - built-ins: the bundled catalog entry, with the offered and declared sets derived
  *   from the INSTALLED variant's saved model path through the registry
  *   descriptor (the [com.antivocale.app.data.ActiveModelRepository]
  *   derivation, for an arbitrary backend instead of the active one).
@@ -42,6 +42,10 @@ class LanguageSupportLookup @Inject constructor(
         }
         val entry = BundledCatalog.byId(backendId) ?: return LanguageTarget.Opaque
         val modelPath = backendRegistry.byBackendId(backendId)?.modelPathFlow?.invoke(preferencesManager)?.first()
-        return LanguageTarget.BuiltIn(entry, TranscriptionLanguagePolicy.offeredLanguages(modelPath, entry))
+        return LanguageTarget.BuiltIn(
+            entry,
+            offered = TranscriptionLanguagePolicy.offeredLanguages(modelPath, entry),
+            declared = TranscriptionLanguagePolicy.declaredLanguages(modelPath, entry),
+        )
     }
 }

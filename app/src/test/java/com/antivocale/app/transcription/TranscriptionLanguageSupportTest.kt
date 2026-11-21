@@ -53,8 +53,11 @@ class TranscriptionLanguageSupportTest {
         ),
     )
 
-    private fun builtIn(e: CatalogEntry, installedDir: String) =
-        LanguageTarget.BuiltIn(e, TranscriptionLanguagePolicy.offeredLanguages("/models/$installedDir", e))
+    private fun builtIn(e: CatalogEntry, installedDir: String) = LanguageTarget.BuiltIn(
+        e,
+        offered = TranscriptionLanguagePolicy.offeredLanguages("/models/$installedDir", e),
+        declared = TranscriptionLanguagePolicy.declaredLanguages("/models/$installedDir", e),
+    )
 
     private fun external(family: ModelFamily, languages: List<String>) = LanguageTarget.External(
         ExternalModelRecord(
@@ -87,16 +90,42 @@ class TranscriptionLanguageSupportTest {
         assertEquals(LanguageSupport.HONORS, support(distil, "it"))
     }
 
+    private val parakeet = entry(BuiltInBackendIds.PARAKEET, CatalogFlags(), listOf(variant("parakeet")),
+        Language.PARAKEET.toList())
+    private val gigaam = entry("gigaam", CatalogFlags(), listOf(variant("gigaam")), Language.GIGAAM.toList())
+
     @Test
-    fun `models without language conditioning ignore any language`() {
-        val parakeet = entry(BuiltInBackendIds.PARAKEET, CatalogFlags(), listOf(variant("parakeet")),
-            Language.PARAKEET.toList())
-        val gigaam = entry("gigaam", CatalogFlags(), listOf(variant("gigaam")), Language.GIGAAM.toList())
+    fun `non-conditioning models ignore a language they declare`() {
         val qwen = entry("qwen3-asr", CatalogFlags(), listOf(variant("qwen")), listOf("en", "zh"))
-        for (e in listOf(parakeet, gigaam, qwen)) {
-            assertEquals(e.id, LanguageSupport.IGNORES, support(builtIn(e, e.variants.first().dirName), "ru"))
-            assertEquals(e.id, LanguageSupport.IGNORES, support(builtIn(e, e.variants.first().dirName), "he"))
-        }
+        assertEquals(LanguageSupport.IGNORES, support(builtIn(parakeet, "parakeet"), "ru"))
+        assertEquals(LanguageSupport.IGNORES, support(builtIn(gigaam, "gigaam"), "ru"))
+        assertEquals(LanguageSupport.IGNORES, support(builtIn(qwen, "qwen"), "zh"))
+    }
+
+    @Test
+    fun `gigaam finds he unsupported and ignores ru`() {
+        assertEquals(LanguageSupport.UNSUPPORTED, support(builtIn(gigaam, "gigaam"), "he"))
+        assertEquals(LanguageSupport.IGNORES, support(builtIn(gigaam, "gigaam"), "ru"))
+    }
+
+    @Test
+    fun `parakeet v3 finds he unsupported`() {
+        assertEquals(LanguageSupport.UNSUPPORTED, support(builtIn(parakeet, "parakeet"), "he"))
+    }
+
+    @Test
+    fun `a variant's own declared list wins over the entry-level one`() {
+        val e = entry("x", CatalogFlags(), listOf(variant("x-ru", listOf("ru")), variant("x-he", listOf("he"))),
+            listOf("ru", "he"))
+        assertEquals(LanguageSupport.UNSUPPORTED, support(builtIn(e, "x-he"), "ru"))
+        assertEquals(LanguageSupport.IGNORES, support(builtIn(e, "x-he"), "he"))
+    }
+
+    @Test
+    fun `a non-conditioning model with no declared languages ignores any language`() {
+        val unknown = entry("unknown", CatalogFlags(), listOf(variant("unknown")))
+        assertEquals(LanguageSupport.IGNORES, support(builtIn(unknown, "unknown"), "he"))
+        assertEquals(LanguageSupport.IGNORES, support(external(ModelFamily.TRANSDUCER, emptyList()), "he"))
     }
 
     @Test
@@ -136,9 +165,9 @@ class TranscriptionLanguageSupportTest {
     }
 
     @Test
-    fun `an external transducer ignores any language`() {
-        val transducer = external(ModelFamily.TRANSDUCER, listOf("ru"))
-        assertEquals(LanguageSupport.IGNORES, support(transducer, "ru"))
+    fun `an external hebrew-only transducer ignores he and finds ru unsupported`() {
+        val transducer = external(ModelFamily.TRANSDUCER, listOf("he"))
+        assertEquals(LanguageSupport.UNSUPPORTED, support(transducer, "ru"))
         assertEquals(LanguageSupport.IGNORES, support(transducer, "he"))
     }
 
