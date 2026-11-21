@@ -1085,7 +1085,8 @@ class InferenceService : Service(), TranscriptionListener {
         isNoModelError: Boolean,
         durationMs: Long,
         isMemoryFailure: Boolean,
-        isDecodeError: Boolean
+        isDecodeError: Boolean,
+        titleRes: Int,
     ) {
         sendErrorReply(taskId, errorCode, errorMessage)
         forgetRequester(taskId)
@@ -1098,7 +1099,8 @@ class InferenceService : Service(), TranscriptionListener {
             // every failure path, including the OOM catch (its advice varies
             // with the memory-protection state), so errorMessage is final.
             errorMessage,
-            isMemoryFailure = isMemoryFailure)
+            isMemoryFailure = isMemoryFailure,
+            titleRes = titleRes)
     }
 
     // ---- Broadcast Replies ----
@@ -1364,10 +1366,10 @@ class InferenceService : Service(), TranscriptionListener {
         Log.i(TAG, "Updated notification with queue hint: $queuedCount queued")
     }
 
-    private fun showErrorNotification(errorMessage: String, isMemoryFailure: Boolean) {
+    private fun showErrorNotification(errorMessage: String, isMemoryFailure: Boolean, titleRes: Int) {
         // TASK-625: composition lives in ResultNotificationFactory (both error
         // surfaces and the TEST_SPI simulate op share this one builder).
-        val notification = resultNotificationFactory.errorNotification(errorMessage, isMemoryFailure)
+        val notification = resultNotificationFactory.errorNotification(errorMessage, isMemoryFailure, titleRes)
 
         val id = ResultNotificationFactory.nextNotificationId()
         notificationManager.notify(id, notification)

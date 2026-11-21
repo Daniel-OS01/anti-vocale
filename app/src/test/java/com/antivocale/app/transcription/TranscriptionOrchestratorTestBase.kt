@@ -3,6 +3,7 @@ package com.antivocale.app.transcription
 import java.io.File
 import com.antivocale.app.testing.RepoFiles
 import com.antivocale.app.audio.AudioPreprocessor
+import com.antivocale.app.audio.BlankDecodeSpeechProbe
 import com.antivocale.app.data.ExternalModelRecord
 import com.antivocale.app.data.ExternalModelSource
 import com.antivocale.app.data.ExternalModelStore
@@ -58,6 +59,8 @@ abstract class TranscriptionOrchestratorTestBase {
         importedAt = System.currentTimeMillis(),
     )
 
+    protected lateinit var blankDecodeSpeechProbe: BlankDecodeSpeechProbe
+
     @Before
     open fun baseSetUp() {
         // Managers/downloaders resolve model metadata through BundledCatalog; seed it
@@ -74,6 +77,9 @@ abstract class TranscriptionOrchestratorTestBase {
         transcriptionCalibrator = mockk(relaxed = true)
         backendManager = mockk(relaxed = true)
         audioPreprocessor = mockk(relaxed = true)
+        blankDecodeSpeechProbe = mockk {
+            every { detectsSpeech(any(), any(), any(), any()) } returns true
+        }
         listener = mockk(relaxed = true)
         llmManager = mockk(relaxed = true)
 
@@ -95,6 +101,7 @@ abstract class TranscriptionOrchestratorTestBase {
                 java.io.File.createTempFile("speaker-ids", null).let { file ->
                     file.delete(); file.mkdirs(); file
                 }),
+            blankDecodeSpeechProbe = blankDecodeSpeechProbe,
         )
 
         // Default the opt-in memory protection to off in tests so it does not interfere with
@@ -228,7 +235,8 @@ abstract class TranscriptionOrchestratorTestBase {
     protected fun stubPreprocessing(
         chunks: List<FloatArray>,
         totalDurationSeconds: Double = 30.0,
-        isVadSegmented: Boolean = false
+        isVadSegmented: Boolean = false,
+        vadFoundNoSpeech: Boolean = false,
     ) {
         every {
             audioPreprocessor.prepareAudioForMediaPipe(
@@ -246,7 +254,8 @@ abstract class TranscriptionOrchestratorTestBase {
             sampleRate = 16000,
             totalDurationSeconds = totalDurationSeconds,
             chunkCount = chunks.size,
-            isVadSegmented = isVadSegmented
+            isVadSegmented = isVadSegmented,
+            vadFoundNoSpeech = vadFoundNoSpeech,
         )
     }
 

@@ -269,6 +269,8 @@
     </plurals>
     <string name="transcription_partial_chip">Неповна</string>
     <string name="transcription_failed">Розшифровка не вдалася</string>
+    <string name="no_speech_detected_title">Мовлення не виявлено</string>
+    <string name="no_speech_detected_message">Схоже, запис не містить мовлення</string>
     <string name="error_model_load">Файл моделі може бути пошкоджений або мати хибний формат. Спробуйте завантажити його знову на вкладці «Модель».</string>
     <string name="error_model_external_corrupt">Файли імпортованої моделі пошкоджено. Видаліть її на вкладці Моделі та імпортуйте знову.</string>
     <string name="error_model_corrupt_healed">Деякі файли моделі були пошкоджені, і їх видалено. Відкрийте вкладку Моделі та завантажте модель знову.</string>

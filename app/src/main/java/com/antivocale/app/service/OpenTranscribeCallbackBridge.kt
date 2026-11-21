@@ -131,6 +131,7 @@ class OpenTranscribeCallbackBridge(private val emitter: OpenTranscribeEmitter) :
         durationMs: Long,
         isMemoryFailure: Boolean,
         isDecodeError: Boolean,
+        titleRes: Int,
     ) {
         if (!terminalDelivered.compareAndSet(false, true)) return
         val type: Byte = when {

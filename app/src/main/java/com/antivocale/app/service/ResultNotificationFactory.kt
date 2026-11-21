@@ -12,6 +12,7 @@ import android.app.Notification
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import androidx.annotation.StringRes
 import androidx.core.app.NotificationCompat
 import com.antivocale.app.MainActivity
 import com.antivocale.app.R
@@ -127,14 +128,18 @@ class ResultNotificationFactory(private val context: Context) {
      * row; the request codes mirror the services' launch band (same intent
      * shapes must stay one PendingIntent).
      */
-    fun errorNotification(errorMessage: String, memoryAction: Boolean): Notification {
+    fun errorNotification(
+        errorMessage: String,
+        memoryAction: Boolean,
+        @StringRes titleRes: Int = R.string.transcription_failed,
+    ): Notification {
         val launch = if (memoryAction) {
             settingsRowPendingIntent(AppNavigation.ROW_KEY_MEMORY_PROTECTION)
         } else {
             plainLaunchPendingIntent()
         }
         val builder = NotificationCompat.Builder(context, AppNotificationChannel.TRANSCRIPTION_RESULT.id)
-            .setContentTitle(context.getString(R.string.transcription_failed))
+            .setContentTitle(context.getString(titleRes))
             .setContentText(errorMessage)
             .setSmallIcon(android.R.drawable.ic_dialog_alert)
             .setPriority(NotificationCompat.PRIORITY_HIGH)

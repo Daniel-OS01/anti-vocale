@@ -221,6 +221,8 @@
     <string name="transcription_complete">اكتمل النسخ</string>
     <string name="transcription_partial_chip">غير مكتمل</string>
     <string name="transcription_failed">فشل النسخ</string>
+    <string name="no_speech_detected_title">لم يُكتشف أي كلام</string>
+    <string name="no_speech_detected_message">يبدو أن التسجيل لا يحتوي على كلام</string>
     <string name="error_model_load">قد يكون ملف النموذج تالفًا أو بتنسيق غير صحيح. جرّب إعادة تنزيله من تبويب النموذج.</string>
     <string name="error_model_external_corrupt">ملفات النموذج المستورد تالفة. احذفه من تبويب النماذج ثم استورده مرة أخرى.</string>
     <string name="error_model_corrupt_healed">كانت بعض ملفات النموذج تالفة، لذا أزالها التطبيق. افتح تبويب النماذج ونزّل النموذج مرة أخرى.</string>

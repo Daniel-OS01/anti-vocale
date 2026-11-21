@@ -251,6 +251,8 @@
     </plurals>
     <string name="transcription_partial_chip">Неполная</string>
     <string name="transcription_failed">Не удалось выполнить распознавание</string>
+    <string name="no_speech_detected_title">Речь не обнаружена</string>
+    <string name="no_speech_detected_message">Похоже, в записи нет речи</string>
     <string name="error_model_load">Файл модели может быть повреждён или иметь неверный формат. Попробуйте скачать его заново на вкладке «Модель».</string>
     <string name="error_model_external_corrupt">Файлы импортированной модели повреждены. Удалите её на вкладке Модели и импортируйте снова.</string>
     <string name="error_model_corrupt_healed">Некоторые файлы модели оказались повреждены и были удалены. Откройте вкладку Модели и скачайте модель заново.</string>

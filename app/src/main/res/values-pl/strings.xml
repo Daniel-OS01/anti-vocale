@@ -267,6 +267,8 @@
     </plurals>
     <string name="transcription_partial_chip">Niekompletna</string>
     <string name="transcription_failed">Transkrypcja nie powiodła się</string>
+    <string name="no_speech_detected_title">Nie wykryto mowy</string>
+    <string name="no_speech_detected_message">Nagranie prawdopodobnie nie zawiera mowy</string>
     <string name="error_model_load">Plik modelu może być uszkodzony lub w złym formacie. Spróbuj pobrać go ponownie z karty Model.</string>
     <string name="error_model_external_corrupt">Pliki zaimportowanego modelu są uszkodzone. Usuń go w zakładce Modele i zaimportuj ponownie.</string>
     <string name="error_model_corrupt_healed">Niektóre pliki modelu były uszkodzone i zostały usunięte. Otwórz zakładkę Modele i pobierz model ponownie.</string>
