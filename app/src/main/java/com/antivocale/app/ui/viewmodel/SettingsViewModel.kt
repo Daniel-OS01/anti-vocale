@@ -1303,6 +1303,10 @@ class SettingsViewModel @Inject constructor(
         val displayName: String,
         val existingCount: Int,
         val baseline: List<FileSnapshot>,
+        /** The listing hit the walk's depth/entry cap (see FolderWalk). */
+        val truncated: Boolean,
+        /** When the listing was taken: the backlog cutoff a capped "only new" add persists. */
+        val listedAt: Long,
     )
 
     private val _pendingFolderAdd = MutableStateFlow<PendingFolderAdd?>(null)
@@ -1321,18 +1325,33 @@ class SettingsViewModel @Inject constructor(
         }
         val name = TreeUris.displayName(app, uri)
         if (scheduledFolderStore.byUri(uri.toString()) == null) {
-            val children = try {
-                FolderListing.list(app, uri)?.map { it.first }
+            // Taken BEFORE the listing: a file saved while the walk runs is
+            // newer than the cutoff, so a capped add treats it as a new save.
+            val listedAt = System.currentTimeMillis()
+            val listing = try {
+                FolderListing.listWithStatus(app, uri)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 Log.w(TAG, "Could not list folder before adding watch", e)
                 null
             }
-            if (children != null) {
-                val baseline = FolderScanPlanner.baseline(children, System.currentTimeMillis())
+            if (listing != null) {
+                val baseline = FolderScanPlanner.baseline(listing.children.map { it.first }, listedAt)
                 if (baseline.isNotEmpty()) {
-                    _pendingFolderAdd.value = PendingFolderAdd(uri, name, baseline.size, baseline)
+                    _pendingFolderAdd.value =
+                        PendingFolderAdd(uri, name, baseline.size, baseline, listing.truncated, listedAt)
+                    return@launchFolderWatch
+                }
+                if (listing.truncated) {
+                    // Nothing visible to ask about, but audio may sit beyond
+                    // the cap: no dialog, and the unseen part is backlog up to
+                    // the listing time (it must not transcribe as new saves
+                    // once a later scan reaches it).
+                    saveWatchedFolder(
+                        app, uri, name,
+                        recursiveBaselined = false, recursiveBaselineCutoff = listedAt,
+                    )
                     return@launchFolderWatch
                 }
             }
@@ -1349,7 +1368,15 @@ class SettingsViewModel @Inject constructor(
     fun confirmPendingFolderAdd(uri: Uri, onlyNewFiles: Boolean) = launchFolderWatch { app ->
         val pending = _pendingFolderAdd.value?.takeIf { it.uri == uri } ?: return@launchFolderWatch
         _pendingFolderAdd.value = null
-        saveWatchedFolder(app, pending.uri, pending.displayName, pending.baseline.takeIf { onlyNewFiles })
+        saveWatchedFolder(
+            app, pending.uri, pending.displayName, pending.baseline.takeIf { onlyNewFiles },
+            // A capped listing baselined only part of the tree: the folder
+            // keeps baselining newly visible subfolder files saved up to the
+            // listing time (the upgrade rule), so files beyond the cap are
+            // never read as new while later saves still transcribe.
+            recursiveBaselined = !(onlyNewFiles && pending.truncated),
+            recursiveBaselineCutoff = pending.listedAt.takeIf { onlyNewFiles && pending.truncated },
+        )
     }
 
     /** Same identity rule as [confirmPendingFolderAdd]. */
@@ -1370,6 +1397,8 @@ class SettingsViewModel @Inject constructor(
         uri: Uri,
         name: String,
         baseline: List<FileSnapshot>? = null,
+        recursiveBaselined: Boolean = true,
+        recursiveBaselineCutoff: Long? = null,
     ) {
         val key = uri.toString()
         // The baseline rides the SAME store write as the record: a media-
@@ -1380,7 +1409,11 @@ class SettingsViewModel @Inject constructor(
         // this tree must not overwrite the fresh baseline after this write.
         val folder = ScheduledFolderWorker.withFolderScanLock(key) {
             scheduledFolderStore.add(
-                WatchedFolder(treeUri = key, displayName = name, snapshot = baseline.orEmpty()),
+                WatchedFolder(
+                    treeUri = key, displayName = name, snapshot = baseline.orEmpty(),
+                    recursiveBaselined = recursiveBaselined,
+                    recursiveBaselineCutoff = recursiveBaselineCutoff,
+                ),
             )
         }.first { it.treeUri == key }
         ScheduledFolderScheduler.enqueueFolder(app, folder)

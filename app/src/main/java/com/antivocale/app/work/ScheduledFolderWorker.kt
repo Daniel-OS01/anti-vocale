@@ -23,6 +23,7 @@ import com.antivocale.app.data.CallRecordingFilenames
 import com.antivocale.app.data.SourceKind
 import com.antivocale.app.data.FileSnapshot
 import com.antivocale.app.data.FolderScanPlanner
+import com.antivocale.app.data.FolderWalk
 import com.antivocale.app.data.ScheduledFolderStore
 import com.antivocale.app.service.AudioRequestIntent
 import com.antivocale.app.service.InferenceEnqueue
@@ -36,7 +37,8 @@ import java.util.concurrent.TimeUnit
 
 /**
  * TASK-741 (GH #125) slice 3: the scheduled folder scan. One run lists one
- * watched folder through SAF, feeds the listing to [FolderScanPlanner],
+ * watched folder through SAF (subfolders included, capped by [FolderWalk]),
+ * feeds the listing to [FolderScanPlanner],
  * copies every stable unenqueued file into app storage (the service
  * consumes LOCAL paths, exactly like a share), and enqueues it through
  * [InferenceEnqueue] with [InferenceService.SOURCE_FOLDER_WATCH]. The
@@ -106,8 +108,14 @@ class ScheduledFolderWorker @AssistedInject constructor(
             // or a throwing query is scan-abandoned with the snapshot kept
             // verbatim, while an empty cursor with the grant held is a
             // genuinely-empty folder and plans normally (review F1).
-            val childrenWithUris = try {
-                FolderListing.list(applicationContext, treeUri) ?: run {
+            // The walk descends subfolders (FolderWalk owns the caps); a
+            // failed SUBdirectory query fails the whole listing the same way.
+            // Sampled BEFORE the walk: a legacy upgrade's first cutoff must not
+            // postdate a save that lands in an already-visited directory
+            // while the walk is still running (it would be read as backlog).
+            val scanStartedAt = System.currentTimeMillis()
+            val listing = try {
+                FolderListing.listWithStatus(applicationContext, treeUri) ?: run {
                     Log.w(TAG, "Listing failed for $treeUriString; scan abandoned, snapshot kept")
                     return Result.success()
                 }
@@ -115,12 +123,49 @@ class ScheduledFolderWorker @AssistedInject constructor(
                 Log.w(TAG, "Listing threw for $treeUriString; scan abandoned, snapshot kept", e)
                 return Result.success()
             }
+            val childrenWithUris = listing.children
+            val children = childrenWithUris.map { it.first }
+            if (listing.truncated) {
+                Log.w(TAG, "Walk of $treeUriString hit the depth/entry cap; files beyond it are not scanned")
+            }
+            val now = System.currentTimeMillis()
             // The record already carries the snapshot; a second store read
             // would re-decode the same JSON for one field.
-            val previous = folder.snapshot
-            val plan = FolderScanPlanner.plan(
-                childrenWithUris.map { it.first }, previous, now = System.currentTimeMillis(),
-            )
+            val previous = if (folder.recursiveBaselined) {
+                folder.snapshot
+            } else {
+                // A pre-recursion folder (or a capped add): its subfolder
+                // backlog is recorded as handled before planning, persisted
+                // with the flag flip in ONE write. A truncated walk saw only
+                // part of the subfolders, so the flag stays false and the next
+                // scans keep baselining what they newly see, but ONLY files at
+                // or before the persisted cutoff: a file beyond the cap that
+                // later comes into view is backlog, while a save made after the
+                // watch began plans normally. The first upgrade scan of a
+                // legacy record fixes the cutoff at its own time and persists
+                // it in the same write, so it never moves forward.
+                val cutoff = folder.recursiveBaselineCutoff ?: scanStartedAt
+                val upgraded = FolderScanPlanner.recursiveUpgradeBaseline(children, folder.snapshot, now, cutoff)
+                val complete = !listing.truncated
+                if (complete || upgraded != folder.snapshot || folder.recursiveBaselineCutoff == null) {
+                    store.saveSnapshot(
+                        treeUriString,
+                        upgraded,
+                        recursiveBaselined = complete,
+                        // A complete walk flips the flag, which clears it.
+                        recursiveBaselineCutoff = cutoff,
+                    )
+                }
+                Log.i(
+                    TAG,
+                    "Recursive upgrade of $treeUriString: ${upgraded.size - folder.snapshot.size} " +
+                        "subfolder files baselined, flag ${if (complete) "flipped" else "kept (walk truncated)"}",
+                )
+                upgraded
+            }
+            // A capped walk did not reach every file: what it did not list
+            // is unseen, not vanished, and keeps its snapshot entry.
+            val plan = FolderScanPlanner.plan(children, previous, now = now, listingComplete = !listing.truncated)
             // A first-sight file waits for a second same-size sighting; the
             // follow-up brings that sighting seconds later instead of a
             // period later (deferred batch-cap tails ride it too).
@@ -145,7 +190,7 @@ class ScheduledFolderWorker @AssistedInject constructor(
             kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
                 for (child in plan.toEnqueue) {
                     val uri = childrenWithUris.firstOrNull { it.first.name == child.name }?.second
-                    val stamped: com.antivocale.app.data.FileSnapshot
+                    val stamped: FileSnapshot
                     if (uri == null) {
                         // Defensive: a planner name the listing lacks is a
                         // retry, never a silent consume of the dedup fact.
@@ -202,11 +247,13 @@ class ScheduledFolderWorker @AssistedInject constructor(
     /**
      * The share-shaped request (local path + request type), with the folder
      * watch as the source so History rows and the skip logic can tell the
-     * origin apart; no source package (no calling app).
+     * origin apart; no source package (no calling app). [relativePath] is the
+     * planner's name (see FolderScanPlanner's IDENTITY); the caller lookup
+     * reads its basename, the file name a recorder actually wrote.
      */
     private fun buildServiceIntent(
         localPath: String,
-        fileName: String,
+        relativePath: String,
         treeUri: String,
         folderName: String,
     ): Intent =
@@ -217,10 +264,12 @@ class ScheduledFolderWorker @AssistedInject constructor(
             InferenceService.SOURCE_FOLDER_WATCH,
             // The tree uri rides the id: two folders holding a
             // same-named file scanned in the same millisecond must not
-            // collide (the service drops duplicate task ids silently).
-            "fwatch_${treeUri.hashCode().toUInt()}_${System.currentTimeMillis()}_${fileName.hashCode().toUInt()}",
+            // collide (the service drops duplicate task ids silently). The
+            // RELATIVE PATH is hashed, not the basename, for the same reason
+            // across two subfolders of one tree.
+            "fwatch_${treeUri.hashCode().toUInt()}_${System.currentTimeMillis()}_${relativePath.hashCode().toUInt()}",
             localPath,
-            senderName = CallRecordingFilenames.callerFromFileName(fileName),
+            senderName = CallRecordingFilenames.callerFromFileName(FolderScanPlanner.baseNameOf(relativePath)),
             sourceKind = SourceKind.FOLDER_WATCH,
             sourceFolderKey = treeUri,
             sourceFolderName = folderName,
@@ -256,15 +305,57 @@ class ScheduledFolderWorker @AssistedInject constructor(
  */
 internal object FolderListing {
 
+    /** One recursive listing: the (child, uri) pairs and whether a cap cut the walk. */
+    data class Listing(
+        val children: List<Pair<FolderScanPlanner.Child, Uri>>,
+        val truncated: Boolean,
+    )
+
     /**
-     * The single-query listing: (child, uri) pairs, or NULL when the
-     * provider answered nothing (scan-abandoned). A directory MIME or a
-     * missing name filters the row; the document id builds the child uri
-     * for the copy.
+     * The recursive listing: (child, uri) pairs whose child name is the
+     * relative path from the tree root (a bare name for a root file), plus
+     * the truncation flag, or NULL when the provider answered nothing for
+     * the root OR for any subdirectory (scan-abandoned; a broken subtree is
+     * never read as an empty one). The walk policy (depth/entry caps,
+     * hidden-directory skip, path joining, the failure contract) lives in
+     * [FolderWalk]; this only supplies one DocumentsContract child query per
+     * directory. A throwing query propagates (the worker reads it as
+     * scan-abandoned, as before recursion).
      */
-    fun list(context: Context, treeUri: Uri): List<Pair<FolderScanPlanner.Child, Uri>>? {
+    fun listWithStatus(context: Context, treeUri: Uri): Listing? {
         val root = DocumentsContract.getTreeDocumentId(treeUri)
-        val childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(treeUri, root)
+        val walk = FolderWalk.walk(root) { dirDocId -> queryChildren(context, treeUri, dirDocId) }
+            ?: return null
+        return Listing(
+            children = walk.entries.map { entry ->
+                entry.child to DocumentsContract.buildDocumentUriUsingTree(treeUri, entry.documentId)
+            },
+            truncated = walk.truncated,
+        )
+    }
+
+    /**
+     * A child cursor is a COMPLETE listing only when its extras carry
+     * neither [DocumentsContract.EXTRA_LOADING] = true (the provider is still
+     * fetching and returned a partial result) nor [DocumentsContract.EXTRA_ERROR].
+     * A partial or errored cursor read as a full one would make unseen files
+     * look vanished, and an empty partial subfolder would let the recursive
+     * upgrade complete without baselining that subtree.
+     */
+    internal fun isCompleteListing(extras: android.os.Bundle?): Boolean {
+        if (extras == null) return true
+        return !extras.getBoolean(DocumentsContract.EXTRA_LOADING, false) &&
+            !extras.containsKey(DocumentsContract.EXTRA_ERROR)
+    }
+
+    /**
+     * One directory's children as walk rows, or NULL when the provider
+     * answered nothing, or only a partial (loading) or errored cursor
+     * ([isCompleteListing]): the walk then fails as a whole and the scan is
+     * abandoned and retried. A missing name, MIME or document id filters the row.
+     */
+    private fun queryChildren(context: Context, treeUri: Uri, dirDocId: String): List<FolderWalk.Row>? {
+        val childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(treeUri, dirDocId)
         val cursor = context.contentResolver.query(
             childrenUri,
             arrayOf(
@@ -277,20 +368,29 @@ internal object FolderListing {
             null, null, null,
         ) ?: return null
         cursor.use { c ->
+            if (!isCompleteListing(c.extras)) {
+                Log.w("FolderListing", "Partial or errored listing of $dirDocId; walk abandoned")
+                return null
+            }
             val nameIx = c.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_DISPLAY_NAME)
             val mimeIx = c.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_MIME_TYPE)
             val sizeIx = c.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_SIZE)
             val mtimeIx = c.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_LAST_MODIFIED)
             val idIx = c.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_DOCUMENT_ID)
-            val out = ArrayList<Pair<FolderScanPlanner.Child, Uri>>(c.count)
+            val out = ArrayList<FolderWalk.Row>(c.count)
             while (c.moveToNext()) {
                 val name = c.getString(nameIx) ?: continue
                 val mime = c.getString(mimeIx) ?: continue
-                if (mime == DocumentsContract.Document.MIME_TYPE_DIR) continue
+                val docId = c.getString(idIx) ?: continue
                 val size = if (c.isNull(sizeIx)) 0L else c.getLong(sizeIx)
                 val mtime = if (c.isNull(mtimeIx)) 0L else c.getLong(mtimeIx)
-                val uri = DocumentsContract.buildDocumentUriUsingTree(treeUri, c.getString(idIx))
-                out += FolderScanPlanner.Child(name, size, mtime) to uri
+                out += FolderWalk.Row(
+                    name = name,
+                    isDirectory = mime == DocumentsContract.Document.MIME_TYPE_DIR,
+                    size = size,
+                    lastModified = mtime,
+                    documentId = docId,
+                )
             }
             return out
         }

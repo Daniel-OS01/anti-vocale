@@ -18,6 +18,7 @@ import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.setMain
 import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -56,8 +57,8 @@ class SettingsViewModelFolderAddTest : ViewModelTeardownTest() {
 
     @Test
     fun `only new files persists the listing baseline before enqueue`() = runBlocking {
-        every { FolderListing.list(harness.application, uri) } returns
-            listOf(recording to uri, textFile to uri)
+        every { FolderListing.listWithStatus(harness.application, uri) } returns
+            listing(recording to uri, textFile to uri)
         var snapshotAtEnqueue: List<FileSnapshot>? = null
         every { ScheduledFolderScheduler.enqueueFolder(harness.application, any()) } answers {
             snapshotAtEnqueue = runBlocking { store.snapshotFor(key) }
@@ -78,19 +79,19 @@ class SettingsViewModelFolderAddTest : ViewModelTeardownTest() {
 
     @Test
     fun `failed listing adds an empty snapshot without asking`() = runBlocking {
-        every { FolderListing.list(harness.application, uri) } returns null
+        every { FolderListing.listWithStatus(harness.application, uri) } returns null
         assertAddedWithoutBaseline()
     }
 
     @Test
     fun `listing without audio adds an empty snapshot without asking`() = runBlocking {
-        every { FolderListing.list(harness.application, uri) } returns listOf(textFile to uri)
+        every { FolderListing.listWithStatus(harness.application, uri) } returns listing(textFile to uri)
         assertAddedWithoutBaseline()
     }
 
     @Test
     fun `cancel adds nothing and releases the grant`() = runBlocking {
-        every { FolderListing.list(harness.application, uri) } returns listOf(recording to uri)
+        every { FolderListing.listWithStatus(harness.application, uri) } returns listing(recording to uri)
         withTimeout(5000) { viewModel.addWatchedFolder(uri).join() }
         assertNotNull(viewModel.pendingFolderAdd.value)
         withTimeout(5000) { viewModel.cancelPendingFolderAdd(uri).join() }
@@ -102,8 +103,51 @@ class SettingsViewModelFolderAddTest : ViewModelTeardownTest() {
     }
 
     @Test
+    fun `only new files on a capped listing keeps baselining newly visible subfolder files`() = runBlocking {
+        every { FolderListing.listWithStatus(harness.application, uri) } returns
+            listing(recording to uri, truncated = true)
+        withTimeout(5000) { viewModel.addWatchedFolder(uri).join() }
+        val pending = checkNotNull(viewModel.pendingFolderAdd.value)
+        withTimeout(5000) { viewModel.confirmPendingFolderAdd(uri, onlyNewFiles = true).join() }
+        val folder = checkNotNull(store.byUri(key))
+        assertFalse(folder.recursiveBaselined)
+        // the listing time bounds what later scans may still read as backlog
+        assertEquals(pending.listedAt, folder.recursiveBaselineCutoff)
+        assertEquals(pending.baseline, folder.snapshot)
+    }
+
+    @Test
+    fun `a capped listing with no visible audio adds without asking and keeps the unseen part as backlog`() =
+        runBlocking {
+            every { FolderListing.listWithStatus(harness.application, uri) } returns
+                listing(textFile to uri, truncated = true)
+            val before = System.currentTimeMillis()
+            withTimeout(5000) { viewModel.addWatchedFolder(uri).join() }
+
+            assertNull(viewModel.pendingFolderAdd.value)
+            val folder = checkNotNull(store.byUri(key))
+            assertFalse(folder.recursiveBaselined)
+            val cutoff = checkNotNull(folder.recursiveBaselineCutoff)
+            assertTrue(cutoff >= before && cutoff <= System.currentTimeMillis())
+            assertTrue(folder.snapshot.isEmpty())
+            verify(exactly = 1) { ScheduledFolderScheduler.enqueueFolder(harness.application, any()) }
+        }
+
+    @Test
+    fun `also transcribing a capped listing scans subfolders normally`() = runBlocking {
+        every { FolderListing.listWithStatus(harness.application, uri) } returns
+            listing(recording to uri, truncated = true)
+        withTimeout(5000) { viewModel.addWatchedFolder(uri).join() }
+        withTimeout(5000) { viewModel.confirmPendingFolderAdd(uri, onlyNewFiles = false).join() }
+        val folder = checkNotNull(store.byUri(key))
+        assertTrue(folder.recursiveBaselined)
+        assertNull(folder.recursiveBaselineCutoff)
+        assertTrue(folder.snapshot.isEmpty())
+    }
+
+    @Test
     fun `a confirm for another folder than the pending one does nothing`() = runBlocking {
-        every { FolderListing.list(harness.application, uri) } returns listOf(recording to uri)
+        every { FolderListing.listWithStatus(harness.application, uri) } returns listing(recording to uri)
         withTimeout(5000) { viewModel.addWatchedFolder(uri).join() }
         withTimeout(5000) { viewModel.confirmPendingFolderAdd(otherUri, onlyNewFiles = false).join() }
         withTimeout(5000) { viewModel.cancelPendingFolderAdd(otherUri).join() }
@@ -118,9 +162,9 @@ class SettingsViewModelFolderAddTest : ViewModelTeardownTest() {
     @Test
     fun `a second pick replaces the pending add, releases the first grant, and ignores the first confirm`() =
         runBlocking {
-            every { FolderListing.list(harness.application, uri) } returns listOf(recording to uri)
-            every { FolderListing.list(harness.application, otherUri) } returns
-                listOf(recording to otherUri)
+            every { FolderListing.listWithStatus(harness.application, uri) } returns listing(recording to uri)
+            every { FolderListing.listWithStatus(harness.application, otherUri) } returns
+                listing(recording to otherUri)
             withTimeout(5000) { viewModel.addWatchedFolder(uri).join() }
             withTimeout(5000) { viewModel.addWatchedFolder(otherUri).join() }
 
@@ -137,10 +181,19 @@ class SettingsViewModelFolderAddTest : ViewModelTeardownTest() {
             verify(exactly = 0) { ScheduledFolderScheduler.enqueueFolder(any(), any()) }
         }
 
+    private fun listing(
+        vararg children: Pair<FolderScanPlanner.Child, Uri>,
+        truncated: Boolean = false,
+    ) = FolderListing.Listing(children.toList(), truncated)
+
     private suspend fun assertAddedWithoutBaseline() {
         withTimeout(5000) { viewModel.addWatchedFolder(uri).join() }
         assertNull(viewModel.pendingFolderAdd.value)
-        assertTrue(checkNotNull(store.byUri(key)).snapshot.isEmpty())
+        val folder = checkNotNull(store.byUri(key))
+        assertTrue(folder.snapshot.isEmpty())
+        // a failed or audio-free complete listing keeps today's fallback
+        assertTrue(folder.recursiveBaselined)
+        assertNull(folder.recursiveBaselineCutoff)
         verify(exactly = 1) { ScheduledFolderScheduler.enqueueFolder(harness.application, any()) }
     }
 }

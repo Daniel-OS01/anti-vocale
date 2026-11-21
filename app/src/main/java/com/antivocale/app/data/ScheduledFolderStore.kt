@@ -67,9 +67,38 @@ class ScheduledFolderStore @Inject constructor(
      * current record (a stale [WatchedFolder] holder writing a period
      * change concurrently survives, same rationale as
      * ExternalModelStore.updateDir).
+     *
+     * A non-null [recursiveBaselined] sets [WatchedFolder.recursiveBaselined]
+     * in the SAME write: the recursive-upgrade baseline and its flag flip
+     * must land atomically, or a crash between two writes either re-runs the
+     * baseline (harmless) or, worse, flips the flag without the baseline (the
+     * subfolder backlog then transcribes as new saves). Null keeps the flag.
+     *
+     * [recursiveBaselineCutoff] rides the same write: a non-null value sets
+     * [WatchedFolder.recursiveBaselineCutoff], null keeps it, and flipping
+     * the flag to true clears it (a baselined folder has no cutoff to apply).
      */
-    suspend fun saveSnapshot(treeUri: String, snapshot: List<FileSnapshot>) = mutate { list ->
-        list.map { if (it.treeUri == treeUri) it.copy(snapshot = snapshot) else it }
+    suspend fun saveSnapshot(
+        treeUri: String,
+        snapshot: List<FileSnapshot>,
+        recursiveBaselined: Boolean? = null,
+        recursiveBaselineCutoff: Long? = null,
+    ) = mutate { list ->
+        list.map {
+            if (it.treeUri != treeUri) {
+                it
+            } else {
+                it.copy(
+                    snapshot = snapshot,
+                    recursiveBaselined = recursiveBaselined ?: it.recursiveBaselined,
+                    recursiveBaselineCutoff = when {
+                        recursiveBaselined == true -> null
+                        recursiveBaselineCutoff != null -> recursiveBaselineCutoff
+                        else -> it.recursiveBaselineCutoff
+                    },
+                )
+            }
+        }
     }
 
     private suspend fun mutate(block: (List<WatchedFolder>) -> List<WatchedFolder>): List<WatchedFolder> = mutateMutex.withLock {
@@ -81,12 +110,33 @@ class ScheduledFolderStore @Inject constructor(
     private val mutateMutex = Mutex()
 }
 
-/** One watched folder and its dedup memory; [periodHours] feeds the worker schedule. */
+/**
+ * One watched folder and its dedup memory; [periodHours] feeds the worker schedule.
+ *
+ * [recursiveBaselined] is false only for a record persisted before the scan
+ * walked subfolders (the JSON decode reads a MISSING key as false): its
+ * subfolders may hold a backlog no scan ever saw, so the worker records
+ * every not-yet-known subfolder file as handled
+ * ([FolderScanPlanner.recursiveUpgradeBaseline]) and flips the flag, both in
+ * one write. A folder created from now on defaults to true: it is listed
+ * recursively from its first scan, and the add flow owns its backlog choice.
+ *
+ * [recursiveBaselineCutoff] (meaningful only while the flag is false) is the
+ * instant that separates backlog from new saves for the upgrade baseline: an
+ * unknown subfolder file whose mtime is at or before it (or unknown) is
+ * backlog, a newer one is a save made after the watch began and plans
+ * normally. The add flow sets it to the listing time when a capped listing
+ * leaves part of the tree unseen; a legacy record gets it from its first
+ * upgrade scan (that scan's time), persisted with the snapshot so later scans
+ * of a still-truncated walk do not move it forward and swallow new saves.
+ */
 data class WatchedFolder(
     val treeUri: String,
     val displayName: String,
     val periodHours: Int = DEFAULT_PERIOD_HOURS,
     val snapshot: List<FileSnapshot> = emptyList(),
+    val recursiveBaselined: Boolean = true,
+    val recursiveBaselineCutoff: Long? = null,
 ) {
     companion object {
         const val DEFAULT_PERIOD_HOURS = 6
@@ -110,10 +160,12 @@ object ScheduledFoldersJson {
         .put("treeUri", treeUri)
         .put("displayName", displayName)
         .put("periodHours", periodHours)
+        .put("recursiveBaselined", recursiveBaselined)
         .put("snapshot", JSONArray(snapshot.map { snap ->
             JSONObject().put("name", snap.name).put("size", snap.size)
                 .put("enqueuedAt", snap.enqueuedAt ?: JSONObject.NULL)
         }))
+        .apply { recursiveBaselineCutoff?.let { put("recursiveBaselineCutoff", it) } }
 
     private fun fromJson(o: JSONObject): WatchedFolder? {
         val uri = o.optString("treeUri")
@@ -134,6 +186,18 @@ object ScheduledFoldersJson {
                         if (name.isBlank()) continue
                         add(FileSnapshot(name, s.optLong("size", 0), enqueuedAt(s)))
                     }
+                },
+                // A missing key is a pre-recursion record: false makes the
+                // worker baseline its subfolder backlog once (see WatchedFolder).
+                recursiveBaselined = o.optBoolean("recursiveBaselined", false),
+                // Written only when set; a missing key (every record before
+                // the cutoff existed) reads as null.
+                recursiveBaselineCutoff = if (o.has("recursiveBaselineCutoff") &&
+                    !o.isNull("recursiveBaselineCutoff")
+                ) {
+                    o.getLong("recursiveBaselineCutoff")
+                } else {
+                    null
                 },
             )
         }.getOrNull()
