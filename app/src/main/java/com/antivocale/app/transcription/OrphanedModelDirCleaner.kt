@@ -28,10 +28,22 @@ private const val TAG = "OrphanedModelDirCleaner"
  * @param validDirNames The set of currently-known variant directory names for the
  *                      backend that owns [storageDir]. Subdirectories whose name is
  *                      not in this set are considered orphaned.
+ * @param protectedDirs Directories that are never deleted even though their name is not a
+ *                      variant of this backend. A built-in entry whose storage dir is shared
+ *                      with another subsystem MUST list that subsystem's root here: the
+ *                      `llm` catalog entry stores Gemma under `files/models`, which is also the
+ *                      parent of the external-import root `files/models/external`
+ *                      ([com.antivocale.app.data.EXTERNAL_MODELS_DIR_NAME]); without the guard
+ *                      every startup sweep deleted all imported models. Compared by canonical path.
  * @return Total bytes reclaimed across all deleted directories.
  */
-fun cleanOrphanedModelDirs(storageDir: File, validDirNames: Set<String>): Long {
+fun cleanOrphanedModelDirs(
+    storageDir: File,
+    validDirNames: Set<String>,
+    protectedDirs: Set<File> = emptySet(),
+): Long {
     if (!storageDir.exists() || !storageDir.isDirectory) return 0L
+    val protectedPaths = protectedDirs.mapTo(HashSet()) { it.canonicalFile }
 
     var totalReclaimed = 0L
     storageDir.listFiles { file -> file.isDirectory }
@@ -39,6 +51,7 @@ fun cleanOrphanedModelDirs(storageDir: File, validDirNames: Set<String>): Long {
         ?.forEach { dir ->
             // Core safety invariant: never delete a dir whose name is a known variant.
             if (dir.name in validDirNames) return@forEach
+            if (dir.canonicalFile in protectedPaths) return@forEach
 
             val size = try {
                 dir.walkTopDown().filter { it.isFile }.sumOf { it.length() }
