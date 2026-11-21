@@ -162,14 +162,18 @@ interface LogDao {
     @Query("SELECT * FROM logs WHERE taskId = :taskId LIMIT 1")
     suspend fun getByTaskId(taskId: String): LogEntity?
 
-    /** The bulk redo's full-row read of the selected rows, by row id. One
-     *  query per [LOG_DAO_ID_CHUNK] ids (SQLite's 999 bind-parameter limit); row
-     *  order is the database's, not [ids]'. */
+    /** The bulk redo's read of the selected rows, by row id. One query per
+     *  [LOG_DAO_ID_CHUNK] ids (SQLite's 999 bind-parameter limit); row order is
+     *  the database's, not [ids]'. Same lean projection as [getAll]: the heavy
+     *  segments and firstPassTranscript columns are left out (null), since a
+     *  prepared batch holds these rows until the user confirms. */
     suspend fun getByIds(ids: List<String>): List<LogEntity> =
         ids.chunked(LOG_DAO_ID_CHUNK).flatMap { getByIdsChunk(it) }
 
     /** One chunk of [getByIds]; call [getByIds], which keeps under the bind limit. */
-    @Query("SELECT * FROM logs WHERE id IN (:ids)")
+    @Query("SELECT id, timestamp, taskId, type, status, prompt, result, errorMessage, durationMs, " +
+        "filePath, audioDurationSeconds, sourcePackageName, isPartial, failedChunkCount, " +
+        "senderName, modelName, rawTranscript, summary, summarySkipReason, failureContext, processingContext, detectedLanguage, languagePin, savedFolderName, savedFileName, saveFailureReason, contentHash, switchedToSibling, sourceKind, sourceFolderKey, sourceFolderName, sourceSubPath FROM logs WHERE id IN (:ids)")
     suspend fun getByIdsChunk(ids: List<String>): List<LogEntity>
 
     /** The row ids recorded under one watched folder (sourceFolderKey = its tree uri). */
