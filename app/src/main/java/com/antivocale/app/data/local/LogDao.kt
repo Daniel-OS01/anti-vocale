@@ -9,9 +9,6 @@ import androidx.room.Transaction
 import androidx.room.Update
 import kotlinx.coroutines.flow.Flow
 
-/** Bind-variable budget per [LogDao.deleteByIds] statement (SQLite's legacy cap is 999). */
-private const val DELETE_BY_IDS_CHUNK = 900
-
 @Dao
 interface LogDao {
 
@@ -35,7 +32,7 @@ interface LogDao {
      */
     @Transaction
     suspend fun deleteByIds(ids: List<String>): Int =
-        ids.chunked(DELETE_BY_IDS_CHUNK).sumOf { deleteByIdsChunk(it) }
+        ids.chunked(LOG_DAO_ID_CHUNK).sumOf { deleteByIdsChunk(it) }
 
     @Query("DELETE FROM logs")
     suspend fun deleteAll()
@@ -286,5 +283,5 @@ interface LogDao {
     suspend fun countInterruptedSince(since: Long): Int
 }
 
-/** Ids per IN (...) query in [LogDao.getByIds], under SQLite's 999 bind-parameter limit. */
+/** Ids per IN (...) statement in [LogDao.getByIds] and [LogDao.deleteByIds], under SQLite's 999 bind-parameter limit. */
 private const val LOG_DAO_ID_CHUNK = 900
