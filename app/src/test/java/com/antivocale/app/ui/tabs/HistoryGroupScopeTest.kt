@@ -1,5 +1,8 @@
 package com.antivocale.app.ui.tabs
 
+import com.antivocale.app.data.PhoneNormalizer
+import com.antivocale.app.data.SenderKey
+import com.antivocale.app.data.SenderKeys
 import com.antivocale.app.data.SourceKind
 import com.antivocale.app.data.TranscriptionProfile
 import com.antivocale.app.data.WatchedFolder
@@ -55,17 +58,70 @@ class HistoryGroupScopeTest {
         )
     }
 
+    private fun appRow(packageName: String, sender: String) = LogEntry(
+        taskId = "t",
+        type = LogEntry.Type.AUDIO,
+        status = LogEntry.Status.SUCCESS,
+        senderName = sender,
+        sourcePackageName = packageName,
+    )
+
+    // Fake data only: "Test Contact", "+15550100".
+    private val fakePhone = PhoneNormalizer { raw, iso -> if (iso == "us") "+1" + raw.filter(Char::isDigit) else null }
+
     @Test
-    fun `a sender sub-header under a folder parses to None`() {
-        val p = resolveHistoryGroup(folderRow(sender = "Bob"), listOf(calls))
-        assertEquals("who:Bob", p.subGroup?.key)
-        assertSame(HistoryGroupScope.None, HistoryGroupScope.parse(p.groupKey, p.subGroup?.key))
+    fun `a WhatsApp sender sub-header parses to its WhatsApp sender key`() {
+        val p = resolveHistoryGroup(appRow("com.whatsapp", "Test Contact"), emptyList())
+        assertEquals(
+            HistoryGroupScope.Sender(SenderKey.WhatsApp("com.whatsapp", "Test Contact").storageId()),
+            HistoryGroupScope.parse(p.groupKey, p.subGroup?.key),
+        )
+    }
+
+    @Test
+    fun `a WhatsApp Business sender sub-header parses to the w4b key`() {
+        val p = resolveHistoryGroup(appRow("com.whatsapp.w4b", "Test Contact"), emptyList())
+        assertEquals(
+            HistoryGroupScope.Sender("wa:com.whatsapp.w4b:Test Contact"),
+            HistoryGroupScope.parse(p.groupKey, p.subGroup?.key),
+        )
+    }
+
+    @Test
+    fun `a caller sub-header under a folder parses through the normalizer to a call key`() {
+        val p = resolveHistoryGroup(folderRow(sender = "5550100"), listOf(calls))
+        assertEquals("who:5550100", p.subGroup?.key)
+        assertEquals(
+            HistoryGroupScope.Sender(SenderKey.Call("+15550100").storageId()),
+            HistoryGroupScope.parse(p.groupKey, p.subGroup?.key, countryIso = "us", phone = fakePhone),
+        )
+        // The same key the folder scan derives for that caller.
+        assertEquals(
+            SenderKeys.forCallRecording("5550100", "us", fakePhone)?.storageId(),
+            (HistoryGroupScope.parse(p.groupKey, p.subGroup?.key, "us", fakePhone) as HistoryGroupScope.Sender).storageId,
+        )
+        // A named caller keys by name, with no normalizer involved.
+        assertEquals(
+            HistoryGroupScope.Sender("call:Test Contact"),
+            HistoryGroupScope.parse(p.groupKey, "who:Test Contact", countryIso = "us", phone = fakePhone),
+        )
+    }
+
+    @Test
+    fun `a sender scope needs no watched folder and stores no folder rule`() {
+        val sender = HistoryGroupScope.Sender("call:+15550100")
+        assertNull(sender.treeUri)
+        assertNull(sender.watchedFolderIn(listOf(calls)))
+        assertNull(sender.storedRuleIn(calls))
     }
 
     @Test
     fun `app, imported and unknown sections parse to None`() {
         assertSame(HistoryGroupScope.None, HistoryGroupScope.parse("com.whatsapp"))
-        assertSame(HistoryGroupScope.None, HistoryGroupScope.parse("com.whatsapp", "who:Anna"))
+        // Another app's sender sub-header carries no sender key.
+        assertSame(HistoryGroupScope.None, HistoryGroupScope.parse("org.telegram.messenger", "who:Test Contact"))
+        assertSame(HistoryGroupScope.None, HistoryGroupScope.parse("com.whatsapp", "dir:Test Contact"))
+        assertSame(HistoryGroupScope.None, HistoryGroupScope.parse("__shared__", "who:Test Contact"))
         // An imported row's parent-folder sub-group carries "dir:" too, but
         // its section is not a watched folder.
         assertSame(HistoryGroupScope.None, HistoryGroupScope.parse("__imported__", "dir:Downloads"))

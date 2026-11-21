@@ -79,6 +79,7 @@ class LogsViewModelBatchIntakeTest : ViewModelTeardownTest() {
             duplicateGuard = duplicateGuard,
             scheduledFolderStore = mockk(relaxed = true),
             profileOutcomeSource = mockk(relaxed = true),
+            scopeProfileStore = mockk(relaxed = true),
             appScope = appScope,
         ))
     }

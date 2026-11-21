@@ -69,7 +69,9 @@ import com.antivocale.app.util.DecodedOfTotalFormat
 import com.antivocale.app.util.SharedAudioHandler
 import com.antivocale.app.util.TranscriptLanguageHeuristic
 import com.antivocale.app.util.formatProcessingTime
+import com.antivocale.app.data.DeviceCountry
 import com.antivocale.app.data.PreferencesManager
+import com.antivocale.app.data.TranscriptionProfile
 import com.antivocale.app.data.WatchedFolder
 import com.antivocale.app.service.InferenceService
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -811,6 +813,14 @@ fun HistoryTab(
     ruleEditorScope?.let { scope ->
         HistoryFolderRuleEditor(viewModel = viewModel, scope = scope, onClose = { ruleEditorScope = null })
     }
+    // R6: the sender sub-header long-press rule editor (null = closed). The
+    // country is read once: a folder section's caller label is keyed for it
+    // exactly as the folder scan keys it.
+    val deviceCountryIso = remember(context) { DeviceCountry.iso(context) }
+    var senderRuleTarget by remember { mutableStateOf<SenderRuleTarget?>(null) }
+    senderRuleTarget?.let { target ->
+        HistorySenderRuleEditor(viewModel = viewModel, target = target, onClose = { senderRuleTarget = null })
+    }
 
     var showClearDialog by remember { mutableStateOf(false) }
     // TASK-992: the Ask answer dialog state. Searching/Generating render a
@@ -1514,11 +1524,24 @@ fun HistoryTab(
                             }
                             is HistoryRow.SenderHeaderRow -> {
                                 val isSenderExpanded = row.senderKey in expandedSenderGroups
-                                // R6: a subfolder sub-header of a watched folder; sender
-                                // ("who:") sub-headers parse to None and get no gesture.
-                                val ruleScope = remember(row.groupKey, row.sender.key, watchedFolders) {
-                                    HistoryGroupScope.parse(row.groupKey, row.sender.key)
-                                        .takeIf { it.watchedFolderIn(watchedFolders) != null }
+                                // R6: a subfolder sub-header of a watched folder edits
+                                // that subfolder's rule; a sender ("who:") sub-header
+                                // edits the sender rule and needs no watched folder.
+                                val parsedScope = remember(row.groupKey, row.sender.key, deviceCountryIso) {
+                                    HistoryGroupScope.parse(row.groupKey, row.sender.key, deviceCountryIso)
+                                }
+                                val ruleScope = remember(parsedScope, watchedFolders) {
+                                    parsedScope.takeIf { it.watchedFolderIn(watchedFolders) != null }
+                                }
+                                val senderScope = parsedScope as? HistoryGroupScope.Sender
+                                val onSenderLongPress: (() -> Unit)? = when {
+                                    senderScope != null -> {
+                                        { senderRuleTarget = SenderRuleTarget(senderScope.storageId, row.sender.label) }
+                                    }
+                                    ruleScope != null -> {
+                                        { ruleEditorScope = ruleScope }
+                                    }
+                                    else -> null
                                 }
                                 SenderGroupHeader(
                                     senderName = row.sender.label,
@@ -1532,7 +1555,7 @@ fun HistoryTab(
                                             expandedSenderGroups + row.senderKey
                                         }
                                     },
-                                    onLongPress = ruleScope?.let { scope -> { ruleEditorScope = scope } },
+                                    onLongPress = onSenderLongPress,
                                 )
                             }
                             is HistoryRow.DateHeaderRow -> DateGroupHeader(label = row.label, count = row.count)
@@ -1574,6 +1597,45 @@ private fun HistoryFolderRuleEditor(
         onSave = { edited -> viewModel.saveFolderRule(scope, edited) },
         onDismiss = {
             viewModel.clearFolderRulePreview()
+            onClose()
+        },
+    )
+}
+
+/** The sender rule the History long-press edits: its key, and the header label it shows (UI only). */
+private data class SenderRuleTarget(val storageId: String, val label: String)
+
+/** Loading the stored sender rule; [profile] null = no rule yet. */
+private data class LoadedSenderRule(val profile: TranscriptionProfile?)
+
+/**
+ * R6: the sender sub-header long-press editor, on the same [ProfileRuleSheet].
+ * Saving writes the sender rule; only notes transcribed afterwards follow it.
+ * The sheet seeds its pickers once, so it opens after the stored rule loads.
+ */
+@Composable
+private fun HistorySenderRuleEditor(
+    viewModel: LogsViewModel,
+    target: SenderRuleTarget,
+    onClose: () -> Unit,
+) {
+    val installed by viewModel.installedBackends.collectAsStateWithLifecycle()
+    val codes by viewModel.ruleLanguageCodes.collectAsStateWithLifecycle()
+    val outcome by viewModel.folderRuleOutcome.collectAsStateWithLifecycle()
+    val loaded by produceState<LoadedSenderRule?>(null, target.storageId) {
+        value = LoadedSenderRule(viewModel.senderRuleFor(target.storageId))
+    }
+    val initial = loaded ?: return
+    ProfileRuleSheet(
+        title = stringResource(R.string.history_scope_rule_sender_title, target.label),
+        initial = initial.profile,
+        installedBackends = installed,
+        languageCodes = codes,
+        outcome = outcome,
+        onPreview = { edited -> viewModel.previewSenderRule(target.storageId, edited) },
+        onSave = { edited -> viewModel.saveSenderRule(target.storageId, edited) },
+        onDismiss = {
+            viewModel.clearSenderRulePreview()
             onClose()
         },
     )

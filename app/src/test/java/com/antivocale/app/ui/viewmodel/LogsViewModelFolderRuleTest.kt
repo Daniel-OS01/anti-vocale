@@ -1,6 +1,7 @@
 package com.antivocale.app.ui.viewmodel
 
 import com.antivocale.app.data.ScheduledFolderStore
+import com.antivocale.app.data.ScopeProfileStore
 import com.antivocale.app.data.TranscriptionProfile
 import com.antivocale.app.data.WatchedFolder
 import com.antivocale.app.transcription.staticRegistry
@@ -60,7 +61,32 @@ class LogsViewModelFolderRuleTest : ViewModelTeardownTest() {
             coEvery { setFolderProfile(any(), any()) } returns emptyList()
             coEvery { setSubfolderRule(any(), any(), any()) } returns emptyList()
         }
-        viewModel = register(LogsViewModel(mockk(relaxed = true), mockk(relaxed = true), stubPreferencesManager(), staticRegistry(), mockk(relaxed = true), mockk(relaxed = true), mockk(relaxed = true), mockk(relaxed = true), orchestrator = mockk(relaxed = true), duplicateGuard = mockk(relaxed = true), scheduledFolderStore = store, profileOutcomeSource = mockk(relaxed = true), appScope = appScope))
+        viewModel = register(LogsViewModel(mockk(relaxed = true), mockk(relaxed = true), stubPreferencesManager(), staticRegistry(), mockk(relaxed = true), mockk(relaxed = true), mockk(relaxed = true), mockk(relaxed = true), orchestrator = mockk(relaxed = true), duplicateGuard = mockk(relaxed = true), scheduledFolderStore = store, profileOutcomeSource = mockk(relaxed = true), scopeProfileStore = senderStore, appScope = appScope))
+    }
+
+    // Fake sender data only.
+    private val senderId = "wa:com.whatsapp:Test Contact"
+    private val senderStore: ScopeProfileStore = mockk(relaxed = true) {
+        coEvery { senderProfile(senderId) } returns TranscriptionProfile(language = "en")
+    }
+
+    @Test
+    fun `saving a sender rule writes the sender profile, and null removes it`() = runTest {
+        val edited = TranscriptionProfile(language = "it")
+        viewModel.saveSenderRule(senderId, edited)
+        viewModel.saveSenderRule(senderId, null)
+        testScheduler.advanceUntilIdle()
+
+        coVerify(exactly = 1) { senderStore.setSenderProfile(senderId, edited) }
+        coVerify(exactly = 1) { senderStore.setSenderProfile(senderId, null) }
+        coVerify(exactly = 0) { store.setFolderProfile(any(), any()) }
+        coVerify(exactly = 0) { store.setSubfolderRule(any(), any(), any()) }
+    }
+
+    @Test
+    fun `a sender scope loads its rule from the sender store and edits no folder`() = runTest {
+        assertEquals(TranscriptionProfile(language = "en"), viewModel.senderRuleFor(senderId))
+        assertNull(viewModel.folderRuleFor(HistoryGroupScope.Sender(senderId)))
     }
 
     @Test
