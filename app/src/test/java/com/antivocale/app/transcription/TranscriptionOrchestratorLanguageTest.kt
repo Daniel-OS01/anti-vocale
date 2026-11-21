@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
 
@@ -384,6 +385,59 @@ class TranscriptionOrchestratorLanguageTest : TranscriptionOrchestratorTestBase(
 
         // The override pins as itself; the persisted "it" never ran.
         coVerify(atLeast = 1) { logDao.update(match { it.languagePin == "de" }) }
+    }
+
+    /**
+     * The row's pin is a claim about the decode: a backend that never reads
+     * the language (GigaAM carries neither languageOption nor passLanguage,
+     * so its config always resolves "") must not record the request's pin.
+     * Otherwise the History chip shows "pinned ru" over a transcript the
+     * language never touched. Warm GigaAM whole-file run (the shared
+     * fixture of the repetition-collapse and punctuation tests).
+     */
+    @Test
+    fun `a backend that ignores language records no pin on the row`() = runTest {
+        val gigaamBackend = mockk<TranscriptionBackend>(relaxed = true) {
+            every { id } returns BuiltInBackendIds.GIGAAM
+            every { isReady() } returns true
+            every { isAudioSupported() } returns true
+            every { supportsAudio } returns true
+            every { maxChunkDurationSeconds } returns null
+            every { displayName } returns "GigaAM v3"
+        }
+        stubDefaultWhisperPreferences()
+        setUpGigaamWholeFileFixture(gigaamBackend)
+        stubWholeFileDecode(gigaamBackend, "privet mir")
+        val workDir = File(System.getProperty("java.io.tmpdir"), "lang-ignored-${System.nanoTime()}")
+            .apply { mkdirs(); tempDirs.add(this) }
+        val audioFile = File(workDir, "audio.ogg").apply { writeBytes(byteArrayOf(1)) }
+        coEvery { logDao.getByTaskId("lang-ignored-row") } returns
+            com.antivocale.app.data.local.LogEntity(
+                id = "1", timestamp = 0L, taskId = "lang-ignored-row",
+                type = "AUDIO", status = "PROCESSING", prompt = "")
+
+        val result = orchestrator.processRequest(
+            taskId = "lang-ignored-row",
+            requestType = "audio",
+            prompt = "",
+            filePath = audioFile.absolutePath,
+            source = null,
+            sourcePackage = null,
+            languageOverride = "ru",
+            queuePosition = 1,
+            queueTotal = 1,
+            context = createMockContext(),
+            cacheDir = workDir,
+            listener = listener,
+            coroutineScope = this
+        )
+
+        // The run itself succeeds: the verdict below is about the row, not the decode.
+        assertTrue("request failed: ${result.exceptionOrNull()}", result.isSuccess)
+        coVerify(exactly = 0) { logDao.update(match { it.languagePin == "ru" }) }
+        coVerify(atLeast = 1) {
+            logDao.update(match { it.languagePin == TranscriptionLanguagePolicy.PREF_AUTO })
+        }
     }
 
     /**
