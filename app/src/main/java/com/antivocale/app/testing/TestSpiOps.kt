@@ -183,6 +183,10 @@ internal class TestSpiOps(
             // The per-source voice-note model pins (empty = active model).
             .put("voiceNoteBackendId", preferences.voiceNoteBackendId.first())
             .put("voiceNoteBusinessBackendId", preferences.voiceNoteBusinessBackendId.first())
+            // R6: per-sender profiles and the language->model map, raw JSON
+            // (small: one entry per configured sender / language).
+            .put("senderProfilesJson", preferences.senderProfilesJson.first())
+            .put("languageModelMapJson", preferences.languageModelMapJson.first())
             // TASK-588.1: the advanced-reveal state (the conformance test
             // pins every flow exposed, keyed by its flow name).
             .put("settingsTranscriptionAdvancedExpanded", preferences.settingsTranscriptionAdvancedExpanded.first())
