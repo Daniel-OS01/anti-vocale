@@ -862,7 +862,15 @@ class LogsViewModel @Inject constructor(
      *  waits for the loaded list, or a legacy row would open under Folder
      *  sync and then move into its (collapsed) named folder section. */
     val watchedFolders: StateFlow<List<WatchedFolder>?> = scheduledFolderStore.foldersFlow
-        .stateIn<List<WatchedFolder>?>(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+        // replayExpirationMillis = 0: once History stops collecting, the
+        // value resets to null (not loaded) instead of keeping a list that
+        // may be stale by the next highlight; the highlight effect then
+        // waits for a fresh emission rather than expanding a wrong section.
+        .stateIn<List<WatchedFolder>?>(
+            viewModelScope,
+            SharingStarted.WhileSubscribed(stopTimeoutMillis = 5000, replayExpirationMillis = 0),
+            null,
+        )
 
     /** TASK-616: the technical processing-context line renders only when
      *  this is on (off by default); the data stays persisted either way. */
