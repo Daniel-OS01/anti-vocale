@@ -3053,7 +3053,7 @@ class TranscriptionOrchestrator @Inject constructor(
                 }
             }
             val inferMs = System.currentTimeMillis() - t0
-            Log.i(TAG, "Inference timing: ${inferMs}ms for ${audioDurationSeconds}s audio (backend=${backend.id}, provider=$resolvedProvider, threads=${threadCount}, chunks=$chunkCount)")
+            Log.i(TAG, "Inference timing: ${inferMs}ms for ${audioDurationSeconds}s audio (backend=${backend.id}, requested_provider=$resolvedProvider, threads=${threadCount}, chunks=$chunkCount)")
             fireCollector()
             // TASK-664 (GH #119): the single-chunk arm. A one-chunk clip has
             // no neighbors, so the ladder re-feeds with silence padding; a

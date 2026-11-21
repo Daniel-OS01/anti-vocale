@@ -32,7 +32,7 @@ class FailureContextJsonTest {
     fun `render is one line with the diagnostic keys`() {
         val rendered = FailureContextJson.render(full)!!
         assertEquals(
-            "PipelineFailure backend=external:abc123 provider=cpu " +
+            "PipelineFailure backend=external:abc123 requested_provider=cpu " +
                 "v1.13.0-SNAPSHOT chunks=12 (failed 3) retried=2 total=4620.0s decoded=1380.0s",
             rendered)
     }
