@@ -150,4 +150,52 @@ class SenderKeysTest {
             assertNull(id, SenderKey.parse(id))
         }
     }
+
+    @Test
+    fun `a WhatsApp voice-note row keys as that source's sender`() {
+        assertEquals(
+            SenderKey.WhatsApp("com.whatsapp", "Test Contact"),
+            SenderKeys.forRow(SourceKind.VOICE_NOTE, "com.whatsapp", "Test Contact", "us", fakeE164))
+    }
+
+    @Test
+    fun `a Business voice-note row keys as the Business sender`() {
+        assertEquals(
+            SenderKey.WhatsApp("com.whatsapp.w4b", "Test Contact"),
+            SenderKeys.forRow(SourceKind.VOICE_NOTE, "com.whatsapp.w4b", "Test Contact", "us", fakeE164))
+    }
+
+    @Test
+    fun `a folder-watch row with a number keys as the normalized caller`() {
+        assertEquals(
+            SenderKey.Call("+15550100"),
+            SenderKeys.forRow(SourceKind.FOLDER_WATCH, null, "555 0100", "us", fakeE164))
+    }
+
+    @Test
+    fun `a folder-watch row with a name keys as a named caller`() {
+        assertEquals(
+            SenderKey.Call("Test Contact"),
+            SenderKeys.forRow(SourceKind.FOLDER_WATCH, null, "  Test   Contact ", "us", fakeE164))
+    }
+
+    @Test
+    fun `a shared WhatsApp row keys as a share`() {
+        assertEquals(
+            SenderKey.WhatsApp("com.whatsapp", "Test Contact"),
+            SenderKeys.forRow(SourceKind.SHARE, "com.whatsapp", "Test Contact", "us", fakeE164))
+    }
+
+    @Test
+    fun `a non-WhatsApp share row has no key`() {
+        assertNull(SenderKeys.forRow(SourceKind.SHARE, "org.example.messenger", "Test Contact", "us", fakeE164))
+        assertNull(SenderKeys.forRow(null, "org.example.messenger", "Test Contact", "us", fakeE164))
+    }
+
+    @Test
+    fun `a row with no sender name has no key`() {
+        assertNull(SenderKeys.forRow(SourceKind.VOICE_NOTE, "com.whatsapp", null, "us", fakeE164))
+        assertNull(SenderKeys.forRow(SourceKind.FOLDER_WATCH, null, null, "us", fakeE164))
+        assertNull(SenderKeys.forRow(SourceKind.SHARE, "com.whatsapp", null, "us", fakeE164))
+    }
 }

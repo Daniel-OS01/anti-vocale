@@ -94,13 +94,8 @@ class NotificationActionReceiver : BroadcastReceiver() {
                 } else {
                     null
                 }
-            val senderKey = when {
-                sourceKind == SourceKind.VOICE_NOTE ->
-                    voiceNoteSource?.let { SenderKeys.forVoiceNote(it, senderName) }
-                sourceKind == SourceKind.FOLDER_WATCH ->
-                    SenderKeys.forCallRecording(senderName, countryIso, phone)
-                else -> SenderKeys.forShare(sourcePackage, senderName)
-            }
+            // The History row menu derives the same key from the same facts.
+            val senderKey = SenderKeys.forRow(sourceKind, sourcePackage, senderName, countryIso, phone)
             return OriginFacts(
                 voiceNoteSource = voiceNoteSource,
                 folderTreeUri = intent.getStringExtra(InferenceService.EXTRA_SOURCE_FOLDER_KEY),

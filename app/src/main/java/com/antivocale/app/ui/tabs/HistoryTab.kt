@@ -672,7 +672,7 @@ private fun RowScope.ResultActionButton(
  * Long-press context menu actions for a log entry (GH #52). Kept as a pure
  * function so the gating mirrors [buildSwipeActions] and stays unit-tested.
  */
-enum class ContextMenuAction { RETRANSCRIBE, CANCEL, COPY, REPORT, DELETE }
+enum class ContextMenuAction { RETRANSCRIBE, CANCEL, COPY, SENDER_RULE, REPORT, DELETE }
 
 /** Shared "Queued" label (collapsed and expanded views render it identically). */
 @Composable
@@ -684,7 +684,11 @@ private fun QueuedStatusLabel() {
     )
 }
 
-fun buildContextMenuActions(log: LogEntry, canRetranscribe: Boolean): List<ContextMenuAction> {
+fun buildContextMenuActions(
+    log: LogEntry,
+    canRetranscribe: Boolean,
+    hasSenderRule: Boolean = false,
+): List<ContextMenuAction> {
     val actions = mutableListOf<ContextMenuAction>()
     // In-flight entries (queued or processing) can be cancelled (GH #52 follow-up);
     // Cancel leads while the item is in flight, it is the primary action there.
@@ -696,6 +700,8 @@ fun buildContextMenuActions(log: LogEntry, canRetranscribe: Boolean): List<Conte
     // with text: mid-ASR progressive saves or the post-ASR summary tail; it
     // copies exactly what the row displays, which may be partial).
     if (log.hasCopyableResult) actions.add(ContextMenuAction.COPY)
+    // R6: only a row whose origin keys a sender can open that sender's rule.
+    if (hasSenderRule) actions.add(ContextMenuAction.SENDER_RULE)
     // TASK-374: report entry available on EVERY entry (errors are the most
     // valuable reports and have no completed result).
     actions.add(ContextMenuAction.REPORT)
@@ -1315,6 +1321,14 @@ fun HistoryTab(
                 // drift bait); TASK-750 closed over historyRows like the
                 // other locals instead of threading it as a parameter.
                 val renderLogRow: @Composable (LogEntry) -> Unit = { log ->
+                    // R6: the row's own sender rule, for rows no sender header
+                    // reaches (a recording in a subfolder, a legacy Folder sync row).
+                    val rowSenderKey = remember(
+                        log.taskId, log.sourceKind, log.sourceFolderKey, log.sourcePackageName,
+                        log.senderName, watchedFolders, deviceCountryIso,
+                    ) {
+                        senderKeyForRow(log, watchedFolders, deviceCountryIso)
+                    }
                     LogEntryWithSwipe(
                         log = log,
                         searchQuery = searchQuery,
@@ -1335,6 +1349,9 @@ fun HistoryTab(
                         viewModel = viewModel,
                         playback = playbackController,
                         onRetranscribe = if (showRetranscribeButton && log.type == LogEntry.Type.AUDIO && log.filePath != null) {{ retranscribeTarget = log }} else null,
+                        onSenderRule = rowSenderKey?.let { key ->
+                            { senderRuleTarget = SenderRuleTarget(key.storageId(), log.senderName.orEmpty()) }
+                        },
                         compactActions = compactActions,
                         advancedShareFormats = advancedShare,
                         showLanguageChip = showLanguageChip,
@@ -1805,6 +1822,8 @@ fun LogEntryItem(
     onExpandChange: (Boolean) -> Unit = {},
     playback: ResultPlaybackController? = null,
     onRetranscribe: (() -> Unit)? = null,
+    /** R6: open this row's sender rule; null = the row has no sender key. */
+    onSenderRule: (() -> Unit)? = null,
     onDelete: (() -> Unit)? = null,
     onCancel: (() -> Unit)? = null,
     compactActions: Boolean = PreferencesManager.DEFAULT_COMPACT_RESULT_ACTIONS,
@@ -1839,8 +1858,12 @@ fun LogEntryItem(
     val context = LocalContext.current
     val rowScope = rememberCoroutineScope()
     var contextMenuExpanded by remember { mutableStateOf(false) }
-    val menuActions = remember(log.id, log.status, log.result, onRetranscribe) {
-        buildContextMenuActions(log, canRetranscribe = onRetranscribe != null)
+    val menuActions = remember(log.id, log.status, log.result, onRetranscribe, onSenderRule != null) {
+        buildContextMenuActions(
+            log,
+            canRetranscribe = onRetranscribe != null,
+            hasSenderRule = onSenderRule != null,
+        )
     }
 
     Card(
@@ -1873,6 +1896,7 @@ fun LogEntryItem(
                                         ContextMenuAction.RETRANSCRIBE -> R.string.retranscribe
                                         ContextMenuAction.CANCEL -> R.string.logs_cancel
                                         ContextMenuAction.COPY -> R.string.copy
+                                        ContextMenuAction.SENDER_RULE -> R.string.history_row_sender_rule
                                         ContextMenuAction.REPORT -> R.string.feedback_report_transcription
                                         ContextMenuAction.DELETE -> R.string.logs_delete_entry
                                     }
@@ -1885,6 +1909,7 @@ fun LogEntryItem(
                                     ContextMenuAction.RETRANSCRIBE -> Icons.Default.Refresh
                                     ContextMenuAction.CANCEL -> Icons.Default.Close
                                     ContextMenuAction.COPY -> Icons.Default.ContentCopy
+                                    ContextMenuAction.SENDER_RULE -> Icons.Default.Person
                                     ContextMenuAction.REPORT -> Icons.Default.Mail
                                     ContextMenuAction.DELETE -> Icons.Default.Delete
                                 },
@@ -1901,6 +1926,7 @@ fun LogEntryItem(
                                     // GH #107/TASK-598 F3: the stateless row
                                     // already receives the annotated text.
                                     context, speakerAnnotated ?: log.result)
+                                ContextMenuAction.SENDER_RULE -> onSenderRule?.invoke()
                                 ContextMenuAction.REPORT -> reportTranscription(context, log)
                                 ContextMenuAction.DELETE -> onDelete?.invoke()
                             }
@@ -2731,6 +2757,8 @@ private fun LogEntryWithSwipe(
     viewModel: LogsViewModel,
     playback: ResultPlaybackController? = null,
     onRetranscribe: (() -> Unit)? = null,
+    /** R6: open this row's sender rule; null = the row has no sender key. */
+    onSenderRule: (() -> Unit)? = null,
     compactActions: Boolean = PreferencesManager.DEFAULT_COMPACT_RESULT_ACTIONS,
     advancedShareFormats: Boolean = PreferencesManager.DEFAULT_ADVANCED_SHARE_FORMATS,
     showLanguageChip: Boolean = PreferencesManager.DEFAULT_LANGUAGE_CHIP_ENABLED,
@@ -2843,6 +2871,7 @@ private fun LogEntryWithSwipe(
                 },
                 playback = playback,
                 onRetranscribe = onRetranscribe,
+                onSenderRule = onSenderRule,
                 onCancel = { cancelTask(context, log.taskId) },
                 onDelete = { onDeleted(log); viewModel.deleteLog(log.id) },
                 compactActions = compactActions,
@@ -2904,6 +2933,7 @@ private fun LogEntryWithSwipe(
                 onExpandChange = onExpandChange,
                 playback = playback,
                 onRetranscribe = onRetranscribe,
+                onSenderRule = onSenderRule,
                 onCancel = { cancelTask(context, log.taskId) },
                 onDelete = { onDeleted(log); onDeleteLog(log.id) },
                 compactActions = compactActions,

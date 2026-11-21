@@ -1496,6 +1496,7 @@
     <string name="history_scope_rule_subfolder_title">Transkrybuj ten podfolder jako…</string>
     <string name="history_scope_rule_sender_title">Zawsze transkrybuj %1$s za pomocą…</string>
     <string name="history_scope_rule_long_press_label">Ustaw regułę transkrypcji</string>
+    <string name="history_row_sender_rule">Reguła transkrypcji dla tego nadawcy…</string>
     <string name="sender_rules_title">Reguły nadawców</string>
     <string name="sender_rules_summary">Transkrybuj wybrane osoby własnym modelem lub językiem</string>
     <string name="sender_rules_note">Reguły dopasowują nazwę wyświetlaną przez WhatsApp lub rozmówcę z nazwy pliku nagrania. Zmiana nazwy kontaktu wyłącza jego regułę. Reguły są uwzględniane w kopiach zapasowych.</string>

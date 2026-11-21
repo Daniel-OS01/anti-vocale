@@ -1466,6 +1466,7 @@
     <string name="history_scope_rule_subfolder_title">Diesen Unterordner transkribieren als…</string>
     <string name="history_scope_rule_sender_title">%1$s immer transkribieren mit…</string>
     <string name="history_scope_rule_long_press_label">Transkriptionsregel festlegen</string>
+    <string name="history_row_sender_rule">Transkriptionsregel für diesen Absender…</string>
     <string name="sender_rules_title">Absenderregeln</string>
     <string name="sender_rules_summary">Ausgewählte Personen mit eigenem Modell oder eigener Sprache transkribieren</string>
     <string name="sender_rules_note">Regeln greifen über den Namen, den WhatsApp anzeigt, oder den Anrufer im Dateinamen einer Aufnahme. Wird ein Kontakt umbenannt, greift seine Regel nicht mehr. Regeln sind in Backups enthalten.</string>

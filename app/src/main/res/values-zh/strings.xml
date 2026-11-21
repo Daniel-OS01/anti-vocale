@@ -1292,6 +1292,7 @@
     <string name="history_scope_rule_subfolder_title">将此子文件夹转写为…</string>
     <string name="history_scope_rule_sender_title">始终使用以下方式转写 %1$s…</string>
     <string name="history_scope_rule_long_press_label">设置转写规则</string>
+    <string name="history_row_sender_rule">此发件人的转写规则…</string>
     <string name="sender_rules_title">发件人规则</string>
     <string name="sender_rules_summary">用专属模型或语言转写指定的人</string>
     <string name="sender_rules_note">规则会匹配 WhatsApp 显示的名称，或录音文件名中的来电者。重命名联系人会使其规则失效。规则会包含在备份中。</string>

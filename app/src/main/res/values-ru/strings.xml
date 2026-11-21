@@ -1497,6 +1497,7 @@
     <string name="history_scope_rule_subfolder_title">Распознавать эту подпапку как…</string>
     <string name="history_scope_rule_sender_title">Всегда распознавать %1$s с помощью…</string>
     <string name="history_scope_rule_long_press_label">Задать правило распознавания</string>
+    <string name="history_row_sender_rule">Правило распознавания для этого отправителя…</string>
     <string name="sender_rules_title">Правила отправителей</string>
     <string name="sender_rules_summary">Распознавать выбранных людей их собственной моделью или языком</string>
     <string name="sender_rules_note">Правила сопоставляются с именем, которое показывает WhatsApp, или с абонентом в имени файла записи. Если переименовать контакт, его правило перестаёт работать. Правила входят в резервные копии.</string>

@@ -1306,6 +1306,7 @@
     <string name="history_scope_rule_subfolder_title">Litteroi tämä alikansio näin…</string>
     <string name="history_scope_rule_sender_title">Litteroi %1$s aina näin…</string>
     <string name="history_scope_rule_long_press_label">Aseta litterointisääntö</string>
+    <string name="history_row_sender_rule">Tämän lähettäjän litterointisääntö…</string>
     <string name="sender_rules_title">Lähettäjäsäännöt</string>
     <string name="sender_rules_summary">Litteroi valitut henkilöt omalla mallilla tai kielellä</string>
     <string name="sender_rules_note">Säännöt vastaavat nimeä, jonka WhatsApp näyttää, tai soittajaa tallenteen tiedostonimessä. Yhteystiedon nimen muuttaminen lopettaa sen säännön. Säännöt sisältyvät varmuuskopioihin.</string>

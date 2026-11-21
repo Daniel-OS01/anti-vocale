@@ -1472,6 +1472,7 @@
     <string name="history_scope_rule_subfolder_title">Trascrivi questa sottocartella come…</string>
     <string name="history_scope_rule_sender_title">Trascrivi sempre %1$s con…</string>
     <string name="history_scope_rule_long_press_label">Imposta regola di trascrizione</string>
+    <string name="history_row_sender_rule">Regola di trascrizione per questo mittente…</string>
     <string name="sender_rules_title">Regole mittente</string>
     <string name="sender_rules_summary">Trascrivi le persone scelte con un modello o una lingua dedicati</string>
     <string name="sender_rules_note">Le regole corrispondono al nome mostrato da WhatsApp, o al chiamante nel nome file di una registrazione. Rinominare un contatto ne interrompe la regola. Le regole sono incluse nei backup.</string>

@@ -1471,6 +1471,7 @@
     <string name="history_scope_rule_subfolder_title">رونویسی این زیرپوشه به‌صورت…</string>
     <string name="history_scope_rule_sender_title">همیشه %1$s را رونویسی کن با…</string>
     <string name="history_scope_rule_long_press_label">تنظیم قانون رونویسی</string>
+    <string name="history_row_sender_rule">قانون رونویسی برای این فرستنده…</string>
     <string name="sender_rules_title">قانون‌های فرستنده</string>
     <string name="sender_rules_summary">رونویسی افراد انتخاب‌شده با مدل یا زبان اختصاصی خودشان</string>
     <string name="sender_rules_note">قانون‌ها با نامی که WhatsApp نشان می‌دهد یا با تماس‌گیرنده در نام فایل ضبط مطابقت می‌یابند. تغییر نام یک مخاطب، قانون آن را از کار می‌اندازد. قانون‌ها در پشتیبان‌ها گنجانده می‌شوند.</string>

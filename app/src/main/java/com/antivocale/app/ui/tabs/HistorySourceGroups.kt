@@ -2,6 +2,7 @@ package com.antivocale.app.ui.tabs
 
 import com.antivocale.app.data.FrameworkPhoneNormalizer
 import com.antivocale.app.data.PhoneNormalizer
+import com.antivocale.app.data.SenderKey
 import com.antivocale.app.data.SenderKeys
 import com.antivocale.app.data.SourceKind
 import com.antivocale.app.data.SourceOrigin
@@ -92,6 +93,26 @@ internal fun resolveHistoryGroup(
         // a newer build wrote.
         else -> otherPlacement(sender)
     }
+}
+
+/**
+ * R6: the per-sender rule key [entry]'s row menu edits, or null when the row
+ * has no sender key. The kind is the effective one (a pre-R3 folder-watch
+ * row recorded none), so a recording in a subfolder or in the legacy Folder
+ * sync section gets its caller's rule even with no caller header.
+ */
+internal fun senderKeyForRow(
+    entry: LogEntry,
+    watchedFolders: List<WatchedFolder>,
+    countryIso: String?,
+    phone: PhoneNormalizer = FrameworkPhoneNormalizer,
+): SenderKey? {
+    val kind = effectiveSourceOrigin(
+        entry.taskId,
+        SourceOrigin(entry.sourceKind, entry.sourceFolderKey, entry.sourceFolderName, entry.sourceSubPath),
+        watchedFolders,
+    ).kind
+    return SenderKeys.forRow(kind, entry.sourcePackageName, entry.senderName, countryIso, phone)
 }
 
 private fun otherPlacement(sender: HistorySubGroupRef?) =
@@ -186,6 +207,14 @@ internal sealed interface HistoryGroupScope {
             countryIso: String? = null,
             phone: PhoneNormalizer = FrameworkPhoneNormalizer,
         ): HistoryGroupScope {
+            if (groupKey == FOLDER_SYNC_GROUP_KEY) {
+                // An unattributable folder-watch row still carries its caller
+                // label, keyed as a call recording like any folder row's.
+                val label = subKey?.takeIf { it.startsWith(SENDER_SUBGROUP_PREFIX) }
+                    ?.removePrefix(SENDER_SUBGROUP_PREFIX) ?: return None
+                return SenderKeys.forCallRecording(label, countryIso, phone)?.let { Sender(it.storageId()) }
+                    ?: None
+            }
             if (!groupKey.startsWith(FOLDER_GROUP_PREFIX)) {
                 // An app section keys on the bare package name; only the two
                 // WhatsApp clients carry a sender key (the share and

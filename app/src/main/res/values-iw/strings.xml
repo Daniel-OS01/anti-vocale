@@ -1479,6 +1479,7 @@
     <string name="history_scope_rule_subfolder_title">תמלול תיקיית המשנה הזו כ…</string>
     <string name="history_scope_rule_sender_title">תמלול תמידי של %1$s עם…</string>
     <string name="history_scope_rule_long_press_label">הגדרת כלל תמלול</string>
+    <string name="history_row_sender_rule">כלל תמלול לשולח הזה…</string>
     <string name="sender_rules_title">כללי שולח</string>
     <string name="sender_rules_summary">תמלול אנשים נבחרים עם מודל או שפה משלהם</string>
     <string name="sender_rules_note">הכללים מותאמים לשם ש-WhatsApp מציג, או למתקשר בשם הקובץ של הקלטה. שינוי שם של איש קשר מפסיק את הכלל שלו. הכללים נכללים בגיבויים.</string>

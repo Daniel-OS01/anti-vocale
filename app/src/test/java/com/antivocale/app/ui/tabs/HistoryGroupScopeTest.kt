@@ -108,6 +108,55 @@ class HistoryGroupScopeTest {
     }
 
     @Test
+    fun `a caller sub-header under the legacy Folder sync section parses to a call key`() {
+        // A folder-watch row whose folder cannot be recovered lands in the
+        // legacy section; its caller still keys as a call recording.
+        val unattributed = LogEntry(
+            taskId = "t",
+            type = LogEntry.Type.AUDIO,
+            status = LogEntry.Status.SUCCESS,
+            senderName = "5550100",
+            sourceKind = SourceKind.FOLDER_WATCH,
+        )
+        val p = resolveHistoryGroup(unattributed, listOf(calls))
+        assertEquals("__folder_sync__", p.groupKey)
+        assertEquals("who:5550100", p.subGroup?.key)
+        assertEquals(
+            HistoryGroupScope.Sender(SenderKey.Call("+15550100").storageId()),
+            HistoryGroupScope.parse(p.groupKey, p.subGroup?.key, countryIso = "us", phone = fakePhone),
+        )
+        assertEquals(
+            HistoryGroupScope.Sender("call:Test Contact"),
+            HistoryGroupScope.parse(p.groupKey, "who:Test Contact", countryIso = "us", phone = fakePhone),
+        )
+        // The section header itself edits nothing.
+        assertSame(HistoryGroupScope.None, HistoryGroupScope.parse(p.groupKey))
+    }
+
+    @Test
+    fun `a row's own sender key covers rows no caller header reaches`() {
+        // A recording in a subfolder: its header is the subfolder, not the caller.
+        assertEquals(
+            SenderKey.Call("+15550100"),
+            senderKeyForRow(folderRow(subPath = "Russian", sender = "5550100"), listOf(calls), "us", fakePhone),
+        )
+        // A pre-R3 folder-watch row recorded no kind; its task id still marks it.
+        val legacy = LogEntry(
+            taskId = "fwatch_1_2_3",
+            type = LogEntry.Type.AUDIO,
+            status = LogEntry.Status.SUCCESS,
+            senderName = "Test Contact",
+        )
+        assertEquals(SenderKey.Call("Test Contact"), senderKeyForRow(legacy, emptyList(), "us", fakePhone))
+        // A WhatsApp share keys as a share; another app's row has no key.
+        assertEquals(
+            SenderKey.WhatsApp("com.whatsapp", "Test Contact"),
+            senderKeyForRow(appRow("com.whatsapp", "Test Contact"), emptyList(), "us", fakePhone),
+        )
+        assertNull(senderKeyForRow(appRow("org.example.messenger", "Test Contact"), emptyList(), "us", fakePhone))
+    }
+
+    @Test
     fun `a sender scope needs no watched folder and stores no folder rule`() {
         val sender = HistoryGroupScope.Sender("call:+15550100")
         assertNull(sender.treeUri)

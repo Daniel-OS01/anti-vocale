@@ -1482,6 +1482,7 @@
     <string name="history_scope_rule_subfolder_title">Deze submap transcriberen als…</string>
     <string name="history_scope_rule_sender_title">%1$s altijd transcriberen met…</string>
     <string name="history_scope_rule_long_press_label">Transcriptieregel instellen</string>
+    <string name="history_row_sender_rule">Transcriptieregel voor deze afzender…</string>
     <string name="sender_rules_title">Afzenderregels</string>
     <string name="sender_rules_summary">Transcribeer gekozen personen met hun eigen model of taal</string>
     <string name="sender_rules_note">Regels komen overeen met de naam die WhatsApp toont, of met de beller in de bestandsnaam van een opname. Als je een contact hernoemt, werkt zijn regel niet meer. Regels zijn opgenomen in back-ups.</string>

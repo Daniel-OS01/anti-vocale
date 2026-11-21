@@ -1466,6 +1466,7 @@
     <string name="history_scope_rule_subfolder_title">Bu alt klasörü şöyle yazıya dök…</string>
     <string name="history_scope_rule_sender_title">%1$s kişisini her zaman şununla yazıya dök…</string>
     <string name="history_scope_rule_long_press_label">Yazıya dökme kuralı belirle</string>
+    <string name="history_row_sender_rule">Bu gönderen için yazıya dökme kuralı…</string>
     <string name="sender_rules_title">Gönderen kuralları</string>
     <string name="sender_rules_summary">Seçilen kişileri kendi modeli veya diliyle yazıya dök</string>
     <string name="sender_rules_note">Kurallar, WhatsApp\'ın gösterdiği adla veya bir kaydın dosya adındaki arayanla eşleşir. Bir kişinin adını değiştirmek kuralını durdurur. Kurallar yedeklere dahildir.</string>

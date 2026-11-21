@@ -140,6 +140,28 @@ object SenderKeys {
         return normalizeName(label)?.let { SenderKey.Call(it) }
     }
 
+    /**
+     * The key a recorded row's origin facts derive (a History row, or the
+     * suspension re-run's extras): a voice-note row from one of the two
+     * WhatsApp packages as that source's sender, a folder-watch row as a
+     * call recording (its stored label IS the parsed caller, normalized for
+     * [countryIso]), any other row as a share (a key only for a WhatsApp
+     * package). The one derivation both the History row menu and the re-run
+     * use, so the rule a row opens is the rule its re-run applies.
+     */
+    fun forRow(
+        sourceKind: String?,
+        sourcePackage: String?,
+        senderName: String?,
+        countryIso: String?,
+        phone: PhoneNormalizer = FrameworkPhoneNormalizer,
+    ): SenderKey? = when (sourceKind) {
+        SourceKind.VOICE_NOTE ->
+            ScopeProfileSource.voiceNoteSourceForPackage(sourcePackage)?.let { forVoiceNote(it, senderName) }
+        SourceKind.FOLDER_WATCH -> forCallRecording(senderName, countryIso, phone)
+        else -> forShare(sourcePackage, senderName)
+    }
+
     /** NFC, trimmed, whitespace runs collapsed; case kept on purpose. Blank gives null. */
     internal fun normalizeName(raw: String): String? =
         Normalizer.normalize(raw, Normalizer.Form.NFC)

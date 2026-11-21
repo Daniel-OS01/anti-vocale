@@ -1334,6 +1334,7 @@
     <string name="history_scope_rule_subfolder_title">Transcrever esta subpasta como…</string>
     <string name="history_scope_rule_sender_title">Sempre transcrever %1$s com…</string>
     <string name="history_scope_rule_long_press_label">Definir regra de transcrição</string>
+    <string name="history_row_sender_rule">Regra de transcrição para este remetente…</string>
     <string name="sender_rules_title">Regras de remetente</string>
     <string name="sender_rules_summary">Transcreva pessoas escolhidas com o próprio modelo ou idioma</string>
     <string name="sender_rules_note">As regras correspondem ao nome que o WhatsApp mostra ou a quem ligou, no nome do arquivo de uma gravação. Renomear um contato faz a regra dele parar de valer. As regras são incluídas nos backups.</string>
