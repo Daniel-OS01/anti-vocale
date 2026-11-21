@@ -25,7 +25,7 @@ import com.antivocale.app.receiver.TaskerRequestReceiver
  * [com.antivocale.app.data.ScopeProfileSource] before the enqueue.
  *
  * Deliberately NOT composed through this factory, each for a stated
- * reason: the retranscribe class (LogsViewModel.dispatchTranscription,
+ * reason: the retranscribe class ([RetranscribeIntent], shared by the single-row and bulk History redo;
  * NotificationActionReceiver's rerun-suspended arm) re-runs with a PROMPT
  * beyond this factory's surface (the rerun arm still applies the
  * re-resolved profile's two overrides itself); NotificationActionReceiver's subtitle-CHOICE arm forwards the

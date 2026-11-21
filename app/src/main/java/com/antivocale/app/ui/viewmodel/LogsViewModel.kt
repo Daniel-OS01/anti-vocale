@@ -15,9 +15,7 @@ import javax.inject.Inject
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.antivocale.app.R
-import com.antivocale.app.audio.AudioDurationPolicy
 import com.antivocale.app.audio.AudioPreprocessor
-import com.antivocale.app.audio.MemoryReadings
 import com.antivocale.app.data.local.LogDao
 import com.antivocale.app.data.local.TimedSegmentsConverter
 import com.antivocale.app.data.local.LogEntity
@@ -35,10 +33,12 @@ import com.antivocale.app.data.VoiceNoteDuplicateGuard
 import com.antivocale.app.data.TranscriptionCalibrator
 import com.antivocale.app.data.TranscriptionProfile
 import com.antivocale.app.data.catalog.BundledCatalog
-import com.antivocale.app.receiver.TaskerRequestReceiver
 import com.antivocale.app.service.AudioRequestIntent
 import com.antivocale.app.service.InferenceEnqueue
 import com.antivocale.app.service.InferenceService
+import com.antivocale.app.service.LongAudioDecider
+import com.antivocale.app.service.RetranscribeIntent
+import com.antivocale.app.data.TranscriptionProfile
 import com.antivocale.app.util.LocaleManager
 import com.antivocale.app.util.SharedAudioHandler
 import com.antivocale.app.util.parentFolderNameFromDocumentId
@@ -239,6 +239,13 @@ class LogsViewModel @Inject constructor(
         /** Decline (TASK-934): reclaims what the arming side staged. The
          *  retranscribe arm passes null (its file is the row's original). */
         val onCancel: (() -> Unit)? = null,
+    )
+
+    /** Stateless; built from this ViewModel's own dependencies so the
+     *  constructor (and every test that builds it) stays unchanged. */
+    private val longAudioDecider = LongAudioDecider(
+        audioPreprocessor, backendRegistry, preferencesManager,
+        transcriptionBackendManager, transcriptionCalibrator,
     )
 
     private val _pendingLongAudioWarning = MutableStateFlow<LongAudioWarning?>(null)
@@ -663,38 +670,9 @@ class LogsViewModel @Inject constructor(
         proceed: () -> Unit,
         onDecline: (() -> Unit)? = null,
     ) {
-        // Off-main ALWAYS: callers arrive on either dispatcher and the probe
-        // is a container parse (code-review: the extraction had dropped the
-        // retranscribe path's withContext(IO) wrapper).
-        val duration = withContext(Dispatchers.IO) {
-            runCatching { audioPreprocessor.getAudioDuration(filePath) }.getOrDefault(0.0)
-        }
-        val descriptor = backendId?.let { backendRegistry.byBackendId(it) }
-        val modelPath = descriptor?.modelPathFlow(preferencesManager)?.first()
-        // TASK-873: the llm row keys on the SELECTED model path (read above
-        // for the calibrator), so the dialog predicts the run the user is
-        // about to start, not the engine that happens to be resident.
-        val decodePath = backendId
-            ?.let { transcriptionBackendManager.gateInputsFor(it, modelPath) }
-            ?.decodePath(preferencesManager.vadEnabled.first())
-            ?: AudioDurationPolicy.DecodePath.WHOLE_FILE_PCM
-        // TASK-681: an offload run never decodes on the phone, so the
-        // RAM-derived ceilings do not apply; the honest bound is the
-        // backend's wall-clock budget over the server throughput
-        // (budget-seconds x rtf audio-seconds).
-        val ceiling = if (backendId != null && BuiltInBackendIds.isRemoteOmnivoice(backendId)) {
-            (com.antivocale.app.transcription.RemoteOmnivoiceBackend.WALL_CLOCK_BUDGET_MS / 1000L) *
-                (descriptor?.rtfEstimate?.toLong() ?: 1L)
-        } else {
-            AudioDurationPolicy.ceilingSeconds(
-                decodePath, MemoryReadings.availableRamBytes(context), MemoryReadings.maxHeapBytes())
-        }
-        val profile = backendId?.let { transcriptionCalibrator.getEstimate(it, modelPath ?: "") }
-        val calibrated = profile?.hasEstimate == true
-        val estimate = AudioDurationPolicy.resolveEstimateMsPerSec(
-            profile?.msPerSecondOfAudio, calibrated, descriptor?.rtfEstimate ?: 1f)
-        val decision = AudioDurationPolicy.warnDecision(
-            duration.toLong(), ceiling, estimate, dialogCapable = true, calibrated = calibrated)
+        // The decision math is shared with the bulk redo (LongAudioDecider);
+        // this gate owns only the dialog.
+        val decision = longAudioDecider.decide(backendId, filePath, context).warn
         if (!decision.showDialog) {
             proceed()
             return
@@ -1318,31 +1296,13 @@ class LogsViewModel @Inject constructor(
         /** TASK-546 AC3: request-scoped language; absent on the backend retranscribe. */
         languageOverride: String? = null
     ) {
-        val newTaskId = UUID.randomUUID().toString()
-
-        val intent = Intent(context, InferenceService::class.java).apply {
-            putExtra(TaskerRequestReceiver.EXTRA_TASK_ID, newTaskId)
-            putExtra(TaskerRequestReceiver.EXTRA_REQUEST_TYPE, TaskerRequestReceiver.REQUEST_TYPE_AUDIO)
-            putExtra(TaskerRequestReceiver.EXTRA_PROMPT, originalEntry.prompt)
-            putExtra(TaskerRequestReceiver.EXTRA_FILE_PATH, filePath)
-            putExtra(InferenceService.EXTRA_SOURCE, InferenceService.SOURCE_RETRANSCRIBE)
-            putExtra(InferenceService.EXTRA_BACKEND_OVERRIDE, backendId)
-            languageOverride?.let {
-                putExtra(InferenceService.EXTRA_LANGUAGE_OVERRIDE, it)
-            }
-            originalEntry.sourcePackageName?.let {
-                putExtra(InferenceService.EXTRA_SOURCE_PACKAGE, it)
-            }
-            // TASK-736: the sender label must survive a re-run (the fresh
-            // row is a new task; without this the label is one-shot).
-            originalEntry.senderName?.let {
-                putExtra(InferenceService.EXTRA_SENDER_NAME, it)
-            }
-            origin.kind?.let { putExtra(InferenceService.EXTRA_SOURCE_KIND, it) }
-            origin.folderKey?.let { putExtra(InferenceService.EXTRA_SOURCE_FOLDER_KEY, it) }
-            origin.folderName?.let { putExtra(InferenceService.EXTRA_SOURCE_FOLDER_NAME, it) }
-            origin.subPath?.let { putExtra(InferenceService.EXTRA_SOURCE_SUB_PATH, it) }
-        }
+        // A folder-watch row keeps the folder-watch id shape so the redone
+        // row can be found again in its folder; any other row gets a UUID.
+        val newTaskId = RetranscribeIntent.taskIdFor(originalEntry, origin, RetranscribeIntent.nextTaskMs())
+        val intent = RetranscribeIntent.build(
+            context, originalEntry, origin, filePath, newTaskId,
+            TranscriptionProfile(backendId = backendId, language = languageOverride),
+        )
         // F2: unified enqueue; a restricted start rides the fallback
         // notification (the request survives), a real failure surfaces on
         // the History error channel.
