@@ -52,6 +52,8 @@ class BackupSettingsKeysTest {
         "wiped_repair_captured_active" to "transient (TASK-963 in-flight repair snapshot)",
         "wiped_repair_captured_pin" to "transient (TASK-963 in-flight repair snapshot)",
         "wiped_repair_captured_preview_pin" to "transient (TASK-963 in-flight repair snapshot)",
+        "wiped_repair_captured_voice_note_pin" to "transient (TASK-963 in-flight repair snapshot)",
+        "wiped_repair_captured_voice_note_business_pin" to "transient (TASK-963 in-flight repair snapshot)",
         "wiped_repair_dead_sources" to "transient (TASK-973 dead-source marker, recomputed by the next repair)",
         "keep_alive_timeout" to "legacy (v2 superseded it)",
         "\$SHERPA_MODEL_PATH_PREFIX\$entryId" to "template pattern (per-entry derived key)",

@@ -125,6 +125,11 @@ internal class FakePreferencesManager : PreferencesManager {
     override val wipedRepairCapturedPin: Flow<String> get() = _wipedRepairCapturedPin
     val _wipedRepairCapturedPreviewPin = MutableStateFlow("")
     override val wipedRepairCapturedPreviewPin: Flow<String> get() = _wipedRepairCapturedPreviewPin
+    val _wipedRepairCapturedVoiceNotePin = MutableStateFlow("")
+    override val wipedRepairCapturedVoiceNotePin: Flow<String> get() = _wipedRepairCapturedVoiceNotePin
+    val _wipedRepairCapturedVoiceNoteBusinessPin = MutableStateFlow("")
+    override val wipedRepairCapturedVoiceNoteBusinessPin: Flow<String>
+        get() = _wipedRepairCapturedVoiceNoteBusinessPin
     override val wipedRepairDeadSources: Flow<Set<String>> = _wipedRepairDeadSources
     override fun sherpaModelPath(entryId: String): Flow<String?> = _sherpaModelPath(entryId)
     override val externalCatalogUrl: Flow<String> get() = _externalCatalogUrl
@@ -227,6 +232,12 @@ internal class FakePreferencesManager : PreferencesManager {
     override suspend fun saveWipedRepairCapturedActive(backendId: String) { _wipedRepairCapturedActive.value = backendId }
     override suspend fun saveWipedRepairCapturedPin(backendId: String) { _wipedRepairCapturedPin.value = backendId }
     override suspend fun saveWipedRepairCapturedPreviewPin(backendId: String) { _wipedRepairCapturedPreviewPin.value = backendId }
+    override suspend fun saveWipedRepairCapturedVoiceNotePin(backendId: String) {
+        _wipedRepairCapturedVoiceNotePin.value = backendId
+    }
+    override suspend fun saveWipedRepairCapturedVoiceNoteBusinessPin(backendId: String) {
+        _wipedRepairCapturedVoiceNoteBusinessPin.value = backendId
+    }
 
     override suspend fun saveWipedRepairDeadSources(ids: Set<String>) { _wipedRepairDeadSources.value = ids }
     override suspend fun saveSherpaModelPath(entryId: String, path: String) { _sherpaModelPath(entryId).value = path }

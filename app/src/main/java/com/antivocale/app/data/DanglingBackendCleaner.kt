@@ -43,6 +43,15 @@ class DanglingBackendCleaner(
         if (isDanglingExternal(previewPin)) {
             preferencesManager.savePreviewModelBackendId("")
         }
+        // The per-source voice-note pins: blank = the active model. The
+        // resolver already degrades a dangling pin per request; resetting
+        // it here keeps Settings from naming a model that is gone.
+        if (isDanglingExternal(preferencesManager.voiceNoteBackendId.first())) {
+            preferencesManager.saveVoiceNoteBackendId("")
+        }
+        if (isDanglingExternal(preferencesManager.voiceNoteBusinessBackendId.first())) {
+            preferencesManager.saveVoiceNoteBusinessBackendId("")
+        }
     }
 
     /** byId resolves valid records only (dir must exist), matching what the

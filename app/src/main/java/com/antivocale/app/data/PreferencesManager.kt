@@ -361,6 +361,12 @@ interface PreferencesManager {
     val wipedRepairCapturedPreviewPin: Flow<String>
     suspend fun saveWipedRepairCapturedPreviewPin(backendId: String)
 
+    /** The two voice-note pins' halves of the same snapshot. */
+    val wipedRepairCapturedVoiceNotePin: Flow<String>
+    suspend fun saveWipedRepairCapturedVoiceNotePin(backendId: String)
+    val wipedRepairCapturedVoiceNoteBusinessPin: Flow<String>
+    suspend fun saveWipedRepairCapturedVoiceNoteBusinessPin(backendId: String)
+
     suspend fun saveSherpaModelPath(entryId: String, path: String)
     suspend fun clearSherpaModelPath(entryId: String)
 

@@ -70,6 +70,10 @@ class PreferencesManagerImpl(
             stringPreferencesKey("wiped_repair_captured_pin")
         private val WIPED_REPAIR_CAPTURED_PREVIEW_PIN =
             stringPreferencesKey("wiped_repair_captured_preview_pin")
+        private val WIPED_REPAIR_CAPTURED_VOICE_NOTE_PIN =
+            stringPreferencesKey("wiped_repair_captured_voice_note_pin")
+        private val WIPED_REPAIR_CAPTURED_VOICE_NOTE_BUSINESS_PIN =
+            stringPreferencesKey("wiped_repair_captured_voice_note_business_pin")
         // TASK-973: record ids whose source proved dead (the native set
         // form, same as DEMOTED_BACKENDS above).
         private val WIPED_REPAIR_DEAD_SOURCES =
@@ -623,6 +627,26 @@ class PreferencesManagerImpl(
     override suspend fun saveWipedRepairCapturedPreviewPin(backendId: String) {
         dataStore.edit { preferences ->
             preferences[WIPED_REPAIR_CAPTURED_PREVIEW_PIN] = backendId
+        }
+    }
+
+    override val wipedRepairCapturedVoiceNotePin: Flow<String> =
+        dataStore.data.map { it[WIPED_REPAIR_CAPTURED_VOICE_NOTE_PIN] ?: "" }
+            .distinctUntilChanged()
+
+    override suspend fun saveWipedRepairCapturedVoiceNotePin(backendId: String) {
+        dataStore.edit { preferences ->
+            preferences[WIPED_REPAIR_CAPTURED_VOICE_NOTE_PIN] = backendId
+        }
+    }
+
+    override val wipedRepairCapturedVoiceNoteBusinessPin: Flow<String> =
+        dataStore.data.map { it[WIPED_REPAIR_CAPTURED_VOICE_NOTE_BUSINESS_PIN] ?: "" }
+            .distinctUntilChanged()
+
+    override suspend fun saveWipedRepairCapturedVoiceNoteBusinessPin(backendId: String) {
+        dataStore.edit { preferences ->
+            preferences[WIPED_REPAIR_CAPTURED_VOICE_NOTE_BUSINESS_PIN] = backendId
         }
     }
 
