@@ -67,14 +67,24 @@ class TranscriptionProfileResolverTest {
     }
 
     @Test
-    fun `auto stops language inheritance`() {
+    fun `scope auto stops inheritance and overrides the global language with detection`() {
+        var supportAsked = false
         val r = resolve(
             ScopeChain(sender = p(language = LANGUAGE_AUTO), folder = p(language = "de")),
-            languageModels = mapOf("de" to "map-de"),
+            languageModels = mapOf("de" to "map-de", LANGUAGE_AUTO to "map-it"),
+            support = { _, _ -> supportAsked = true; LanguageSupport.UNSUPPORTED },
         )
-        assertNull("auto sets no language", r.languageOverride)
-        assertNull("the folder's language never set L, so its map model is not used", r.backendOverride)
+        assertEquals("scope auto rides as auto, never the global pin", LANGUAGE_AUTO, r.languageOverride)
+        assertNull("no map lookup for auto, and the folder's language never set L", r.backendOverride)
         assertEquals(ScopeKind.GLOBAL, r.decidedBy)
+        assertNull("no support check for auto", r.warning)
+        assertEquals("no support check for auto", false, supportAsked)
+    }
+
+    @Test
+    fun `an explicit auto passes through as auto`() {
+        val r = resolve(ScopeChain(explicit = p(language = LANGUAGE_AUTO), folder = p(language = "de")))
+        assertEquals(LANGUAGE_AUTO, r.languageOverride)
     }
 
     @Test

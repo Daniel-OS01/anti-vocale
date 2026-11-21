@@ -26,7 +26,7 @@ enum class ResolutionWarning { SCOPE_LANGUAGE_UNSUPPORTED }
 data class ResolvedProfile(
     /** null = use the global backend (no override extra). */
     val backendOverride: String?,
-    /** null = no language extra. */
+    /** null = no language extra; "auto" = detect (a scope said auto). */
     val languageOverride: String?,
     /** Which scope decided the backend. */
     val decidedBy: ScopeKind,
@@ -44,12 +44,17 @@ data class ResolvedProfile(
  *    collapse onto the global backend), an explicit language is passed as
  *    given, and scopes still fill whatever field the explicit profile
  *    leaves null. A language-derived model never replaces an explicit
- *    backend.
+ *    backend. An explicit language (including "auto") is deliberately
+ *    unvalidated and never consults the language map: an explicit
+ *    request means exactly what it says.
  * 2. A scope backend that is not loadable counts as unset: a dangling pin
  *    degrades to the global model, it never fails a request.
- * 3. The language L is the first non-null language in walk order;
- *    [TranscriptionProfile.LANGUAGE_AUTO] sets no language and stops the
- *    walk.
+ * 3. The language L is the first non-null language in walk order. A
+ *    first language-bearing scope saying
+ *    [TranscriptionProfile.LANGUAGE_AUTO] stops the walk and yields
+ *    `languageOverride = "auto"` (detect, never the global language),
+ *    with no support check (the language policy maps "auto" to detection
+ *    or "" per model) and no language-map lookup.
  * 4. The backend B, absent an explicit one: the first scope (sender →
  *    sourceDefault) with a loadable backend, or, at the scope that set L
  *    only, the loadable `languageModels[L]`; else the global backend.
@@ -78,10 +83,13 @@ object TranscriptionProfileResolver {
         // Rule 3 over the scopes; an explicit language short-circuits it.
         var scopeLanguage: String? = null
         var languageScope: ScopeKind? = null
+        var scopeAuto = false
         if (explicitLanguage == null) {
             for ((kind, profile) in scopes) {
                 val language = profile?.language.nonBlank() ?: continue
-                if (language != TranscriptionProfile.LANGUAGE_AUTO) {
+                if (language == TranscriptionProfile.LANGUAGE_AUTO) {
+                    scopeAuto = true
+                } else {
                     scopeLanguage = language
                     languageScope = kind
                 }
@@ -118,6 +126,9 @@ object TranscriptionProfileResolver {
         var warning: ResolutionWarning? = null
         val languageOverride: String? = when {
             explicitLanguage != null -> explicitLanguage
+            // Scope "auto" overrides a global pin with detection; the
+            // policy decides per model what "auto" reaches the recognizer as.
+            scopeAuto -> TranscriptionProfile.LANGUAGE_AUTO
             scopeLanguage != null -> when (support(backend, scopeLanguage)) {
                 LanguageSupport.HONORS -> scopeLanguage
                 LanguageSupport.IGNORES -> null
