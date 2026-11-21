@@ -49,6 +49,11 @@ class BackupHistoryCodecTest {
         contentHash = "deadbeef00",
         // TASK-904/913: same rule; the codec shipped without it once.
         switchedToSibling = true,
+        // R3: the request origin rides the same non-default rule.
+        sourceKind = "folder_watch",
+        sourceFolderKey = "tree:primary:Voice",
+        sourceFolderName = "Voice",
+        sourceSubPath = "2026/11",
     )
 
     @Test
@@ -88,6 +93,11 @@ class BackupHistoryCodecTest {
         // TASK-913: pre-904 backups carry no switchedToSibling key; false
         // is the entity default and the correct restore.
         assertFalse(row.switchedToSibling)
+        // R3: archives from before the origin columns decode as unknown origin.
+        assertNull(row.sourceKind)
+        assertNull(row.sourceFolderKey)
+        assertNull(row.sourceFolderName)
+        assertNull(row.sourceSubPath)
     }
 
     @Test

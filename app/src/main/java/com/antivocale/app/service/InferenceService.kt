@@ -113,6 +113,19 @@ class InferenceService : Service(), TranscriptionListener {
         /** TASK-842: the intake content hash, from the interactive guard's
          *  share flow; rides the row so FUTURE intakes can match it. */
         const val EXTRA_CONTENT_HASH = "content_hash"
+        /**
+         * R3: the PERSISTED origin of the request ([com.antivocale.app.data.SourceKind]),
+         * written on the History row. Distinct from [EXTRA_SOURCE], which is
+         * the transient behavior switch: a re-run sends SOURCE_RETRANSCRIBE
+         * there but copies the ORIGINAL row's kind and folder facts here.
+         */
+        const val EXTRA_SOURCE_KIND = "source_kind"
+        /** R3: the watched tree URI string (folder watch). */
+        const val EXTRA_SOURCE_FOLDER_KEY = "source_folder_key"
+        /** R3: the watched root's display name, or the browse parent folder. */
+        const val EXTRA_SOURCE_FOLDER_NAME = "source_folder_name"
+        /** R3: the relative subfolder path under the watched root (R4 fills it). */
+        const val EXTRA_SOURCE_SUB_PATH = "source_sub_path"
         const val SOURCE_SHARE = "share"
 
         /** TASK-500: the History browse FAB; not a share request. */
@@ -272,7 +285,12 @@ class InferenceService : Service(), TranscriptionListener {
         val contentHash: String? = null,
         /** TASK-889: the cold-start sweep origin (suppresses the per-note
          *  SUCCESS result notification; the digest covers the burst). */
-        val catchup: Boolean = false
+        val catchup: Boolean = false,
+        /** R3: the persisted origin and its folder facts, onto the row at enqueue. */
+        val sourceKind: String? = null,
+        val sourceFolderKey: String? = null,
+        val sourceFolderName: String? = null,
+        val sourceSubPath: String? = null,
     )
 
     // ---- Android Lifecycle ----
@@ -406,7 +424,11 @@ class InferenceService : Service(), TranscriptionListener {
             languageOverride = intent?.getStringExtra(EXTRA_LANGUAGE_OVERRIDE),
             trackIndex = intent?.getIntExtra(TaskerRequestReceiver.EXTRA_SUBTITLE_TRACK_INDEX, -1) ?: -1,
             contentHash = intent?.getStringExtra(EXTRA_CONTENT_HASH),
-            catchup = intent?.getBooleanExtra(EXTRA_CATCHUP, false) ?: false
+            catchup = intent?.getBooleanExtra(EXTRA_CATCHUP, false) ?: false,
+            sourceKind = intent?.getStringExtra(EXTRA_SOURCE_KIND),
+            sourceFolderKey = intent?.getStringExtra(EXTRA_SOURCE_FOLDER_KEY),
+            sourceFolderName = intent?.getStringExtra(EXTRA_SOURCE_FOLDER_NAME),
+            sourceSubPath = intent?.getStringExtra(EXTRA_SOURCE_SUB_PATH),
         )
         rememberRequester(request)
 
@@ -438,6 +460,10 @@ class InferenceService : Service(), TranscriptionListener {
                     sourcePackageName = request.sourcePackage,
                     senderName = request.senderName,
                     contentHash = request.contentHash,
+                    sourceKind = request.sourceKind,
+                    sourceFolderKey = request.sourceFolderKey,
+                    sourceFolderName = request.sourceFolderName,
+                    sourceSubPath = request.sourceSubPath,
                 )
             }.onFailure { Log.w(TAG, "Failed to log queued request ${request.taskId}", it) }
         }

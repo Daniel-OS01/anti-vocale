@@ -8,7 +8,7 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
 
-@Database(entities = [LogEntity::class], version = 16, exportSchema = true)
+@Database(entities = [LogEntity::class], version = 17, exportSchema = true)
 abstract class AppDatabase : RoomDatabase() {
 
     abstract fun logDao(): LogDao
@@ -117,6 +117,16 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /** R3: the persisted request origin (kind + folder identity + sub-path), all nullable. */
+        internal val MIGRATION_16_17 = object : Migration(16, 17) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE logs ADD COLUMN sourceKind TEXT")
+                db.execSQL("ALTER TABLE logs ADD COLUMN sourceFolderKey TEXT")
+                db.execSQL("ALTER TABLE logs ADD COLUMN sourceFolderName TEXT")
+                db.execSQL("ALTER TABLE logs ADD COLUMN sourceSubPath TEXT")
+            }
+        }
+
         internal val MIGRATION_14_15 = object : Migration(14, 15) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE logs ADD COLUMN contentHash TEXT DEFAULT NULL")
@@ -139,7 +149,7 @@ abstract class AppDatabase : RoomDatabase() {
                             FrameworkSQLiteOpenHelperFactory(),
                         )
                     )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17)
                     .build().also { INSTANCE = it }
             }
         }

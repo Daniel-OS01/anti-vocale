@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.antivocale.app.data.SourceKind
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -91,11 +92,15 @@ class LogDaoProjectionTest {
             saveFailureReason = "fixture",
             // TASK-842: the guard's column rides the same non-null rule.
             contentHash = "abc123",
+            // R3: the request origin rides all three explicit projections.
+            sourceKind = SourceKind.FOLDER_WATCH, sourceFolderKey = "tree:primary:Voice",
+            sourceFolderName = "Voice", sourceSubPath = "2026/11",
         )
         dao.insert(full)
 
         val fromGetAll = dao.getAll().first().single()
         val fromSearch = dao.searchAll("r").first().single()
+        val fromGetById = dao.getById("id")!!
 
         // Per-field assertions against the allowlist, not bare data-class
         // equality: equality alone cannot distinguish "excluded" from
@@ -127,6 +132,7 @@ class LogDaoProjectionTest {
             }
             checkProjection("getAll", field.get(fromGetAll), written, name)
             checkProjection("searchAll", field.get(fromSearch), written, name)
+            checkProjection("getById", field.get(fromGetById), written, name)
         }
     }
     @Test

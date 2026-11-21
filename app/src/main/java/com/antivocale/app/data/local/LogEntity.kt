@@ -84,6 +84,18 @@ data class LogEntity(
      * the renderer, not here. False/absent on every ordinary row.
      */
     val switchedToSibling: Boolean = false,
+
+    /** R3: the request's origin, one of [com.antivocale.app.data.SourceKind]
+     *  (null on pre-v17 rows and on origins that set none). */
+    val sourceKind: String? = null,
+    /** R3: the watched tree URI string of a folder-watch row. */
+    val sourceFolderKey: String? = null,
+    /** R3: the watched root's display name (folder watch), or the parent
+     *  folder name parsed best-effort from the SAF document id (browse). */
+    val sourceFolderName: String? = null,
+    /** R3: the file's relative subfolder path under the watched root
+     *  (filled by the recursive folder scan, R4; R3 only carries it). */
+    val sourceSubPath: String? = null,
 )
 
 fun LogEntity.toLogEntry(): LogEntry = LogEntry(
@@ -120,6 +132,10 @@ fun LogEntity.toLogEntry(): LogEntry = LogEntry(
     saveFailureReason = saveFailureReason,
     contentHash = contentHash,
     switchedToSibling = switchedToSibling,
+    sourceKind = sourceKind,
+    sourceFolderKey = sourceFolderKey,
+    sourceFolderName = sourceFolderName,
+    sourceSubPath = sourceSubPath,
 )
 
 fun LogEntry.toEntity(): LogEntity = LogEntity(
@@ -153,4 +169,8 @@ fun LogEntry.toEntity(): LogEntity = LogEntity(
     saveFailureReason = saveFailureReason,
     contentHash = contentHash,
     switchedToSibling = switchedToSibling,
+    sourceKind = sourceKind,
+    sourceFolderKey = sourceFolderKey,
+    sourceFolderName = sourceFolderName,
+    sourceSubPath = sourceSubPath,
 )

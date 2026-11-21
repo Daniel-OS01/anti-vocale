@@ -128,6 +128,11 @@ data class LogEntry(
     /** TASK-909/904: the load retried on a sibling variant and succeeded;
      *  the History row carries the localized note. */
     val switchedToSibling: Boolean = false,
+    /** R3: the request origin and its folder facts; see the LogEntity twins. */
+    val sourceKind: String? = null,
+    val sourceFolderKey: String? = null,
+    val sourceFolderName: String? = null,
+    val sourceSubPath: String? = null,
 ) {
     enum class Type { TEXT, AUDIO }
 

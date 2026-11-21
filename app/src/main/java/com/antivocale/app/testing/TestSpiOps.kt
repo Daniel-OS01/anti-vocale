@@ -1007,6 +1007,10 @@ internal class TestSpiOps(
             .put("saveFailureReason", capped(row.saveFailureReason))
             .put("contentHash", capped(row.contentHash))
             .put("switchedToSibling", row.switchedToSibling)
+            .put("sourceKind", capped(row.sourceKind))
+            .put("sourceFolderKey", capped(row.sourceFolderKey))
+            .put("sourceFolderName", capped(row.sourceFolderName))
+            .put("sourceSubPath", capped(row.sourceSubPath))
             .toString()
     }
 

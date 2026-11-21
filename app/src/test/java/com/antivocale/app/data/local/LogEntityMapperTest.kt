@@ -67,6 +67,30 @@ class LogEntityMapperTest {
         assertNull(entity.copy(contentHash = null).toLogEntry().contentHash)
     }
 
+    // ── R3: the request-origin columns survive the same round trip; a
+    // dropped mapper line would null the origin on every whole-row @Update.
+
+    @Test
+    fun `source origin columns survive the entity to entry to entity round trip`() {
+        val entity = LogEntity(
+            id = "test-id",
+            timestamp = 1000L,
+            taskId = "task-1",
+            type = "AUDIO",
+            status = "SUCCESS",
+            sourceKind = "folder_watch",
+            sourceFolderKey = "tree:primary:Voice",
+            sourceFolderName = "Voice",
+            sourceSubPath = "2026/11"
+        )
+        val roundTrip = entity.toLogEntry().toEntity()
+        assertEquals("folder_watch", roundTrip.sourceKind)
+        assertEquals("tree:primary:Voice", roundTrip.sourceFolderKey)
+        assertEquals("Voice", roundTrip.sourceFolderName)
+        assertEquals("2026/11", roundTrip.sourceSubPath)
+        assertNull(entity.copy(sourceKind = null).toLogEntry().sourceKind)
+    }
+
     // ── toLogEntry: sourcePackageName null ─────────────────────────
 
     @Test
