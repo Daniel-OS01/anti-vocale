@@ -508,7 +508,7 @@ class TranscriptionOrchestrator @Inject constructor(
             // time (a minute later on a long run) would pin the row with a
             // Settings change made mid-run that the decode never used (the
             // TASK-545 misattribution class).
-            val runLanguagePin = resolvedLanguagePin(context, languageOverride)
+            val runLanguagePin = resolvedLanguagePin(context, phase2BackendId, languageOverride)
             // Design F4: the accurate model failed to load but a complete
             // first pass exists. recoverFirstPass below routes it through the
             // SAME funnel as F5 (punctuation and summary included), so both
@@ -4643,8 +4643,20 @@ class TranscriptionOrchestrator @Inject constructor(
      * preference read (the one normalization below covers both sources), so
      * the row reflects what actually ran instead of the preference the
      * request never consulted.
+     *
+     * The row records only a pin the backend conditioned on: when [backendId]
+     * is KNOWN not to read the language (a catalog entry or an external
+     * record the policy says ignores it), the pin is "auto", so the History
+     * chip never shows "pinned ru" over a decode the language never touched.
+     * An id the catalog and the store cannot resolve (the LAN backend, a
+     * record mid-deletion) keeps the resolved pin: no claim either way.
      */
-    private suspend fun resolvedLanguagePin(context: Context, languageOverride: String?): String {
+    private suspend fun resolvedLanguagePin(
+        context: Context,
+        backendId: String,
+        languageOverride: String?,
+    ): String {
+        if (backendIgnoresLanguage(backendId)) return TranscriptionLanguagePolicy.PREF_AUTO
         val pref = languageOverride ?: preferencesManager.transcriptionLanguage.first()
         return when {
             pref.isBlank() || pref == TranscriptionLanguagePolicy.PREF_SYSTEM -> TranscriptionLanguagePolicy.PREF_AUTO
@@ -4653,6 +4665,22 @@ class TranscriptionOrchestrator @Inject constructor(
                     ?: TranscriptionLanguagePolicy.PREF_AUTO
             else -> pref
         }
+    }
+
+    /**
+     * True only when [backendId] resolves to a catalog entry or an external
+     * record that the policy says does not condition on language. Dispatch
+     * mirrors [languageResidencyMismatch]: the external prefix goes to the
+     * store, everything else to the catalog; an unresolvable id is false.
+     */
+    private suspend fun backendIgnoresLanguage(backendId: String): Boolean {
+        val conditions = if (backendId.startsWith(ExternalModelRecord.BACKEND_ID_PREFIX)) {
+            externalModelStore.byId(backendId.removePrefix(ExternalModelRecord.BACKEND_ID_PREFIX))
+                ?.let { TranscriptionLanguagePolicy.conditionsOnLanguage(it) }
+        } else {
+            BundledCatalog.byId(backendId)?.let { TranscriptionLanguagePolicy.conditionsOnLanguage(it) }
+        }
+        return conditions == false
     }
 
     private suspend fun logSuccess(
