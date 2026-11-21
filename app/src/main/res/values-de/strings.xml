@@ -1538,4 +1538,15 @@
         <item quantity="one">%d wurde nicht gestartet (App im Hintergrund)</item>
         <item quantity="other">%d wurden nicht gestartet (App im Hintergrund)</item>
     </plurals>
+    <plurals name="scope_redo_offer_rule">
+        <item quantity="one">%d vorhandene Datei mit dieser Regel neu transkribieren?</item>
+        <item quantity="other">%d vorhandene Dateien mit dieser Regel neu transkribieren?</item>
+    </plurals>
+    <plurals name="scope_redo_offer_new_setting">
+        <item quantity="one">%d vorhandene Datei mit der neuen Einstellung neu transkribieren?</item>
+        <item quantity="other">%d vorhandene Dateien mit der neuen Einstellung neu transkribieren?</item>
+    </plurals>
+    <string name="scope_redo_offer_redo">Neu transkribieren</string>
+    <string name="scope_redo_offer_not_now">Nicht jetzt</string>
+    <string name="scope_redo_busy">Ein anderer Stapel läuft bereits</string>
 </resources>

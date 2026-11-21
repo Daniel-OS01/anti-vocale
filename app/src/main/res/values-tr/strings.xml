@@ -1538,4 +1538,15 @@
         <item quantity="one">%d başlatılmadı (uygulama arka plana geçti)</item>
         <item quantity="other">%d başlatılmadı (uygulama arka plana geçti)</item>
     </plurals>
+    <plurals name="scope_redo_offer_rule">
+        <item quantity="one">Mevcut %d dosya bu kuralla yeniden yapılsın mı?</item>
+        <item quantity="other">Mevcut %d dosya bu kuralla yeniden yapılsın mı?</item>
+    </plurals>
+    <plurals name="scope_redo_offer_new_setting">
+        <item quantity="one">Mevcut %d dosya yeni ayarla yeniden yapılsın mı?</item>
+        <item quantity="other">Mevcut %d dosya yeni ayarla yeniden yapılsın mı?</item>
+    </plurals>
+    <string name="scope_redo_offer_redo">Yeniden yap</string>
+    <string name="scope_redo_offer_not_now">Şimdi değil</string>
+    <string name="scope_redo_busy">Başka bir toplu işlem zaten çalışıyor</string>
 </resources>

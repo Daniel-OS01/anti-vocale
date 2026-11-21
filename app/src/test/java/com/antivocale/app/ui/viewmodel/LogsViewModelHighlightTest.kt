@@ -37,7 +37,7 @@ class LogsViewModelHighlightTest : ViewModelTeardownTest() {
     fun setup() {
         Dispatchers.setMain(testDispatcher)
         logDao = mockk(relaxed = true)
-        viewModel = register(LogsViewModel(mockk(relaxed = true), logDao, stubPreferencesManager(), staticRegistry(), mockk(relaxed = true), mockk(relaxed = true), mockk(relaxed = true), mockk(relaxed = true), orchestrator = mockk(relaxed = true), duplicateGuard = mockk(relaxed = true), scheduledFolderStore = mockk(relaxed = true), profileOutcomeSource = mockk(relaxed = true), historyBulkRedo = mockk(relaxed = true), scopeProfileStore = mockk(relaxed = true), appScope = appScope))
+        viewModel = register(LogsViewModel(mockk(relaxed = true), logDao, stubPreferencesManager(), staticRegistry(), mockk(relaxed = true), mockk(relaxed = true), mockk(relaxed = true), mockk(relaxed = true), orchestrator = mockk(relaxed = true), duplicateGuard = mockk(relaxed = true), scheduledFolderStore = mockk(relaxed = true), profileOutcomeSource = mockk(relaxed = true), historyBulkRedo = mockk(relaxed = true, scopeProfileSource = mockk(relaxed = true)), scopeProfileStore = mockk(relaxed = true), appScope = appScope))
     }
 
     @Test

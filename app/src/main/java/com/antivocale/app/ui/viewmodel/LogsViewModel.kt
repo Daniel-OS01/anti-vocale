@@ -25,7 +25,11 @@ import com.antivocale.app.data.ActiveModelRepository
 import com.antivocale.app.data.InstalledBackend
 import com.antivocale.app.data.PreferencesManager
 import com.antivocale.app.data.ScheduledFolderStore
+import com.antivocale.app.data.DeviceCountry
+import com.antivocale.app.data.OriginFacts
+import com.antivocale.app.data.ScopeProfileSource
 import com.antivocale.app.data.ScopeProfileStore
+import com.antivocale.app.data.ScopeRedoPlanner
 import com.antivocale.app.data.SourceOrigin
 import com.antivocale.app.data.SourceKind
 import com.antivocale.app.data.WatchedFolder
@@ -48,6 +52,7 @@ import com.antivocale.app.util.parentFolderNameFromDocumentId
 import com.antivocale.app.transcription.BackendRegistry
 import com.antivocale.app.transcription.ScopeChain
 import com.antivocale.app.ui.tabs.HistoryGroupScope
+import com.antivocale.app.ui.tabs.senderKeyForRow
 import com.antivocale.app.ui.tabs.storedRuleIn
 import com.antivocale.app.ui.tabs.watchedFolderIn
 import com.antivocale.app.transcription.BuiltInBackendIds
@@ -209,6 +214,8 @@ class LogsViewModel @Inject constructor(
     private val scopeProfileStore: ScopeProfileStore,
     /** The History bulk redo runner (prepare, enqueue, discard). */
     private val historyBulkRedo: HistoryBulkRedo,
+    /** The profile a folder or subfolder rule resolves to, for the redo offer after a save. */
+    private val scopeProfileSource: ScopeProfileSource,
     /** TASK-934: the staged-copy reclaims survive a ViewModel clear (a tap
      *  followed by leaving History must not cancel the delete; viewModelScope
      *  would). Tests omit this parameter; production gets @ApplicationScope. */
@@ -1209,24 +1216,106 @@ class LogsViewModel @Inject constructor(
         _folderRulePreview.value = null
     }
 
-    /** Writes the rule at [scope]; null (or an empty profile) removes it. */
+    /**
+     * Writes the rule at [scope]; null (or an empty profile) removes it.
+     * A folder or subfolder save then offers to redo the existing History
+     * rows the rule now governs ([scopeRedoOffer]).
+     */
     internal fun saveFolderRule(scope: HistoryGroupScope, profile: TranscriptionProfile?) {
         viewModelScope.launch {
-            try {
+            val folders: List<WatchedFolder>? = try {
                 when (scope) {
                     is HistoryGroupScope.Folder -> scheduledFolderStore.setFolderProfile(scope.treeUri, profile)
                     is HistoryGroupScope.Subfolder ->
                         scheduledFolderStore.setSubfolderRule(scope.treeUri, scope.subPath, profile)
-                    is HistoryGroupScope.Sender -> scopeProfileStore.setSenderProfile(scope.storageId, profile)
-                    HistoryGroupScope.None -> Unit
+                    is HistoryGroupScope.Sender -> {
+                        scopeProfileStore.setSenderProfile(scope.storageId, profile)
+                        null
+                    }
+                    HistoryGroupScope.None -> null
                 }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 // Never the folder name, tree uri, path or sender: they can identify people.
                 Log.w(TAG, "history_scope_rule_write_failed", e)
+                null
+            }
+            if (folders == null) return@launch
+            try {
+                offerScopeRedo(scope, folders, ruleRemoved = profile == null || profile.isEmpty)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.w(TAG, "history_scope_redo_offer_failed", e)
             }
         }
+    }
+
+    /** "Redo N existing files with this rule?": the rows and the profile the rule resolves to. */
+    data class ScopeRedoOffer(
+        val rowIds: List<String>,
+        val profile: TranscriptionProfile,
+        /** The save removed the rule: the rows now follow the folder default or global model. */
+        val ruleRemoved: Boolean,
+    )
+
+    private val _scopeRedoOffer = MutableStateFlow<ScopeRedoOffer?>(null)
+    val scopeRedoOffer: StateFlow<ScopeRedoOffer?> = _scopeRedoOffer.asStateFlow()
+
+    /** True once a confirmed offer found another bulk redo running; [consumeScopeRedoBusy] clears it. */
+    private val _scopeRedoBusy = MutableStateFlow(false)
+    val scopeRedoBusy: StateFlow<Boolean> = _scopeRedoBusy.asStateFlow()
+
+    private suspend fun offerScopeRedo(
+        scope: HistoryGroupScope,
+        folders: List<WatchedFolder>,
+        ruleRemoved: Boolean,
+    ) {
+        val (treeUri, scopeSubPath) = when (scope) {
+            is HistoryGroupScope.Folder -> scope.treeUri to null
+            is HistoryGroupScope.Subfolder -> scope.treeUri to scope.subPath
+            is HistoryGroupScope.Sender, HistoryGroupScope.None -> return
+        }
+        val folder = folders.firstOrNull { it.treeUri == treeUri } ?: return
+        val rows = withContext(Dispatchers.IO) { logDao.getByIds(logDao.getIdsByFolderKey(treeUri)) }
+        // The History row menu's own sender key; the country is read only
+        // when a row has a sender name to key.
+        val countryIso by lazy { DeviceCountry.iso(appContext) }
+        val senderIds = rows.associate { row ->
+            row.id to row.senderName?.takeIf { it.isNotBlank() }?.let {
+                senderKeyForRow(row.toLogEntry(), folders, countryIso)?.storageId()
+            }
+        }
+        val ruledSenders = senderIds.values.filterNotNull().toSet()
+            .filterTo(HashSet()) { scopeProfileStore.senderProfile(it) != null }
+        val ids = ScopeRedoPlanner.plan(rows, folder.subfolderRules.keys, scopeSubPath) { row ->
+            senderIds[row.id]?.let { it in ruledSenders } == true
+        }
+        Log.i(TAG, "event=scope_redo_planned rows=${ids.size}")
+        if (ids.isEmpty()) return
+        val resolved = scopeProfileSource.resolve(OriginFacts(folderTreeUri = treeUri, subPath = scopeSubPath))
+        _scopeRedoOffer.value = ScopeRedoOffer(
+            rowIds = ids,
+            profile = TranscriptionProfile(resolved.backendOverride, resolved.languageOverride),
+            ruleRemoved = ruleRemoved,
+        )
+    }
+
+    /** The offer's Redo: starts the bulk redo, or flags [scopeRedoBusy] when another batch runs. */
+    fun confirmScopeRedo() {
+        val offer = _scopeRedoOffer.value ?: return
+        _scopeRedoOffer.value = null
+        if (!redoRows(offer.rowIds, offer.profile)) _scopeRedoBusy.value = true
+    }
+
+    /** The offer's Not now. */
+    fun dismissScopeRedo() {
+        _scopeRedoOffer.value = null
+    }
+
+    fun consumeScopeRedoBusy() {
+        _scopeRedoBusy.value = false
     }
 
     // R6: the History sender long-press editor. Its preview rides the same

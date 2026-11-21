@@ -1544,4 +1544,15 @@
         <item quantity="one">%d non è stata avviata (app in background)</item>
         <item quantity="other">%d non sono state avviate (app in background)</item>
     </plurals>
+    <plurals name="scope_redo_offer_rule">
+        <item quantity="one">Rifare %d file esistente con questa regola?</item>
+        <item quantity="other">Rifare %d file esistenti con questa regola?</item>
+    </plurals>
+    <plurals name="scope_redo_offer_new_setting">
+        <item quantity="one">Rifare %d file esistente con la nuova impostazione?</item>
+        <item quantity="other">Rifare %d file esistenti con la nuova impostazione?</item>
+    </plurals>
+    <string name="scope_redo_offer_redo">Rifai</string>
+    <string name="scope_redo_offer_not_now">Non ora</string>
+    <string name="scope_redo_busy">Un altro lotto è già in corso</string>
 </resources>

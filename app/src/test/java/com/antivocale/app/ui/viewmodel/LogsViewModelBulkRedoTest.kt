@@ -88,7 +88,7 @@ class LogsViewModelBulkRedoTest : ViewModelTeardownTest() {
             orchestrator = mockk(relaxed = true),
             duplicateGuard = mockk(relaxed = true),
             scheduledFolderStore = mockk(relaxed = true),
-            historyBulkRedo = bulkRedo,
+            historyBulkRedo = bulkRedo, scopeProfileSource = mockk(relaxed = true),
             scopeProfileStore = mockk(relaxed = true),
             profileOutcomeSource = mockk(relaxed = true),
             appScope = appScope,

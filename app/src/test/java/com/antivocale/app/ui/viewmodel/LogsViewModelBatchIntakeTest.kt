@@ -80,7 +80,7 @@ class LogsViewModelBatchIntakeTest : ViewModelTeardownTest() {
             scheduledFolderStore = mockk(relaxed = true),
             profileOutcomeSource = mockk(relaxed = true),
             scopeProfileStore = mockk(relaxed = true),
-            historyBulkRedo = mockk(relaxed = true),
+            historyBulkRedo = mockk(relaxed = true, scopeProfileSource = mockk(relaxed = true)),
             appScope = appScope,
         ))
     }

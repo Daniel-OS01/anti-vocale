@@ -1378,4 +1378,15 @@
         <item quantity="one">%d jäi käynnistämättä (sovellus siirtyi taustalle)</item>
         <item quantity="other">%d jäi käynnistämättä (sovellus siirtyi taustalle)</item>
     </plurals>
+    <plurals name="scope_redo_offer_rule">
+        <item quantity="one">Tehdäänkö %d olemassa oleva tiedosto uudelleen tällä säännöllä?</item>
+        <item quantity="other">Tehdäänkö %d olemassa olevaa tiedostoa uudelleen tällä säännöllä?</item>
+    </plurals>
+    <plurals name="scope_redo_offer_new_setting">
+        <item quantity="one">Tehdäänkö %d olemassa oleva tiedosto uudelleen uudella asetuksella?</item>
+        <item quantity="other">Tehdäänkö %d olemassa olevaa tiedostoa uudelleen uudella asetuksella?</item>
+    </plurals>
+    <string name="scope_redo_offer_redo">Tee uudelleen</string>
+    <string name="scope_redo_offer_not_now">Ei nyt</string>
+    <string name="scope_redo_busy">Toinen erä on jo käynnissä</string>
 </resources>

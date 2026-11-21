@@ -1406,4 +1406,15 @@
         <item quantity="one">%d no se inició (la app pasó a segundo plano)</item>
         <item quantity="other">%d no se iniciaron (la app pasó a segundo plano)</item>
     </plurals>
+    <plurals name="scope_redo_offer_rule">
+        <item quantity="one">¿Rehacer %d archivo existente con esta regla?</item>
+        <item quantity="other">¿Rehacer %d archivos existentes con esta regla?</item>
+    </plurals>
+    <plurals name="scope_redo_offer_new_setting">
+        <item quantity="one">¿Rehacer %d archivo existente con el nuevo ajuste?</item>
+        <item quantity="other">¿Rehacer %d archivos existentes con el nuevo ajuste?</item>
+    </plurals>
+    <string name="scope_redo_offer_redo">Rehacer</string>
+    <string name="scope_redo_offer_not_now">Ahora no</string>
+    <string name="scope_redo_busy">Ya hay otro lote en curso</string>
 </resources>

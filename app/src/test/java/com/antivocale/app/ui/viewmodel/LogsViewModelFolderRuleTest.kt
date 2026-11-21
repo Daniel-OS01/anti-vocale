@@ -61,7 +61,7 @@ class LogsViewModelFolderRuleTest : ViewModelTeardownTest() {
             coEvery { setFolderProfile(any(), any()) } returns emptyList()
             coEvery { setSubfolderRule(any(), any(), any()) } returns emptyList()
         }
-        viewModel = register(LogsViewModel(mockk(relaxed = true), mockk(relaxed = true), stubPreferencesManager(), staticRegistry(), mockk(relaxed = true), mockk(relaxed = true), mockk(relaxed = true), mockk(relaxed = true), orchestrator = mockk(relaxed = true), duplicateGuard = mockk(relaxed = true), scheduledFolderStore = store, profileOutcomeSource = mockk(relaxed = true), historyBulkRedo = mockk(relaxed = true), scopeProfileStore = senderStore, appScope = appScope))
+        viewModel = register(LogsViewModel(mockk(relaxed = true), mockk(relaxed = true), stubPreferencesManager(), staticRegistry(), mockk(relaxed = true), mockk(relaxed = true), mockk(relaxed = true), mockk(relaxed = true), orchestrator = mockk(relaxed = true), duplicateGuard = mockk(relaxed = true), scheduledFolderStore = store, profileOutcomeSource = mockk(relaxed = true), historyBulkRedo = mockk(relaxed = true, scopeProfileSource = mockk(relaxed = true)), scopeProfileStore = senderStore, appScope = appScope))
     }
 
     // Fake sender data only.

@@ -1543,4 +1543,15 @@
         <item quantity="one">%d شروع نشد (برنامه به پس‌زمینه رفت)</item>
         <item quantity="other">%d شروع نشد (برنامه به پس‌زمینه رفت)</item>
     </plurals>
+    <plurals name="scope_redo_offer_rule">
+        <item quantity="one">%d فایل موجود با این قانون دوباره انجام شود؟</item>
+        <item quantity="other">%d فایل موجود با این قانون دوباره انجام شود؟</item>
+    </plurals>
+    <plurals name="scope_redo_offer_new_setting">
+        <item quantity="one">%d فایل موجود با تنظیم جدید دوباره انجام شود؟</item>
+        <item quantity="other">%d فایل موجود با تنظیم جدید دوباره انجام شود؟</item>
+    </plurals>
+    <string name="scope_redo_offer_redo">انجام دوباره</string>
+    <string name="scope_redo_offer_not_now">اکنون نه</string>
+    <string name="scope_redo_busy">دسته‌ی دیگری در حال اجراست</string>
 </resources>
