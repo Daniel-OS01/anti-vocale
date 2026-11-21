@@ -1395,7 +1395,7 @@
         <item quantity="other">%d attendent un appui pour démarrer</item>
     </plurals>
     <plurals name="bulk_redo_not_started">
-        <item quantity="one">%d n'a pas été lancée (l'app est passée en arrière-plan)</item>
-        <item quantity="other">%d n'ont pas été lancées (l'app est passée en arrière-plan)</item>
+        <item quantity="one">%d n\'a pas été lancée (l\'app est passée en arrière-plan)</item>
+        <item quantity="other">%d n\'ont pas été lancées (l\'app est passée en arrière-plan)</item>
     </plurals>
 </resources>
