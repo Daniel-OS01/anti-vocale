@@ -1284,4 +1284,7 @@
     <string name="scope_rule_summary_model">模型：%1$s</string>
     <string name="scope_rule_summary_both">语言：%1$s · 模型：%2$s</string>
     <string name="scope_rule_next">下一步</string>
+    <string name="history_scope_rule_folder_title">将此文件夹转写为…</string>
+    <string name="history_scope_rule_subfolder_title">将此子文件夹转写为…</string>
+    <string name="history_scope_rule_long_press_label">设置转写规则</string>
 </resources>

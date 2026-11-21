@@ -23,6 +23,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
@@ -94,6 +95,7 @@ import com.antivocale.app.ui.viewmodel.LogEntry
 import com.antivocale.app.ui.onboarding.TourStep
 import com.antivocale.app.ui.MAX_RENDERED_TRANSCRIPT_CHARS
 import com.antivocale.app.ui.components.CappedTranscriptText
+import com.antivocale.app.ui.components.ProfileRuleSheet
 import com.antivocale.app.ui.components.highlightText
 import com.antivocale.app.data.local.HistoryRecoveryLedger
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -804,6 +806,11 @@ fun HistoryTab(
     // the same sender or subfolder name without colliding.
     var expandedSenderGroups by remember { mutableStateOf<Set<String>>(emptySet()) }
     var revealedLogId by remember { mutableStateOf<String?>(null) }
+    // R6: the folder/subfolder header long-press rule editor (null = closed).
+    var ruleEditorScope by remember { mutableStateOf<HistoryGroupScope?>(null) }
+    ruleEditorScope?.let { scope ->
+        HistoryFolderRuleEditor(viewModel = viewModel, scope = scope, onClose = { ruleEditorScope = null })
+    }
 
     var showClearDialog by remember { mutableStateOf(false) }
     // TASK-992: the Ask answer dialog state. Searching/Generating render a
@@ -1485,6 +1492,11 @@ fun HistoryTab(
                             )
                             is HistoryRow.ConversationHeaderRow -> {
                                 val isGroupExpanded = row.groupKey in expandedConversationGroups
+                                // R6: only a still-watched folder can carry rules.
+                                val ruleScope = remember(row.groupKey, watchedFolders) {
+                                    HistoryGroupScope.parse(row.groupKey)
+                                        .takeIf { it.watchedFolderIn(watchedFolders) != null }
+                                }
                                 ConversationGroupHeader(
                                     title = row.group.title,
                                     count = row.group.logs.size,
@@ -1496,11 +1508,18 @@ fun HistoryTab(
                                         } else {
                                             expandedConversationGroups + row.groupKey
                                         }
-                                    }
+                                    },
+                                    onLongPress = ruleScope?.let { scope -> { ruleEditorScope = scope } },
                                 )
                             }
                             is HistoryRow.SenderHeaderRow -> {
                                 val isSenderExpanded = row.senderKey in expandedSenderGroups
+                                // R6: a subfolder sub-header of a watched folder; sender
+                                // ("who:") sub-headers parse to None and get no gesture.
+                                val ruleScope = remember(row.groupKey, row.sender.key, watchedFolders) {
+                                    HistoryGroupScope.parse(row.groupKey, row.sender.key)
+                                        .takeIf { it.watchedFolderIn(watchedFolders) != null }
+                                }
                                 SenderGroupHeader(
                                     senderName = row.sender.label,
                                     count = row.sender.logs.size,
@@ -1512,7 +1531,8 @@ fun HistoryTab(
                                         } else {
                                             expandedSenderGroups + row.senderKey
                                         }
-                                    }
+                                    },
+                                    onLongPress = ruleScope?.let { scope -> { ruleEditorScope = scope } },
                                 )
                             }
                             is HistoryRow.DateHeaderRow -> DateGroupHeader(label = row.label, count = row.count)
@@ -1524,6 +1544,39 @@ fun HistoryTab(
             }
         }
     }
+}
+
+/**
+ * R6: the History header long-press editor. The same [ProfileRuleSheet] the
+ * Settings folder rules page uses; saving writes the folder default or the
+ * subfolder rule, and only files transcribed afterwards follow it.
+ */
+@Composable
+private fun HistoryFolderRuleEditor(
+    viewModel: LogsViewModel,
+    scope: HistoryGroupScope,
+    onClose: () -> Unit,
+) {
+    val installed by viewModel.installedBackends.collectAsStateWithLifecycle()
+    val codes by viewModel.ruleLanguageCodes.collectAsStateWithLifecycle()
+    val outcome by viewModel.folderRuleOutcome.collectAsStateWithLifecycle()
+    val initial = remember(scope) { viewModel.folderRuleFor(scope) }
+    ProfileRuleSheet(
+        title = stringResource(
+            if (scope is HistoryGroupScope.Subfolder) R.string.history_scope_rule_subfolder_title
+            else R.string.history_scope_rule_folder_title
+        ),
+        initial = initial,
+        installedBackends = installed,
+        languageCodes = codes,
+        outcome = outcome,
+        onPreview = { edited -> viewModel.previewFolderRule(scope, edited) },
+        onSave = { edited -> viewModel.saveFolderRule(scope, edited) },
+        onDismiss = {
+            viewModel.clearFolderRulePreview()
+            onClose()
+        },
+    )
 }
 
 @Composable
@@ -2812,7 +2865,8 @@ private fun ConversationGroupHeader(
     count: Int,
     lastTimestamp: Long,
     expanded: Boolean,
-    onToggle: () -> Unit
+    onToggle: () -> Unit,
+    onLongPress: (() -> Unit)? = null,
 ) {
     // TASK-566 follow-up: the brand ramp step shared with the date
     // headers, so a collapsed conversation group reads as a section.
@@ -2822,6 +2876,7 @@ private fun ConversationGroupHeader(
         lastTimestamp = lastTimestamp,
         expanded = expanded,
         onToggle = onToggle,
+        onLongPress = onLongPress,
         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
         metaColor = MaterialTheme.colorScheme.onSecondaryContainer,
         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
@@ -2853,6 +2908,7 @@ private fun historyGroupTitleText(title: HistoryGroupTitle): String {
  * The section and its sender sub-sections differ only in the container
  * step, the meta tint, and the indent, which are explicit parameters.
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun CollapsibleGroupHeader(
     title: String,
@@ -2865,22 +2921,33 @@ private fun CollapsibleGroupHeader(
     modifier: Modifier = Modifier,
     iconSize: Dp = 20.dp,
     rowVerticalPadding: Dp = 8.dp,
+    /** R6: the header's long-press (null = none): the rule editor for a watched folder or subfolder. */
+    onLongPress: (() -> Unit)? = null,
 ) {
     val context = LocalContext.current
     // TASK-384: clickable Surface has no role; announce expand/collapse state to talkback
     val toggleStateDescription = stringResource(
         if (expanded) R.string.a11y_collapse else R.string.a11y_expand
     )
+    val longPressLabel = stringResource(R.string.history_scope_rule_long_press_label)
+    // combinedClickable instead of Surface(onClick) so the header can take a
+    // long-press; the touch-target floor Surface(onClick) applied stays.
     Surface(
         modifier = modifier
             .fillMaxWidth()
+            .minimumInteractiveComponentSize()
+            .clip(MaterialTheme.shapes.small)
+            .combinedClickable(
+                onClick = onToggle,
+                onLongClick = onLongPress,
+                onLongClickLabel = if (onLongPress != null) longPressLabel else null,
+            )
             .semantics {
                 role = Role.Button
                 stateDescription = toggleStateDescription
             },
         color = containerColor,
         shape = MaterialTheme.shapes.small,
-        onClick = onToggle
     ) {
         Row(
             modifier = Modifier
@@ -2938,7 +3005,8 @@ private fun SenderGroupHeader(
     count: Int,
     lastTimestamp: Long,
     expanded: Boolean,
-    onToggle: () -> Unit
+    onToggle: () -> Unit,
+    onLongPress: (() -> Unit)? = null,
 ) {
     CollapsibleGroupHeader(
         title = senderName,
@@ -2946,6 +3014,7 @@ private fun SenderGroupHeader(
         lastTimestamp = lastTimestamp,
         expanded = expanded,
         onToggle = onToggle,
+        onLongPress = onLongPress,
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
         metaColor = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(start = 24.dp, top = 2.dp, bottom = 2.dp, end = 8.dp),

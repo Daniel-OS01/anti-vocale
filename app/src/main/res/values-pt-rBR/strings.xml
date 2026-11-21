@@ -1326,4 +1326,7 @@
     <string name="scope_rule_summary_model">Modelo: %1$s</string>
     <string name="scope_rule_summary_both">Idioma: %1$s · Modelo: %2$s</string>
     <string name="scope_rule_next">Avançar</string>
+    <string name="history_scope_rule_folder_title">Transcrever esta pasta como…</string>
+    <string name="history_scope_rule_subfolder_title">Transcrever esta subpasta como…</string>
+    <string name="history_scope_rule_long_press_label">Definir regra de transcrição</string>
 </resources>

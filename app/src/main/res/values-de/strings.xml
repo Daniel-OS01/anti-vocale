@@ -1458,4 +1458,7 @@
     <string name="scope_rule_summary_model">Modell: %1$s</string>
     <string name="scope_rule_summary_both">Sprache: %1$s · Modell: %2$s</string>
     <string name="scope_rule_next">Weiter</string>
+    <string name="history_scope_rule_folder_title">Diesen Ordner transkribieren als…</string>
+    <string name="history_scope_rule_subfolder_title">Diesen Unterordner transkribieren als…</string>
+    <string name="history_scope_rule_long_press_label">Transkriptionsregel festlegen</string>
 </resources>

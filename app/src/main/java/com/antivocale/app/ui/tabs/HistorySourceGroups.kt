@@ -2,6 +2,8 @@ package com.antivocale.app.ui.tabs
 
 import com.antivocale.app.data.SourceKind
 import com.antivocale.app.data.SourceOrigin
+import com.antivocale.app.data.SubfolderPaths
+import com.antivocale.app.data.TranscriptionProfile
 import com.antivocale.app.data.WatchedFolder
 import com.antivocale.app.data.effectiveSourceOrigin
 import com.antivocale.app.ui.viewmodel.LogEntry
@@ -139,6 +141,68 @@ private const val FOLDER_SYNC_GROUP_KEY = "__folder_sync__"
 private const val FOLDER_SUBGROUP_PREFIX = "dir:"
 private const val SENDER_SUBGROUP_PREFIX = "who:"
 
+private const val FOLDER_GROUP_PREFIX = "folder:"
+
 /** One watched folder's section: new rows (by sourceFolderKey) and matched
  *  legacy rows (by treeUri) share it. */
-private fun folderGroupKey(treeUri: String) = "folder:$treeUri"
+private fun folderGroupKey(treeUri: String) = FOLDER_GROUP_PREFIX + treeUri
+
+/**
+ * R6: the transcription-rule scope a History group header stands for, read
+ * back off the keys the grouping wrote (the ONE reader of those prefixes
+ * outside this file). Sender sub-groups ("who:") are [None] here: sender
+ * rules are a separate scope with their own editor.
+ */
+internal sealed interface HistoryGroupScope {
+    /** A watched folder's section header: its default profile. */
+    data class Folder(val treeUri: String) : HistoryGroupScope
+
+    /** A subfolder sub-header under a folder section; [subPath] is normalized. */
+    data class Subfolder(val treeUri: String, val subPath: String) : HistoryGroupScope
+
+    /** Any other header (app, imported, shared, sender, unknown). */
+    data object None : HistoryGroupScope
+
+    companion object {
+        /**
+         * @param groupKey the section key ([HistoryGroupPlacement.groupKey]).
+         * @param subKey the sub-group key ([HistorySubGroupRef.key]), or null
+         *   for the section header itself.
+         */
+        fun parse(groupKey: String, subKey: String? = null): HistoryGroupScope {
+            if (!groupKey.startsWith(FOLDER_GROUP_PREFIX)) return None
+            // Only the first prefix is stripped: a tree uri carries ':' and '/'.
+            val treeUri = groupKey.removePrefix(FOLDER_GROUP_PREFIX).takeUnless { it.isBlank() } ?: return None
+            if (subKey == null) return Folder(treeUri)
+            if (!subKey.startsWith(FOLDER_SUBGROUP_PREFIX)) return None
+            val subPath = SubfolderPaths.normalize(subKey.removePrefix(FOLDER_SUBGROUP_PREFIX)) ?: return None
+            return Subfolder(treeUri, subPath)
+        }
+    }
+}
+
+/** The tree uri [this] scope writes to, or null for [HistoryGroupScope.None]. */
+internal val HistoryGroupScope.treeUri: String?
+    get() = when (val scope = this) {
+        is HistoryGroupScope.Folder -> scope.treeUri
+        is HistoryGroupScope.Subfolder -> scope.treeUri
+        HistoryGroupScope.None -> null
+    }
+
+/**
+ * The watched folder [this] scope edits, or null: [HistoryGroupScope.None],
+ * or a folder no longer watched (its section survives in History, but an
+ * unwatched folder has no rules to edit).
+ */
+internal fun HistoryGroupScope.watchedFolderIn(folders: List<WatchedFolder>): WatchedFolder? {
+    val uri = treeUri ?: return null
+    return folders.firstOrNull { it.treeUri == uri }
+}
+
+/** The rule stored at [this] scope in [folder] (null = no rule there). */
+internal fun HistoryGroupScope.storedRuleIn(folder: WatchedFolder): TranscriptionProfile? =
+    when (val scope = this) {
+        is HistoryGroupScope.Folder -> folder.profile
+        is HistoryGroupScope.Subfolder -> folder.subfolderRules[scope.subPath]
+        HistoryGroupScope.None -> null
+    }

@@ -1463,4 +1463,7 @@
     <string name="scope_rule_summary_model">مدل: %1$s</string>
     <string name="scope_rule_summary_both">زبان: %1$s · مدل: %2$s</string>
     <string name="scope_rule_next">بعدی</string>
+    <string name="history_scope_rule_folder_title">رونویسی این پوشه به‌صورت…</string>
+    <string name="history_scope_rule_subfolder_title">رونویسی این زیرپوشه به‌صورت…</string>
+    <string name="history_scope_rule_long_press_label">تنظیم قانون رونویسی</string>
 </resources>

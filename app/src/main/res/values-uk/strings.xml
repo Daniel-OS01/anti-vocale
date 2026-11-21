@@ -1490,4 +1490,7 @@
     <string name="scope_rule_summary_model">Модель: %1$s</string>
     <string name="scope_rule_summary_both">Мова: %1$s · Модель: %2$s</string>
     <string name="scope_rule_next">Далі</string>
+    <string name="history_scope_rule_folder_title">Розпізнавати цю папку як…</string>
+    <string name="history_scope_rule_subfolder_title">Розпізнавати цю підпапку як…</string>
+    <string name="history_scope_rule_long_press_label">Задати правило розпізнавання</string>
 </resources>
