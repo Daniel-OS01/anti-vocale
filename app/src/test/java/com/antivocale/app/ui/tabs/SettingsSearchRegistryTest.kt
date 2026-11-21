@@ -477,13 +477,16 @@ class SettingsSearchRegistryTest {
     }
 
     @Test
-    fun `the sender-rules hub carries its title and summary`() {
-        // R6: the page's rows are user data; the hub's two strings are the vocabulary.
+    fun `the sender-rules hub carries its own and its subpage's static strings`() {
+        // R6: the page's rows are user data; the hub's two strings plus the
+        // page's section label and note are the vocabulary.
         val hub = SETTINGS_SEARCH_CARDS.first { it.id == SettingsSearchId.SENDER_RULES_HUB }
         assertEquals(SettingsSearchSection.ADVANCED, hub.section)
         assertEquals(SettingsSearchGroup.INTEGRATIONS, hub.group)
         assertEquals(
-            listOf(R.string.sender_rules_title, R.string.sender_rules_summary),
+            listOf(
+                R.string.sender_rules_title, R.string.sender_rules_summary,
+                R.string.sender_rules_section_calls, R.string.sender_rules_note),
             hub.res(state()),
         )
     }

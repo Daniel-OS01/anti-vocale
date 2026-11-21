@@ -2251,7 +2251,7 @@ fun SettingsTab(
                     leadingIcon = Icons.Default.RecordVoiceOver,
                 ) { showVoiceNoteSettings = true }
             }
-            // R6: the per-sender rules hub. Search vocabulary: the hub's title and summary.
+            // R6: the per-sender rules hub. Search vocabulary: the hub's strings plus the subpage's static ones.
             SearchFilterRow(searchQuery, SettingsSearchId.SENDER_RULES_HUB, searchState) {
                 SettingsHubCard(
                     titleRes = R.string.sender_rules_title,
@@ -4637,10 +4637,13 @@ internal val SETTINGS_SEARCH_CARDS: List<SettingsSearchCard> = listOf(
         group = SettingsSearchGroup.INTEGRATIONS,
     ),
     // R6 (the N>=2 subpage rule): the sender-rules hub. Vocabulary: the
-    // hub's title and summary (the page's rows are user data, not strings).
+    // hub's title and summary plus the page's static strings (its rows are
+    // user data, not strings).
     SettingsSearchCard(
         SettingsSearchId.SENDER_RULES_HUB, SettingsSearchSection.ADVANCED,
-        listOf(R.string.sender_rules_title, R.string.sender_rules_summary),
+        listOf(
+            R.string.sender_rules_title, R.string.sender_rules_summary,
+            R.string.sender_rules_section_calls, R.string.sender_rules_note),
         group = SettingsSearchGroup.INTEGRATIONS,
     ),
     SettingsSearchCard(
