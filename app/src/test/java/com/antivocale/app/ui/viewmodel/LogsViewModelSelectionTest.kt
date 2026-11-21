@@ -20,6 +20,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -61,6 +62,32 @@ class LogsViewModelSelectionTest : ViewModelTeardownTest() {
         viewModel = register(LogsViewModel(mockk(relaxed = true), logDao, stubPreferencesManager(), staticRegistry(), mockk(relaxed = true), mockk(relaxed = true), mockk(relaxed = true), mockk(relaxed = true), orchestrator = mockk(relaxed = true), duplicateGuard = mockk(relaxed = true), scheduledFolderStore = mockk(relaxed = true), historyBulkRedo = mockk(relaxed = true), profileOutcomeSource = mockk(relaxed = true), appScope = appScope))
     }
 
+    // (deleted, skipped): the id is unique per delete, so tests compare counts.
+    private fun LogsViewModel.BulkDeleteResult?.counts() = this?.let { it.deleted to it.skipped }
+
+    @Test
+    fun `two consecutive identical delete results publish two distinct values`() = runTest {
+        rows.value = listOf(entity("a", "SUCCESS"), entity("b", "SUCCESS"))
+        coEvery { logDao.deleteByIds(any()) } returns 1
+        val seen = mutableListOf<LogsViewModel.BulkDeleteResult>()
+        backgroundScope.launch { viewModel.selection.collect { } }
+        backgroundScope.launch { viewModel.bulkDeleteResult.collect { result -> result?.let(seen::add) } }
+        advanceUntilIdle()
+
+        // No consume in between: the snackbar is still showing the first one.
+        viewModel.enterSelection("a")
+        advanceUntilIdle()
+        viewModel.deleteSelected()
+        advanceUntilIdle()
+        viewModel.enterSelection("b")
+        advanceUntilIdle()
+        viewModel.deleteSelected()
+        advanceUntilIdle()
+
+        assertEquals(listOf(1 to 0, 1 to 0), seen.map { it.deleted to it.skipped })
+        assertNotEquals(seen[0], seen[1])
+    }
+
     @Test
     fun `deleteSelected deletes only the terminal rows and reports the skipped ones`() = runTest {
         rows.value = listOf(
@@ -81,7 +108,7 @@ class LogsViewModelSelectionTest : ViewModelTeardownTest() {
         viewModel.deleteSelected()
         advanceUntilIdle()
 
-        assertEquals(LogsViewModel.BulkDeleteResult(deleted = 2, skipped = 3), viewModel.bulkDeleteResult.value)
+        assertEquals(2 to 3, viewModel.bulkDeleteResult.value.counts())
         coVerify(exactly = 1) { logDao.deleteByIds(match { it.toSet() == setOf("ok", "err") }) }
         assertFalse(viewModel.selectionMode.value)
         assertTrue(viewModel.selection.value.isEmpty())
@@ -98,7 +125,7 @@ class LogsViewModelSelectionTest : ViewModelTeardownTest() {
         viewModel.deleteSelected()
         advanceUntilIdle()
 
-        assertEquals(LogsViewModel.BulkDeleteResult(deleted = 0, skipped = 1), viewModel.bulkDeleteResult.value)
+        assertEquals(0 to 1, viewModel.bulkDeleteResult.value.counts())
         coVerify(exactly = 0) { logDao.deleteByIds(any()) }
         viewModel.consumeBulkDeleteResult()
         assertEquals(null, viewModel.bulkDeleteResult.value)
@@ -118,7 +145,7 @@ class LogsViewModelSelectionTest : ViewModelTeardownTest() {
         viewModel.deleteSelected()
         advanceUntilIdle()
 
-        assertEquals(LogsViewModel.BulkDeleteResult(deleted = 1, skipped = 0), viewModel.bulkDeleteResult.value)
+        assertEquals(1 to 0, viewModel.bulkDeleteResult.value.counts())
     }
 
     @Test
@@ -143,7 +170,7 @@ class LogsViewModelSelectionTest : ViewModelTeardownTest() {
         advanceUntilIdle()
 
         coVerify(exactly = 1) { logDao.deleteByIds(listOf("old")) }
-        assertEquals(LogsViewModel.BulkDeleteResult(deleted = 1, skipped = 0), viewModel.bulkDeleteResult.value)
+        assertEquals(1 to 0, viewModel.bulkDeleteResult.value.counts())
     }
 
     @Test

@@ -806,8 +806,16 @@ class LogsViewModel @Inject constructor(
         _selectionMode.value = false
     }
 
-    /** What [deleteSelected] did: [deleted] is the DAO's count; [skipped] rows were still in flight. */
-    data class BulkDeleteResult(val deleted: Int, val skipped: Int)
+    /**
+     * What [deleteSelected] did: [deleted] is the DAO's count; [skipped] rows
+     * were still in flight. [id] is unique per delete, so two equal outcomes
+     * in a row are distinct StateFlow values (equal ones would conflate and
+     * the second snackbar would never show).
+     */
+    data class BulkDeleteResult(val deleted: Int, val skipped: Int, val id: Long)
+
+    // Main thread only (deleteSelected's viewModelScope launch).
+    private var bulkDeleteSeq = 0L
 
     private val _bulkDeleteResult = MutableStateFlow<BulkDeleteResult?>(null)
 
@@ -839,7 +847,7 @@ class LogsViewModel @Inject constructor(
         exitSelection()
         viewModelScope.launch {
             val deleted = if (ids.isEmpty()) 0 else logDao.deleteByIds(ids)
-            _bulkDeleteResult.value = BulkDeleteResult(deleted = deleted, skipped = inFlight.size)
+            _bulkDeleteResult.value = BulkDeleteResult(deleted = deleted, skipped = inFlight.size, id = ++bulkDeleteSeq)
         }
     }
 
