@@ -12,6 +12,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import java.io.File
@@ -65,22 +66,40 @@ class ActiveModelRepository @Inject constructor(
      */
     val offeredLanguageCodes: Flow<Set<String>> =
         combine(activeModelFlow, externalRecords) { active, records ->
-            when {
-                // TASK-462: external backends have no catalog entry; the
-                // RECORD's languages drive the offered set when its family
-                // conditions on language, else the truthful empty set.
-                active.backendId.startsWith(ExternalModelRecord.BACKEND_ID_PREFIX) -> {
-                    val id = active.backendId.removePrefix(ExternalModelRecord.BACKEND_ID_PREFIX)
-                    TranscriptionLanguagePolicy.offeredLanguagesForExternal(
-                        records.firstOrNull { it.id == id }
-                            ?: return@combine emptySet())
-                }
-                else -> TranscriptionLanguagePolicy.offeredLanguages(
-                    modelPath = active.modelPath,
-                    entry = BundledCatalog.byId(active.backendId),
-                )
-            }
+            offeredFor(active.backendId, active.modelPath, records)
         }
+
+    /**
+     * The language codes [backendId] conditions on, for ANY installed backend
+     * (the bulk redo's picker offers languages for the model it picked, not
+     * only the active one). Same derivation as [offeredLanguageCodes]; empty
+     * means the model ignores language.
+     */
+    suspend fun offeredLanguageCodes(backendId: String): Set<String> {
+        val modelPath = modelPathFlowFor(backendRegistry.byBackendId(backendId)).first()
+            ?.takeUnless { it.isBlank() }
+        return offeredFor(backendId, modelPath, externalRecords.value)
+    }
+
+    private fun offeredFor(
+        backendId: String,
+        modelPath: String?,
+        records: List<ExternalModelRecord>,
+    ): Set<String> = when {
+        // TASK-462: external backends have no catalog entry; the RECORD's
+        // languages drive the offered set when its family conditions on
+        // language, else the truthful empty set.
+        backendId.startsWith(ExternalModelRecord.BACKEND_ID_PREFIX) -> {
+            val id = backendId.removePrefix(ExternalModelRecord.BACKEND_ID_PREFIX)
+            records.firstOrNull { it.id == id }
+                ?.let { TranscriptionLanguagePolicy.offeredLanguagesForExternal(it) }
+                ?: emptySet()
+        }
+        else -> TranscriptionLanguagePolicy.offeredLanguages(
+            modelPath = modelPath,
+            entry = BundledCatalog.byId(backendId),
+        )
+    }
 
     /**
      * TASK-740.1 (GH #127): every INSTALLED backend, reactively: the
