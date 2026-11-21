@@ -3,5 +3,5 @@
      marketplace, nightly and debug installs; the applicationId suffix (.fork,
      app/build.gradle.kts) makes them coexist. -->
 <resources>
-    <string name="app_name">Anti-Vocale Fork</string>
+    <string name="app_name">Anti-Vocale-Fork</string>
 </resources>

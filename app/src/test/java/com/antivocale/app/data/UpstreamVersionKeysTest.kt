@@ -2,6 +2,7 @@ package com.antivocale.app.data
 
 import com.antivocale.app.BuildConfig
 import com.antivocale.app.testing.RepoFiles
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -20,6 +21,10 @@ class UpstreamVersionKeysTest {
             "BuildConfig.CATALOG_INDEX_ASSET names a missing asset: ${BuildConfig.CATALOG_INDEX_ASSET} " +
                 "(versionName ${BuildConfig.VERSION_NAME})",
             asset.isFile,
+        )
+        assertEquals(
+            "external-catalog/index-${BuildConfig.UPSTREAM_VERSION_NAME.substringBefore("-")}.json",
+            BuildConfig.CATALOG_INDEX_ASSET,
         )
     }
 }

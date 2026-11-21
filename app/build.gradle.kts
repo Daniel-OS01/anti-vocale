@@ -77,10 +77,15 @@ android {
         applicationId = "com.antivocale.app"
         minSdk = 26
         targetSdk = 36
-        // Fork CI (publish-apk.yml) injects an auto-incremented version; local and
-        // upstream-shaped builds keep the literals.
+        // Upstream's version (its CLAUDE.md release rules bump this literal). Fork CI
+        // (publish-apk.yml) injects the fork's own release version (1.2.0, 1.2.1, ...),
+        // which shares nothing with upstream's numbering; local builds keep the literals.
+        // Lookups keyed on upstream releases (catalog index, release notes) always use
+        // upstreamVersionName, never the injected name.
+        val upstreamVersionName = "1.18.0-SNAPSHOT"
         versionCode = System.getenv("CI_VERSION_CODE")?.toIntOrNull() ?: 52
-        versionName = System.getenv("CI_VERSION_NAME")?.takeIf { it.isNotBlank() } ?: "1.18.0-SNAPSHOT"
+        versionName = System.getenv("CI_VERSION_NAME")?.takeIf { it.isNotBlank() } ?: upstreamVersionName
+        buildConfigField("String", "UPSTREAM_VERSION_NAME", "\"$upstreamVersionName\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -98,9 +103,9 @@ android {
         // SNAPSHOT stripped so dev builds point at the not-yet-published
         // release index and fall back to the bundled asset: an entry cannot
         // reach installed apps earlier than the release that supports it.
-        // Any pre-release suffix (-SNAPSHOT, the fork's -fork.N) maps to the base
-        // release index, so a fork build reads the same catalog as its upstream base.
-        val catalogIndexVersion = versionName.toString().substringBefore("-")
+        // Keyed on the UPSTREAM version, so a fork release (own versionName) reads the
+        // same catalog as its upstream base.
+        val catalogIndexVersion = upstreamVersionName.substringBefore("-")
         buildConfigField(
             "String",
             "CATALOG_INDEX_URL",

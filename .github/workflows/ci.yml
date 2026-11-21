@@ -32,6 +32,9 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      - name: Test the fork release version resolver
+        run: bash scripts/ci/test-resolve-fork-version.sh
+
       - uses: actions/setup-java@v6
         with:
           distribution: 'temurin'

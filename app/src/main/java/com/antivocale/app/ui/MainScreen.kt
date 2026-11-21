@@ -144,7 +144,7 @@ fun MainScreen(
         }
         val notes = ReleaseNotes.notesFor(
             settingsViewModel.currentLanguage.value,
-            BuildConfig.VERSION_NAME,
+            BuildConfig.UPSTREAM_VERSION_NAME,
             context.assets,
         )
         if (notes.isNotEmpty()) whatsNewNotes = notes
