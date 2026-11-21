@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.util.Log
 import com.antivocale.app.R
+import com.antivocale.app.data.SourceKind
 import com.antivocale.app.data.PreferencesManager
 import com.antivocale.app.service.InferenceService
 import com.antivocale.app.transcription.BuiltInBackendIds
@@ -202,6 +203,7 @@ class TaskerRequestReceiver : BroadcastReceiver() {
                     putExtra(EXTRA_PROMPT, prompt)
                     putExtra(EXTRA_FILE_PATH, filePath)
                     putExtra(EXTRA_TASK_ID, taskId)
+                    putExtra(InferenceService.EXTRA_SOURCE_KIND, SourceKind.AUTOMATION)
                     putExtra(InferenceService.EXTRA_BACKEND_OVERRIDE, backendOverride)
                     contentHash?.let { putExtra(InferenceService.EXTRA_CONTENT_HASH, it) }
             // TASK-274(f): pin the reply sink. API 34+ names the sending

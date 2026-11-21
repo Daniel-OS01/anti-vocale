@@ -1114,6 +1114,12 @@
         <item quantity="other">%1$d הודעות</item>
     </plurals>
     <string name="conversation_group_unknown">אחר</string>
+    <!-- R3: History origin sections (group by source) -->
+    <string name="history_group_folder">📁 %1$s</string>
+    <string name="history_group_folder_sync">סנכרון תיקיות</string>
+    <string name="history_group_imported">קבצים מיובאים</string>
+    <string name="history_group_shared">קבצים משותפים</string>
+    <string name="history_group_automation">אוטומציה</string>
 
     <!-- Re-transcribe -->
     <string name="retranscribe">נסה שוב</string>

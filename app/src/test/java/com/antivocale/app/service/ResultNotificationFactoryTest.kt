@@ -5,6 +5,7 @@ import android.content.Context
 import androidx.core.app.NotificationCompat
 import androidx.test.core.app.ApplicationProvider
 import com.antivocale.app.data.AppNotificationPreferences
+import com.antivocale.app.data.SourceKind
 import com.antivocale.app.receiver.NotificationActionReceiver
 import com.antivocale.app.receiver.TaskerRequestReceiver
 import org.junit.Assert.assertEquals
@@ -322,13 +323,22 @@ class ResultNotificationFactoryTest {
             rerunTaskId = "task-9",
             filePath = "/shared_audio/long.wav",
             prompt = "",
-            sourcePackage = "org.telegram.messenger")
+            sourcePackage = "org.telegram.messenger",
+            sourceKind = SourceKind.FOLDER_WATCH,
+            sourceFolderKey = "content://tree/primary%3ACalls",
+            sourceFolderName = "Calls",
+            sourceSubPath = "2026/11")
 
         assertEquals(listOf("Retry", "Open setting"), n.titles())
         val rerun = Shadows.shadowOf(n.actions!!.first { it.title == "Retry" }.actionIntent).savedIntent
         assertEquals(NotificationActionReceiver.ACTION_RERUN_SUSPENDED, rerun.action)
         assertEquals("/shared_audio/long.wav", rerun.getStringExtra(TaskerRequestReceiver.EXTRA_FILE_PATH))
         assertEquals("task-9", rerun.getStringExtra(NotificationActionReceiver.EXTRA_TASK_ID))
+        // R3: the re-run's row keeps the suspended row's origin.
+        assertEquals(SourceKind.FOLDER_WATCH, rerun.getStringExtra(InferenceService.EXTRA_SOURCE_KIND))
+        assertEquals("content://tree/primary%3ACalls", rerun.getStringExtra(InferenceService.EXTRA_SOURCE_FOLDER_KEY))
+        assertEquals("Calls", rerun.getStringExtra(InferenceService.EXTRA_SOURCE_FOLDER_NAME))
+        assertEquals("2026/11", rerun.getStringExtra(InferenceService.EXTRA_SOURCE_SUB_PATH))
         // The battery action is the same system dialog the Settings card opens.
         val battery = Shadows.shadowOf(n.actions!!.first { it.title == "Open setting" }.actionIntent).savedIntent
         assertEquals(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, battery.action)

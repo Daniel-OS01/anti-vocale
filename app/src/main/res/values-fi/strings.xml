@@ -990,6 +990,12 @@
         <item quantity="other">%1$d viestiä</item>
     </plurals>
     <string name="conversation_group_unknown">Muu</string>
+    <!-- R3: History origin sections (group by source) -->
+    <string name="history_group_folder">📁 %1$s</string>
+    <string name="history_group_folder_sync">Kansion synkronointi</string>
+    <string name="history_group_imported">Tuodut tiedostot</string>
+    <string name="history_group_shared">Jaetut tiedostot</string>
+    <string name="history_group_automation">Automaatio</string>
     <string name="retranscribe">Yritä uudelleen</string>
     <string name="retranscribe_title">Transkriboi uudelleen mallilla…</string>
     <string name="retranscribe_subtitle">Valitse malli, jolla ääni transkriboidaan uudelleen</string>

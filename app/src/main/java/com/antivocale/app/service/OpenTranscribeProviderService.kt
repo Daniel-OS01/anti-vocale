@@ -9,6 +9,7 @@ import android.os.ParcelFileDescriptor
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.antivocale.app.BuildConfig
+import com.antivocale.app.data.SourceKind
 import com.antivocale.app.R
 import com.antivocale.app.data.ActiveModelRepository
 import com.antivocale.app.data.ExternalModelRecord
@@ -228,6 +229,7 @@ class OpenTranscribeProviderService : Service() {
                 requestType = TaskerRequestReceiver.REQUEST_TYPE_AUDIO,
                 filePath = spoolFile.absolutePath,
                 sourcePackageName = callingPackage,
+                sourceKind = SourceKind.OPENTRANSCRIBE,
             )
             orchestrator.processRequest(
                 taskId = taskId,

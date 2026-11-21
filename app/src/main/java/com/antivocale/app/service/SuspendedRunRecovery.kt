@@ -5,6 +5,9 @@ import android.app.NotificationManager
 import android.content.Context
 import android.util.Log
 import com.antivocale.app.R
+import com.antivocale.app.data.SourceOrigin
+import com.antivocale.app.data.WatchedFolder
+import com.antivocale.app.data.effectiveSourceOrigin
 import com.antivocale.app.data.local.FailureContext
 import com.antivocale.app.data.local.FailureContextJson
 import com.antivocale.app.data.local.LogDao
@@ -145,6 +148,11 @@ object SuspendedRunRecovery {
         logDao: LogDao,
         wasOOMCrash: Boolean,
         notifyGenericInterrupted: Boolean = true,
+        /** R3: the watched folders a legacy folder-watch row's re-run is
+         *  attributed against (effectiveSourceOrigin). Read only when a
+         *  suspension notification is posted; empty keeps the re-run under
+         *  Folder sync instead of naming its folder. */
+        loadWatchedFolders: suspend () -> List<WatchedFolder> = { emptyList() },
     ) {
         val heartbeat = RunHeartbeat.read(context)
         // No live-run evidence (the run never ticked, or it ended normally
@@ -196,7 +204,21 @@ object SuspendedRunRecovery {
                     // notification with the honest label but drop the doomed
                     // Retry action when the file is already gone.
                     val fileAlive = row.filePath?.let { java.io.File(it).exists() } == true
-                    postSuspensionNotification(context, row, message, retryFileAlive = fileAlive)
+                    // R3: the re-run mints a fresh task id, so a legacy
+                    // folder-watch row's task-id evidence must be resolved
+                    // into origin facts now. Contained like the rest of the
+                    // sweep: an unreadable folder list degrades to the kind
+                    // alone (Folder sync), never aborts the close.
+                    val folders = runCatching { loadWatchedFolders() }.getOrElse { e ->
+                        Log.w(TAG, "Watched-folder read failed; re-run origin stays unnamed", e)
+                        emptyList()
+                    }
+                    val origin = effectiveSourceOrigin(
+                        row.taskId,
+                        SourceOrigin(row.sourceKind, row.sourceFolderKey, row.sourceFolderName, row.sourceSubPath),
+                        folders,
+                    )
+                    postSuspensionNotification(context, row, origin, message, retryFileAlive = fileAlive)
                     if (!fileAlive) {
                         Log.i(TAG, "Retry dropped: $row.filePath no longer exists (shared_audio 24h cleanup)")
                     }
@@ -244,6 +266,7 @@ object SuspendedRunRecovery {
     private fun postSuspensionNotification(
         context: Context,
         row: LogEntity,
+        origin: SourceOrigin,
         message: String,
         retryFileAlive: Boolean,
     ) {
@@ -255,6 +278,10 @@ object SuspendedRunRecovery {
                 prompt = row.prompt,
                 sourcePackage = row.sourcePackageName,
                 senderName = row.senderName,
+                sourceKind = origin.kind,
+                sourceFolderKey = origin.folderKey,
+                sourceFolderName = origin.folderName,
+                sourceSubPath = origin.subPath,
                 retryFileAlive = retryFileAlive,
             )
         }

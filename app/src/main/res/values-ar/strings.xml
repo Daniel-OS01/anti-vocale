@@ -946,6 +946,12 @@
     <string name="compact_result_actions_description">إظهار إجراءات النسخ كأيقونات فقط في زاوية بطاقة النتيجة. أوقفها للحصول على أزرار ذات تسميات نصية.</string>
     <string name="conversation_grouping_description">تجميع عمليات النسخ حسب التطبيق المصدر (WhatsApp وTelegram وغيرها) في أقسام قابلة للطي.</string>
     <string name="conversation_group_unknown">أخرى</string>
+    <!-- R3: History origin sections (group by source) -->
+    <string name="history_group_folder">📁 %1$s</string>
+    <string name="history_group_folder_sync">مزامنة المجلد</string>
+    <string name="history_group_imported">الملفات المستوردة</string>
+    <string name="history_group_shared">الملفات المشتركة</string>
+    <string name="history_group_automation">الأتمتة</string>
     <string name="retranscribe">إعادة المحاولة</string>
     <string name="retranscribe_title">إعادة النسخ باستخدام…</string>
     <string name="retranscribe_subtitle">اختر نموذجًا لإعادة نسخ هذا الصوت</string>

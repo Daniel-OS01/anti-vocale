@@ -27,6 +27,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
 import androidx.lifecycle.lifecycleScope
@@ -68,6 +69,7 @@ import com.antivocale.app.util.SharedAudioHandler
 import com.antivocale.app.util.TranscriptLanguageHeuristic
 import com.antivocale.app.util.formatProcessingTime
 import com.antivocale.app.data.PreferencesManager
+import com.antivocale.app.data.WatchedFolder
 import com.antivocale.app.service.InferenceService
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.animation.Crossfade
@@ -105,33 +107,42 @@ import java.text.SimpleDateFormat
 import java.util.*
 
 /**
- * TASK-737: the sender sub-group inside a conversation section. Rows the
- * notification-identity cache matched at share time (TASK-736) nest under
- * their sender; everything else stays directly under the app section, so
- * pre-v13 rows and unmatched shares never meet an "Unknown" bucket.
+ * TASK-737: the second-level group inside a section. In an app section it
+ * is the sender (rows the notification-identity cache matched at share
+ * time, TASK-736); R3 adds the subfolder of a watched folder and the parent
+ * folder of an imported file. Rows without one stay directly under the
+ * section, so pre-v13 rows and unmatched shares never meet an "Unknown"
+ * bucket. [key] is the resolver's segment (HistorySubGroupRef.key).
  */
-internal data class SenderGroup(
-    val senderName: String,
+internal data class SubGroup(
+    val key: String,
+    val label: String,
     val logs: List<LogEntry>
 )
 
+/**
+ * One section of the by-origin grouping (since R3 the app, folder,
+ * imported, shared, automation and other sections share this shape).
+ * [groupKey] and [title] come from resolveHistoryGroup, never from a row
+ * field, so render and the highlight index cannot key differently.
+ */
 internal data class ConversationGroup(
-    val packageName: String?,
-    val appName: String,
+    val groupKey: String,
+    val title: HistoryGroupTitle,
     override val logs: List<LogEntry>,
-    // Sender sub-groups (newest-first by their newest row) plus the rows
-    // with no sender label (which render directly under the section).
+    // Second-level groups (newest-first by their newest row) plus the rows
+    // with no second-level label (which render directly under the section).
     // Both are explicit on purpose: a defaulted unlabeledLogs == logs with
-    // non-empty senderGroups would render every labeled row twice, silently.
+    // non-empty subGroups would render every labeled row twice, silently.
     // The builder owns the invariant; the require turns a violation (a
     // partition that drops or doubles rows) into a crash at construction
     // instead of an invisible count/render mismatch (737 review F4).
-    val senderGroups: List<SenderGroup>,
+    val subGroups: List<SubGroup>,
     val unlabeledLogs: List<LogEntry>
 ) : LogGroup {
     init {
-        require(logs.size == senderGroups.sumOf { it.logs.size } + unlabeledLogs.size) {
-            "partition mismatch: logs=${logs.size} vs senders=${senderGroups.sumOf { it.logs.size }} + unlabeled=${unlabeledLogs.size}"
+        require(logs.size == subGroups.sumOf { it.logs.size } + unlabeledLogs.size) {
+            "partition mismatch: logs=${logs.size} vs subgroups=${subGroups.sumOf { it.logs.size }} + unlabeled=${unlabeledLogs.size}"
         }
     }
 }
@@ -147,7 +158,7 @@ internal data class ConversationGroup(
 private fun unlabeledBlockFirst(group: ConversationGroup): Boolean {
     // Order-independent (737 review: deriving "newest" from list positions
     // silently assumed the builder's sorts; maxOf drops the assumption).
-    val newestSender = group.senderGroups.maxOfOrNull { sg ->
+    val newestSender = group.subGroups.maxOfOrNull { sg ->
         sg.logs.maxOfOrNull { it.timestamp } ?: Long.MIN_VALUE
     } ?: Long.MIN_VALUE
     val newestUnlabeled = group.unlabeledLogs.maxOfOrNull { it.timestamp } ?: Long.MIN_VALUE
@@ -182,10 +193,10 @@ internal sealed interface HistoryRow {
 
     data class SenderHeaderRow(
         val groupKey: String,
-        val sender: SenderGroup,
+        val sender: SubGroup,
         // The expansion-set key, stored so consumers read the model instead
         // of re-deriving the formula (750 simplify: one derivation site).
-        val senderKey: String = senderGroupKey(groupKey, sender.senderName),
+        val senderKey: String = senderGroupKey(groupKey, sender.key),
         // TASK-898: precomputed so the header composable does not rescan
         // the group's rows per composition.
         val newestTimestamp: Long = sender.logs.maxOf { it.timestamp },
@@ -216,14 +227,14 @@ internal fun buildHistoryRows(
     for (group in groups) {
         when (group) {
             is ConversationGroup -> {
-                val groupKey = conversationGroupKey(group.packageName)
+                val groupKey = group.groupKey
                 add(HistoryRow.ConversationHeaderRow(group, groupKey))
                 if (!isSectionExpanded(groupKey)) continue
                 val emitUnlabeled = {
                     group.unlabeledLogs.forEach { add(HistoryRow.LogRow(it)) }
                 }
                 val emitSenders = {
-                    for (sender in group.senderGroups) {
+                    for (sender in group.subGroups) {
                         val senderRow = HistoryRow.SenderHeaderRow(groupKey, sender)
                         add(senderRow)
                         if (isSenderExpanded(senderRow.senderKey)) {
@@ -248,25 +259,19 @@ internal fun buildHistoryRows(
 }
 
 /**
- * The expansion-set key for a conversation section (rows with no source app
- * share the unknown bucket). One named derivation for the builder, the
- * highlight auto-expand, and any future writer, the senderGroupKey pattern.
- */
-internal fun conversationGroupKey(packageName: String?): String =
-    packageName ?: UNKNOWN_GROUP_KEY
-
-/**
  * The one mode switch (750 altitude): which grouping feeds the flat model.
  * Conversation mode falls back to dates when it yields nothing, so the
  * composition and the highlight path cannot disagree on the fallback.
+ * [watchedFolders] reaches the origin resolver (R3: folder sections).
  */
 internal fun historyGroupsFor(
     logs: List<LogEntry>,
     groupByConversation: Boolean,
+    watchedFolders: List<WatchedFolder>,
     context: Context,
 ): List<LogGroup> {
     if (!groupByConversation) return groupLogsByDate(logs, context)
-    val conversation = groupLogsByConversation(logs, context)
+    val conversation = groupLogsByConversation(logs, watchedFolders)
     return if (conversation.isNotEmpty()) conversation else groupLogsByDate(logs, context)
 }
 
@@ -785,12 +790,18 @@ fun HistoryTab(
         .collectAsState(initial = PreferencesManager.DEFAULT_SWIPE_ACTION_MODE)
     val showVadAdvisory by viewModel.showVadAdvisory.collectAsState()
     val groupByConversation by viewModel.groupLogsByConversation.collectAsState()
+    // R3: names folder sections and classifies legacy folder-watch rows.
+    // Null until the store loads; rendering treats that as no folders (the
+    // highlight effect below waits for the loaded list instead).
+    val loadedWatchedFolders by viewModel.watchedFolders.collectAsState()
+    val watchedFolders = loadedWatchedFolders.orEmpty()
 
     // Lifted expanded state — tracks which taskIds are expanded
     var expandedTaskIds by remember { mutableStateOf<Set<String>>(emptySet()) }
     var expandedConversationGroups by remember { mutableStateOf<Set<String>>(emptySet()) }
-    // TASK-737: sender sub-section expansion, keyed "<pkg>|<sender>" so two
-    // apps can carry the same sender name without colliding.
+    // TASK-737: second-level sub-section expansion, keyed
+    // "<groupKey>|<subGroupKey>" (senderGroupKey) so two sections can carry
+    // the same sender or subfolder name without colliding.
     var expandedSenderGroups by remember { mutableStateOf<Set<String>>(emptySet()) }
     var revealedLogId by remember { mutableStateOf<String?>(null) }
 
@@ -964,9 +975,9 @@ fun HistoryTab(
     // instance per recomposition would defeat the LazyColumn content
     // lambda's memoization and recompose every visible row (750 efficiency).
     // Expansion toggles legitimately rebuild: collapsed sections drop rows.
-    val historyRows = remember(filteredLogs, groupByConversation, expandedConversationGroups, expandedSenderGroups, context) {
+    val historyRows = remember(filteredLogs, groupByConversation, watchedFolders, expandedConversationGroups, expandedSenderGroups, context) {
         buildHistoryRows(
-            historyGroupsFor(filteredLogs, groupByConversation, context),
+            historyGroupsFor(filteredLogs, groupByConversation, watchedFolders, context),
             isSectionExpanded = { it in expandedConversationGroups },
             isSenderExpanded = { it in expandedSenderGroups },
         )
@@ -1345,6 +1356,15 @@ fun HistoryTab(
                         }
                     }
                     expandedTaskIds = expandedTaskIds + taskId
+                    // R3: the auto-expand keys depend on the folder list (a
+                    // legacy folder-watch row moves from Folder sync into its
+                    // named section once the store loads). Bounded wait for
+                    // the loaded list, then proceed with what there is; the
+                    // keys and the index below use this ONE snapshot, which
+                    // is also the value the render collects.
+                    val folders = withTimeoutOrNull(2_000) {
+                        viewModel.watchedFolders.filterNotNull().first()
+                    } ?: viewModel.watchedFolders.value.orEmpty()
                     val allLogs = viewModel.logs.value
                     // TASK-750: the index comes from the SAME builder the
                     // render loop uses, over the fresh (post-search-clear)
@@ -1359,23 +1379,26 @@ fun HistoryTab(
                     // the remembered rows for nothing.
                     val flatIndex = if (groupByConversation) {
                         val entry = allLogs.find { it.taskId == taskId }
-                        val groupKey = conversationGroupKey(entry?.sourcePackageName)
-                        val updatedSections = expandedConversationGroups + groupKey
-                        expandedConversationGroups = updatedSections
-                        val senderKey = entry?.senderName?.takeIf { it.isNotBlank() }
-                            ?.let { senderGroupKey(groupKey, it) }
+                        // R3: both keys come from the resolver the grouping
+                        // uses, never from row fields re-read here.
+                        val placement = entry?.let { resolveHistoryGroup(it, folders) }
                         // setOfNotNull(null) is empty: the addition is the identity
-                        val updatedSenders = expandedSenderGroups + setOfNotNull(senderKey)
+                        val updatedSections = expandedConversationGroups + setOfNotNull(placement?.groupKey)
+                        expandedConversationGroups = updatedSections
+                        val subGroupKey = placement?.let { p ->
+                            p.subGroup?.let { senderGroupKey(p.groupKey, it.key) }
+                        }
+                        val updatedSenders = expandedSenderGroups + setOfNotNull(subGroupKey)
                         expandedSenderGroups = updatedSenders
                         indexOfTaskIdInGroups(
-                            historyGroupsFor(allLogs, groupByConversation, context),
+                            historyGroupsFor(allLogs, groupByConversation, folders, context),
                             taskId,
                             isSectionExpanded = { it in updatedSections },
                             isSenderExpanded = { it in updatedSenders },
                         )
                     } else {
                         indexOfTaskIdInGroups(
-                            historyGroupsFor(allLogs, groupByConversation, context),
+                            historyGroupsFor(allLogs, groupByConversation, folders, context),
                             taskId,
                         )
                     }
@@ -1463,7 +1486,7 @@ fun HistoryTab(
                             is HistoryRow.ConversationHeaderRow -> {
                                 val isGroupExpanded = row.groupKey in expandedConversationGroups
                                 ConversationGroupHeader(
-                                    appName = row.group.appName,
+                                    title = row.group.title,
                                     count = row.group.logs.size,
                                     lastTimestamp = row.group.logs.first().timestamp,
                                     expanded = isGroupExpanded,
@@ -1479,7 +1502,7 @@ fun HistoryTab(
                             is HistoryRow.SenderHeaderRow -> {
                                 val isSenderExpanded = row.senderKey in expandedSenderGroups
                                 SenderGroupHeader(
-                                    senderName = row.sender.senderName,
+                                    senderName = row.sender.label,
                                     count = row.sender.logs.size,
                                     lastTimestamp = row.newestTimestamp,
                                     expanded = isSenderExpanded,
@@ -1594,14 +1617,11 @@ private fun startOfDay(timestamp: Long): Long {
     return cal.timeInMillis
 }
 
-/** The expansion/index key for rows with no source app; conversationGroupKey
- *  is the one derivation, so writers cannot disagree on it. */
-private const val UNKNOWN_GROUP_KEY = "__unknown__"
-
-/** TASK-737: the one key builder for sender sub-sections (render, index math,
- *  and the highlight auto-expand all derive the key here, so the format
- *  cannot drift between the writers and the readers of the expansion set). */
-internal fun senderGroupKey(groupKey: String, senderName: String): String = "$groupKey|$senderName"
+/** TASK-737: the one key builder for second-level sub-sections (render,
+ *  index math, and the highlight auto-expand all derive the key here, so the
+ *  format cannot drift between the writers and the readers of the expansion
+ *  set). [subGroupKey] is the resolver's HistorySubGroupRef.key. */
+internal fun senderGroupKey(groupKey: String, subGroupKey: String): String = "$groupKey|$subGroupKey"
 
 internal fun indexOfTaskIdInGroups(
     groups: List<LogGroup>,
@@ -2788,7 +2808,7 @@ private fun LogEntryWithSwipe(
 
 @Composable
 private fun ConversationGroupHeader(
-    appName: String,
+    title: HistoryGroupTitle,
     count: Int,
     lastTimestamp: Long,
     expanded: Boolean,
@@ -2797,7 +2817,7 @@ private fun ConversationGroupHeader(
     // TASK-566 follow-up: the brand ramp step shared with the date
     // headers, so a collapsed conversation group reads as a section.
     CollapsibleGroupHeader(
-        title = appName.ifBlank { stringResource(R.string.conversation_group_unknown) },
+        title = historyGroupTitleText(title),
         count = count,
         lastTimestamp = lastTimestamp,
         expanded = expanded,
@@ -2806,6 +2826,24 @@ private fun ConversationGroupHeader(
         metaColor = MaterialTheme.colorScheme.onSecondaryContainer,
         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
     )
+}
+
+/** R3: the one place a section descriptor becomes its localized title. */
+@Composable
+private fun historyGroupTitleText(title: HistoryGroupTitle): String {
+    return when (title) {
+        is HistoryGroupTitle.App -> {
+            val context = LocalContext.current
+            remember(title.packageName) { AppInfoUtils.getAppName(context, title.packageName) }
+                .ifBlank { stringResource(R.string.conversation_group_unknown) }
+        }
+        is HistoryGroupTitle.Folder -> stringResource(R.string.history_group_folder, title.name)
+        HistoryGroupTitle.FolderSyncLegacy -> stringResource(R.string.history_group_folder_sync)
+        HistoryGroupTitle.Imported -> stringResource(R.string.history_group_imported)
+        HistoryGroupTitle.Shared -> stringResource(R.string.history_group_shared)
+        HistoryGroupTitle.Automation -> stringResource(R.string.history_group_automation)
+        HistoryGroupTitle.Other -> stringResource(R.string.conversation_group_unknown)
+    }
 }
 
 /**
@@ -2916,29 +2954,42 @@ private fun SenderGroupHeader(
     )
 }
 
-private fun groupLogsByConversation(
+/**
+ * The by-origin grouping. Every row is placed ONCE by resolveHistoryGroup
+ * and the sections, sub-sections and keys are read off that placement, so
+ * the render rows and the highlight index share one derivation (R3).
+ * Context-free: section titles are descriptors localized at render.
+ */
+internal fun groupLogsByConversation(
     logs: List<LogEntry>,
-    context: Context
+    watchedFolders: List<WatchedFolder>,
 ): List<ConversationGroup> {
+    // Newest-first before grouping: groupBy preserves encounter order, so
+    // each section's rows, sub-groups and remainder stay chronological, and
+    // a section takes its newest row's title.
     return logs
-        .groupBy { it.sourcePackageName }
-        .map { (packageName, entries) ->
-            val sorted = entries.sortedByDescending { it.timestamp }
-            // TASK-737: split the section by the sender fact; `sorted` is
-            // newest-first, and groupBy preserves encounter order, so each
-            // sender's rows and the unlabeled remainder stay chronological.
-            val (labeled, unlabeled) = sorted.partition { !it.senderName.isNullOrBlank() }
-            val senderGroups = labeled
-                .groupBy { it.senderName!! }
-                .map { (sender, senderEntries) -> SenderGroup(sender, senderEntries) }
+        .sortedByDescending { it.timestamp }
+        .map { it to resolveHistoryGroup(it, watchedFolders) }
+        .groupBy { (_, placement) -> placement.groupKey }
+        .map { (groupKey, placed) ->
+            // TASK-737: split the section by the second-level fact.
+            val (labeled, unlabeled) = placed.partition { (_, placement) -> placement.subGroup != null }
+            val subGroups = labeled
+                .groupBy { (_, placement) -> placement.subGroup!!.key }
+                .map { (key, subEntries) ->
+                    SubGroup(
+                        key = key,
+                        label = subEntries.first().second.subGroup!!.label,
+                        logs = subEntries.map { it.first }
+                    )
+                }
                 .sortedByDescending { it.logs.first().timestamp }
             ConversationGroup(
-                packageName = packageName,
-                appName = packageName?.let { AppInfoUtils.getAppName(context, it) }
-                    ?: context.getString(R.string.conversation_group_unknown),
-                logs = sorted,
-                senderGroups = senderGroups,
-                unlabeledLogs = unlabeled
+                groupKey = groupKey,
+                title = placed.first().second.title,
+                logs = placed.map { it.first },
+                subGroups = subGroups,
+                unlabeledLogs = unlabeled.map { it.first }
             )
         }
         .sortedByDescending { it.logs.first().timestamp }

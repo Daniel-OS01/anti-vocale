@@ -360,6 +360,10 @@ class BridgeApplication : Application(), Configuration.Provider {
                         notifyGenericInterrupted =
                             runCatching { preferencesManager.getInterruptedRunNotifications() }
                                 .getOrDefault(PreferencesManager.DEFAULT_INTERRUPTED_RUN_NOTIFICATIONS),
+                        // R3: a suspended legacy folder-watch row's re-run
+                        // keeps its folder section (the sweep contains a
+                        // failed read itself).
+                        loadWatchedFolders = { scheduledFolderStore.folders() },
                     )
             }.onFailure { e ->
                 android.util.Log.e("BridgeApplication", "Non-terminal log sweep failed", e)

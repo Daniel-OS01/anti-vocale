@@ -2,6 +2,7 @@ package com.antivocale.app.ui.viewmodel
 
 import android.content.Context
 import android.net.Uri
+import com.antivocale.app.data.SourceKind
 import com.antivocale.app.data.VoiceNoteDuplicateGuard
 import com.antivocale.app.data.local.LogEntity
 import com.antivocale.app.receiver.SubtitleChoice
@@ -76,6 +77,7 @@ class LogsViewModelBatchIntakeTest : ViewModelTeardownTest() {
             mockk(relaxed = true),
             orchestrator = mockk(relaxed = true),
             duplicateGuard = duplicateGuard,
+            scheduledFolderStore = mockk(relaxed = true),
             appScope = appScope,
         ))
     }
@@ -98,7 +100,7 @@ class LogsViewModelBatchIntakeTest : ViewModelTeardownTest() {
     private fun stubSubtitleProbe() {
         mockkObject(SubtitleChoice)
         every {
-            SubtitleChoice.offerIfTracks(any(), any(), any(), any(), any(), any(), any())
+            SubtitleChoice.offerIfTracks(any(), any(), any(), any(), any(), any(), any(), any(), any())
         } returns true
     }
 
@@ -203,7 +205,7 @@ class LogsViewModelBatchIntakeTest : ViewModelTeardownTest() {
         withTimeout(30_000) {
             verify(timeout = 10_000) {
                 SubtitleChoice.offerIfTracks(
-                    any(), any(), eq("/tmp/browse-copy"), any(), any(), any(), any())
+                    any(), any(), eq("/tmp/browse-copy"), any(), any(), any(), any(), eq(SourceKind.BROWSE), any())
             }
         }
         // ...and the pending dialog was not displaced.
@@ -256,7 +258,7 @@ class LogsViewModelBatchIntakeTest : ViewModelTeardownTest() {
         withTimeout(30_000) {
             verify(timeout = 10_000) {
                 SubtitleChoice.offerIfTracks(
-                    any(), any(), eq(staged.absolutePath), any(), any(), any(), any())
+                    any(), any(), eq(staged.absolutePath), any(), any(), any(), any(), eq(SourceKind.BROWSE), any())
             }
         }
         // The probe owns the request (stubbed true) and the file survives

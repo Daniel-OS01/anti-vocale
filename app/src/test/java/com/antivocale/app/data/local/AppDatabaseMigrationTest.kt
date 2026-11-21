@@ -46,7 +46,7 @@ private val ALL_MIGRATIONS = arrayOf(
     AppDatabase.MIGRATION_7_8, AppDatabase.MIGRATION_8_9, AppDatabase.MIGRATION_9_10,
     AppDatabase.MIGRATION_10_11, AppDatabase.MIGRATION_11_12, AppDatabase.MIGRATION_12_13,
     AppDatabase.MIGRATION_13_14, AppDatabase.MIGRATION_14_15,
-    AppDatabase.MIGRATION_15_16,
+    AppDatabase.MIGRATION_15_16, AppDatabase.MIGRATION_16_17,
 )
 
 @RunWith(AndroidJUnit4::class)
@@ -307,6 +307,38 @@ class AppDatabaseMigrationTest {
         val failed = runBlocking { db!!.logDao().getByTaskId("task-1") }
         assertNull(failed!!.savedFolderName)
         assertEquals("permission revoked", failed.saveFailureReason)
+    }
+
+    /**
+     * R3 (v17): the request-origin columns are nullable with no default;
+     * pre-v17 rows must read as "unknown origin" (all null) and a whole-row
+     * update must persist the origin through the entity mapping.
+     */
+    @Test
+    fun migrate_16_to_17_addsSourceOriginColumns_nullForOldRows() {
+        seedV2Database()
+        db = Room.databaseBuilder(context, AppDatabase::class.java, DB_NAME)
+            .addMigrations(*ALL_MIGRATIONS)
+            .allowMainThreadQueries()
+            .build()
+
+        val row = runBlocking { db!!.logDao().getByTaskId("task-1") }
+        assertNotNull(row)
+        assertNull("sourceKind defaults null pre-v17", row!!.sourceKind)
+        assertNull("sourceFolderKey defaults null pre-v17", row.sourceFolderKey)
+        assertNull("sourceFolderName defaults null pre-v17", row.sourceFolderName)
+        assertNull("sourceSubPath defaults null pre-v17", row.sourceSubPath)
+
+        runBlocking {
+            db!!.logDao().update(row.copy(
+                sourceKind = "folder_watch", sourceFolderKey = "tree:primary:Voice",
+                sourceFolderName = "Voice", sourceSubPath = "2026/11"))
+        }
+        val updated = runBlocking { db!!.logDao().getByTaskId("task-1") }
+        assertEquals("folder_watch", updated!!.sourceKind)
+        assertEquals("tree:primary:Voice", updated.sourceFolderKey)
+        assertEquals("Voice", updated.sourceFolderName)
+        assertEquals("2026/11", updated.sourceSubPath)
     }
 
     /** A fresh v3 DB (no migration) must also be internally consistent with the entity. */

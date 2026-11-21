@@ -1060,6 +1060,12 @@
     <string name="compact_result_actions_description">Zeigt die Transkriptionsaktionen nur als Symbole in der Ecke der Karte an. Deaktivieren für beschriftete Schaltflächen.</string>
     <string name="conversation_grouping_description">Gruppiert Transkriptionen nach Quell-App (WhatsApp, Telegram usw.) in einklappbaren Abschnitten.</string>
     <string name="conversation_group_unknown">Andere</string>
+    <!-- R3: History origin sections (group by source) -->
+    <string name="history_group_folder">📁 %1$s</string>
+    <string name="history_group_folder_sync">Ordnersynchronisierung</string>
+    <string name="history_group_imported">Importierte Dateien</string>
+    <string name="history_group_shared">Geteilte Dateien</string>
+    <string name="history_group_automation">Automatisierung</string>
 
     <!-- Re-transcribe -->
     <string name="retranscribe">Erneut versuchen</string>

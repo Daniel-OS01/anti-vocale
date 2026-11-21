@@ -17,6 +17,7 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.antivocale.app.data.CallRecordingFilenames
+import com.antivocale.app.data.SourceKind
 import com.antivocale.app.data.FileSnapshot
 import com.antivocale.app.data.FolderScanPlanner
 import com.antivocale.app.data.ScheduledFolderStore
@@ -138,7 +139,12 @@ class ScheduledFolderWorker @AssistedInject constructor(
                     } else {
                         val copy = SharedAudioHandler.copyToAppStorage(applicationContext, uri)
                         val outcome = (copy as? SharedAudioHandler.CopyResult.Success)
-                            ?.let { InferenceEnqueue.start(applicationContext, buildServiceIntent(it.path, child.name, treeUriString)) }
+                            ?.let {
+                                InferenceEnqueue.start(
+                                    applicationContext,
+                                    buildServiceIntent(it.path, child.name, treeUriString, folder.displayName),
+                                )
+                            }
                         if (copy is SharedAudioHandler.CopyResult.Success &&
                             outcome !is InferenceEnqueue.Outcome.Failed
                         ) {
@@ -222,7 +228,12 @@ class ScheduledFolderWorker @AssistedInject constructor(
      * watch as the source so History rows and the skip logic can tell the
      * origin apart; no source package (no calling app).
      */
-    private fun buildServiceIntent(localPath: String, fileName: String, treeUri: String): Intent =
+    private fun buildServiceIntent(
+        localPath: String,
+        fileName: String,
+        treeUri: String,
+        folderName: String,
+    ): Intent =
         // TASK-776: the shared audio-request factory; the taskId stays
         // local because its derivation is this worker's contract.
         AudioRequestIntent.make(
@@ -233,7 +244,11 @@ class ScheduledFolderWorker @AssistedInject constructor(
             // collide (the service drops duplicate task ids silently).
             "fwatch_${treeUri.hashCode().toUInt()}_${System.currentTimeMillis()}_${fileName.hashCode().toUInt()}",
             localPath,
-            senderName = CallRecordingFilenames.callerFromFileName(fileName))
+            senderName = CallRecordingFilenames.callerFromFileName(fileName),
+            sourceKind = SourceKind.FOLDER_WATCH,
+            sourceFolderKey = treeUri,
+            sourceFolderName = folderName,
+        )
 
     companion object {
         private const val TAG = "ScheduledFolderWorker"

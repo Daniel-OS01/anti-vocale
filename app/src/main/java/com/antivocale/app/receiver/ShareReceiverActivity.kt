@@ -18,6 +18,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.mutableStateListOf
 import androidx.core.app.NotificationCompat
 import com.antivocale.app.R
+import com.antivocale.app.data.SourceKind
 import com.antivocale.app.MainActivity
 import com.antivocale.app.data.ExternalModelRecord
 import com.antivocale.app.data.PreferencesManager
@@ -681,7 +682,9 @@ class ShareReceiverActivity : ComponentActivity() {
                 source = InferenceService.SOURCE_SHARE,
                 sourcePackage = sourcePackage,
                 backendOverride = backendOverride,
-                contentHash = contentHash)
+                contentHash = contentHash,
+                sourceKind = SourceKind.SHARE,
+            )
         }
 
         // GH #18: the decode probe gates only the ASR path; subtitle-only
@@ -729,7 +732,9 @@ class ShareReceiverActivity : ComponentActivity() {
             sourcePackage = sourcePackage,
             backendOverride = backendOverride,
             senderName = senderName,
-            contentHash = contentHash)
+            contentHash = contentHash,
+            sourceKind = SourceKind.SHARE,
+        )
 
         // F6: unified enqueue (trampoline fallback on the API 31+
         // restriction). The Failed branch is the no-signal case (e.g.
@@ -851,7 +856,10 @@ class ShareReceiverActivity : ComponentActivity() {
      */
     private fun dispatchSubtitleImport(taskId: String, localPath: String) {
         val serviceIntent = AudioRequestIntent.subtitleImport(
-            this, taskId, localPath, sourcePackage = sourcePackage)
+            this, taskId, localPath,
+            sourcePackage = sourcePackage,
+            sourceKind = SourceKind.SHARE,
+        )
 
         enqueueAndFinish(taskId, serviceIntent, "subtitle import")
     }

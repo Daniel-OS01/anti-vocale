@@ -1104,6 +1104,12 @@
         <item quantity="other">%1$d berichten</item>
     </plurals>
     <string name="conversation_group_unknown">Overig</string>
+    <!-- R3: History origin sections (group by source) -->
+    <string name="history_group_folder">📁 %1$s</string>
+    <string name="history_group_folder_sync">Mapsynchronisatie</string>
+    <string name="history_group_imported">Geïmporteerde bestanden</string>
+    <string name="history_group_shared">Gedeelde bestanden</string>
+    <string name="history_group_automation">Automatisering</string>
 
     <!-- Re-transcribe -->
     <string name="retranscribe">Opnieuw proberen</string>
