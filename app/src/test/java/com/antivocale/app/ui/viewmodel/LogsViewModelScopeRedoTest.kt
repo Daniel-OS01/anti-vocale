@@ -43,6 +43,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import org.robolectric.shadows.ShadowLog
 
 /**
  * The redo offer after a History folder or subfolder rule save: the rows the
@@ -279,5 +280,26 @@ class LogsViewModelScopeRedoTest : ViewModelTeardownTest() {
         assertFalse(viewModel.scopeRedoBusy.value)
         coVerify(exactly = 1) { bulkRedo.prepare(any(), any(), any()) }
         viewModel.cancelBulkRedo()
+    }
+
+    @Test
+    fun `a failed offer logs the event and exception class only`() = runBlocking {
+        ShadowLog.clear()
+        coEvery { logDao.getByIds(any()) } throws IllegalStateException("/storage/emulated/0/Recorder/secret-call.m4a")
+
+        viewModel.saveFolderRule(HistoryGroupScope.Subfolder(tree, "Russian"), TranscriptionProfile(language = "ru"))
+        val failure = withTimeout(30_000) {
+            var found: ShadowLog.LogItem? = null
+            while (found == null) {
+                found = ShadowLog.getLogs().firstOrNull { it.msg.contains("history_scope_redo_offer_failed") }
+                if (found == null) delay(20)
+            }
+            found
+        }
+
+        assertNull(failure.throwable)
+        assertTrue(failure.msg.contains("IllegalStateException"))
+        assertFalse(failure.msg.contains("secret-call"))
+        assertTrue(ShadowLog.getLogs().none { it.throwable != null || it.msg.contains("secret-call") })
     }
 }

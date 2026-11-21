@@ -1243,7 +1243,7 @@ class LogsViewModel @Inject constructor(
                 throw e
             } catch (e: Exception) {
                 // Never the folder name, tree uri, path or sender: they can identify people.
-                Log.w(TAG, "history_scope_rule_write_failed", e)
+                Log.w(TAG, "event=history_scope_rule_write_failed error=${e.javaClass.simpleName}")
                 null
             }
             if (folders == null) return@launch
@@ -1252,7 +1252,7 @@ class LogsViewModel @Inject constructor(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                Log.w(TAG, "history_scope_redo_offer_failed", e)
+                Log.w(TAG, "event=history_scope_redo_offer_failed error=${e.javaClass.simpleName}")
             }
         }
     }
