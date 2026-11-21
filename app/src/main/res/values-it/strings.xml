@@ -1427,4 +1427,7 @@
     <string name="models_fit_summary_off">Modelli adatti al tuo telefono: %1$d di %2$d</string>
     <string name="models_fit_badge_heavy">Pesante</string>
     <string name="models_header_toggle_title">Filtri e compatibilità</string>
+    <string name="voice_note_model_title">Modello</string>
+    <string name="voice_note_model_default">Modello attivo (predefinito)</string>
+    <string name="voice_note_model_single_pass_hint">Il doppio passaggio è disattivato per questa fonte</string>
 </resources>

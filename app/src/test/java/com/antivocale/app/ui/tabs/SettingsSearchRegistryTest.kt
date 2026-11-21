@@ -465,6 +465,10 @@ class SettingsSearchRegistryTest {
         assertTrue(vocab.contains(R.string.voice_note_detection_description))
         assertTrue(vocab.contains(R.string.voice_note_folder_card_title))
         assertTrue(vocab.contains(R.string.voice_note_folder_card_desc))
+        // R5: the per-source model picker's strings.
+        assertTrue(vocab.contains(R.string.voice_note_model_title))
+        assertTrue(vocab.contains(R.string.voice_note_model_default))
+        assertTrue(vocab.contains(R.string.voice_note_model_single_pass_hint))
     }
 
     @Test

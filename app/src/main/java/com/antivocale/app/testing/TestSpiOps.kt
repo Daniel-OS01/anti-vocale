@@ -527,6 +527,23 @@ internal class TestSpiOps(
                         "'${RemoteOmnivoiceBackend.BACKEND_ID}' or '${ExternalModelRecord.BACKEND_ID_PREFIX}<record id>')"
                 }
             }
+            // The per-source voice-note model pins. Blank = the active model.
+            putUnique("voice_note_model") { value, _ ->
+                if (value.isBlank() || isKnownBackend(value)) {
+                    preferences.saveVoiceNoteBackendId(value)
+                    null
+                } else {
+                    "unknown backend '$value' (blank, a catalog id or '${ExternalModelRecord.BACKEND_ID_PREFIX}<record id>')"
+                }
+            }
+            putUnique("voice_note_business_model") { value, _ ->
+                if (value.isBlank() || isKnownBackend(value)) {
+                    preferences.saveVoiceNoteBusinessBackendId(value)
+                    null
+                } else {
+                    "unknown backend '$value' (blank, a catalog id or '${ExternalModelRecord.BACKEND_ID_PREFIX}<record id>')"
+                }
+            }
             putUnique("sherpa_path") { value, entry ->
                 if (entry == null || entry !in BuiltInBackendIds.ALL) {
                     "sherpa_path requires entry=<catalog id> " +

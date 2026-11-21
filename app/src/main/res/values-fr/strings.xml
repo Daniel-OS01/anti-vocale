@@ -1289,4 +1289,7 @@
     <string name="models_fit_summary_off">Modèles adaptés à votre téléphone : %1$d sur %2$d</string>
     <string name="models_fit_badge_heavy">Lourd</string>
     <string name="models_header_toggle_title">Filtres et compatibilité</string>
+    <string name="voice_note_model_title">Modèle</string>
+    <string name="voice_note_model_default">Modèle actif (par défaut)</string>
+    <string name="voice_note_model_single_pass_hint">Le mode en deux passes est désactivé pour cette source</string>
 </resources>

@@ -1421,4 +1421,7 @@
     <string name="models_fit_summary_off">Modelle, die zu deinem Handy passen: %1$d von %2$d</string>
     <string name="models_fit_badge_heavy">Schwer</string>
     <string name="models_header_toggle_title">Filter und Gerätetauglichkeit</string>
+    <string name="voice_note_model_title">Modell</string>
+    <string name="voice_note_model_default">Aktives Modell (Standard)</string>
+    <string name="voice_note_model_single_pass_hint">Zweipassig ist für diese Quelle aus</string>
 </resources>

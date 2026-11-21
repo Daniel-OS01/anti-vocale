@@ -1447,4 +1447,7 @@
     <string name="models_fit_summary_off">Models that fit your phone: %1$d of %2$d</string>
     <string name="models_fit_badge_heavy">Heavy</string>
     <string name="models_header_toggle_title">Filters and device fit</string>
+    <string name="voice_note_model_title">Model</string>
+    <string name="voice_note_model_default">Active model (default)</string>
+    <string name="voice_note_model_single_pass_hint">Two-pass is off for this source</string>
 </resources>

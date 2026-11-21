@@ -1453,4 +1453,7 @@
     <string name="models_fit_summary_off">Моделі, які підходять вашому телефону: %1$d із %2$d</string>
     <string name="models_fit_badge_heavy">Важкий</string>
     <string name="models_header_toggle_title">Фільтри та сумісність</string>
+    <string name="voice_note_model_title">Модель</string>
+    <string name="voice_note_model_default">Активна модель (за замовчуванням)</string>
+    <string name="voice_note_model_single_pass_hint">Двопрохідний режим для цього джерела вимкнено</string>
 </resources>

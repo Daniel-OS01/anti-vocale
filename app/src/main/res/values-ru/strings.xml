@@ -1452,4 +1452,7 @@
     <string name="models_fit_summary_off">Модели, подходящие вашему телефону: %1$d из %2$d</string>
     <string name="models_fit_badge_heavy">Тяжёлый</string>
     <string name="models_header_toggle_title">Фильтры и совместимость</string>
+    <string name="voice_note_model_title">Модель</string>
+    <string name="voice_note_model_default">Активная модель (по умолчанию)</string>
+    <string name="voice_note_model_single_pass_hint">Двухпроходный режим для этого источника отключён</string>
 </resources>

@@ -1289,4 +1289,7 @@
     <string name="models_fit_summary_off">Modelos adequados ao seu telefone: %1$d de %2$d</string>
     <string name="models_fit_badge_heavy">Pesado</string>
     <string name="models_header_toggle_title">Filtros e compatibilidade</string>
+    <string name="voice_note_model_title">Modelo</string>
+    <string name="voice_note_model_default">Modelo ativo (padrão)</string>
+    <string name="voice_note_model_single_pass_hint">A passagem dupla está desativada para esta fonte</string>
 </resources>

@@ -1247,4 +1247,7 @@
     <string name="models_fit_summary_off">适合你手机的模型：%2$d 个中的 %1$d 个</string>
     <string name="models_fit_badge_heavy">较重</string>
     <string name="models_header_toggle_title">筛选与设备适配</string>
+    <string name="voice_note_model_title">模型</string>
+    <string name="voice_note_model_default">当前活动模型（默认）</string>
+    <string name="voice_note_model_single_pass_hint">此来源已关闭两遍模式</string>
 </resources>

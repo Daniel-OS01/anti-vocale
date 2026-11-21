@@ -1426,4 +1426,7 @@
     <string name="models_fit_summary_off">مدل‌های مناسب گوشی شما: %1$d از %2$d</string>
     <string name="models_fit_badge_heavy">سنگین</string>
     <string name="models_header_toggle_title">فیلترها و سازگاری</string>
+    <string name="voice_note_model_title">مدل</string>
+    <string name="voice_note_model_default">مدل فعال (پیش‌فرض)</string>
+    <string name="voice_note_model_single_pass_hint">دو‌گذره برای این منبع خاموش است</string>
 </resources>

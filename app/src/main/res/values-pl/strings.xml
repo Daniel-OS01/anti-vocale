@@ -1451,4 +1451,7 @@
     <string name="models_fit_summary_off">Modele pasujące do twojego telefonu: %1$d z %2$d</string>
     <string name="models_fit_badge_heavy">Ciężki</string>
     <string name="models_header_toggle_title">Filtry i dopasowanie</string>
+    <string name="voice_note_model_title">Model</string>
+    <string name="voice_note_model_default">Aktywny model (domyślny)</string>
+    <string name="voice_note_model_single_pass_hint">Tryb dwuprzebiegowy jest wyłączony dla tego źródła</string>
 </resources>

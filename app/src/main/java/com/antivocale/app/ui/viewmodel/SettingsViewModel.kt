@@ -514,6 +514,36 @@ class SettingsViewModel @Inject constructor(
     private val _previewModelBackendId = MutableStateFlow("")
     val previewModelBackendId: StateFlow<String> = _previewModelBackendId.asStateFlow()
 
+    /** The WhatsApp voice-note model pin; blank = the active model. */
+    private val _voiceNoteBackendId = MutableStateFlow("")
+    val voiceNoteBackendId: StateFlow<String> = _voiceNoteBackendId.asStateFlow()
+
+    /** The WhatsApp Business twin of [voiceNoteBackendId]. */
+    private val _voiceNoteBusinessBackendId = MutableStateFlow("")
+    val voiceNoteBusinessBackendId: StateFlow<String> = _voiceNoteBusinessBackendId.asStateFlow()
+
+    fun saveVoiceNoteBackendId(backendId: String) {
+        viewModelScope.launch {
+            try {
+                preferencesManager.saveVoiceNoteBackendId(backendId)
+                _voiceNoteBackendId.value = backendId
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to save voice-note model pin", e)
+            }
+        }
+    }
+
+    fun saveVoiceNoteBusinessBackendId(backendId: String) {
+        viewModelScope.launch {
+            try {
+                preferencesManager.saveVoiceNoteBusinessBackendId(backendId)
+                _voiceNoteBusinessBackendId.value = backendId
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to save voice-note business model pin", e)
+            }
+        }
+    }
+
     /** True when the automatic fast-arm choice found nothing but another
      *  usable model is installed: the card shows the preview picker and the
      *  locked reason asks the user to choose one. */
@@ -1056,6 +1086,12 @@ class SettingsViewModel @Inject constructor(
         }
         viewModelScope.launch {
             preferencesManager.previewModelBackendId.collect { _previewModelBackendId.value = it }
+        }
+        viewModelScope.launch {
+            preferencesManager.voiceNoteBackendId.collect { _voiceNoteBackendId.value = it }
+        }
+        viewModelScope.launch {
+            preferencesManager.voiceNoteBusinessBackendId.collect { _voiceNoteBusinessBackendId.value = it }
         }
         viewModelScope.launch {
             activeModelRepository.installedBackendsFlow.collect { _installedBackends.value = it }
