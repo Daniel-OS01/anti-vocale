@@ -1013,7 +1013,7 @@ fun HistoryTab(
                 )
             },
             confirmButton = {
-                TextButton(onClick = viewModel::confirmScopeRedo) {
+                TextButton(onClick = { viewModel.confirmScopeRedo(offer.id) }) {
                     Text(stringResource(R.string.scope_redo_offer_redo))
                 }
             },

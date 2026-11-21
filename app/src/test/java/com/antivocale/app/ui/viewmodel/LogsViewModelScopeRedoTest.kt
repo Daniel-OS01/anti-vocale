@@ -28,6 +28,7 @@ import io.mockk.mockk
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -148,9 +149,9 @@ class LogsViewModelScopeRedoTest : ViewModelTeardownTest() {
             restagedPaths = emptyList(), backendId = "gigaam",
         )
         viewModel.saveFolderRule(HistoryGroupScope.Subfolder(tree, "Russian"), TranscriptionProfile(language = "ru"))
-        awaitOffer()
+        val offer = awaitOffer()
 
-        viewModel.confirmScopeRedo()
+        viewModel.confirmScopeRedo(offer.id)
 
         assertNull(viewModel.scopeRedoOffer.value)
         withTimeout(30_000) { viewModel.bulkRedoState.first { it is BulkRedoUiState.Summary } }
@@ -178,9 +179,9 @@ class LogsViewModelScopeRedoTest : ViewModelTeardownTest() {
         coEvery { bulkRedo.prepare(any(), any(), any()) } coAnswers { gate.await() }
         assertTrue(viewModel.redoRows(listOf("other"), TranscriptionProfile()))
         viewModel.saveFolderRule(HistoryGroupScope.Subfolder(tree, "Russian"), TranscriptionProfile(language = "ru"))
-        awaitOffer()
+        val offer = awaitOffer()
 
-        viewModel.confirmScopeRedo()
+        viewModel.confirmScopeRedo(offer.id)
 
         assertTrue(viewModel.scopeRedoBusy.value)
         assertNull(viewModel.scopeRedoOffer.value)
@@ -200,5 +201,83 @@ class LogsViewModelScopeRedoTest : ViewModelTeardownTest() {
         assertEquals(listOf("root", "ru", "ru-2024"), offer.rowIds)
         assertEquals(TranscriptionProfile(), offer.profile)
         assertTrue(offer.ruleRemoved)
+    }
+
+    /** The first planning read (save A) parks on [gate]; later reads return at once. */
+    private fun holdFirstPlanningRead(gate: CompletableDeferred<Unit>, started: CompletableDeferred<Unit>) {
+        var calls = 0
+        coEvery { logDao.getByIds(any()) } coAnswers {
+            if (calls++ == 0) {
+                started.complete(Unit)
+                gate.await()
+            }
+            rows
+        }
+    }
+
+    @Test
+    fun `a slower older save never replaces the newer save's offer`() = runBlocking {
+        val gate = CompletableDeferred<Unit>()
+        val started = CompletableDeferred<Unit>()
+        holdFirstPlanningRead(gate, started)
+        // A: language-only Russian rule (rows ru, ru-2024), parked while planning.
+        viewModel.saveFolderRule(HistoryGroupScope.Subfolder(tree, "Russian"), TranscriptionProfile(language = "ru"))
+        withTimeout(30_000) { started.await() }
+        // B: finishes first with its own rows.
+        viewModel.saveFolderRule(HistoryGroupScope.Subfolder(tree, "Russian/Work"), TranscriptionProfile(backendId = "parakeet"))
+        val offerB = awaitOffer()
+        assertEquals(listOf("ru-work"), offerB.rowIds)
+
+        gate.complete(Unit)
+        delay(1_000) // negative assertion: give A time to (wrongly) publish
+
+        assertEquals(offerB, viewModel.scopeRedoOffer.value)
+    }
+
+    @Test
+    fun `a newer save with no candidates leaves no offer once the older save completes`() = runBlocking {
+        val gate = CompletableDeferred<Unit>()
+        val started = CompletableDeferred<Unit>()
+        holdFirstPlanningRead(gate, started)
+        viewModel.saveFolderRule(HistoryGroupScope.Subfolder(tree, "Russian"), TranscriptionProfile(language = "ru"))
+        withTimeout(30_000) { started.await() }
+        // B governs no existing row.
+        viewModel.saveFolderRule(HistoryGroupScope.Subfolder(tree, "Empty/Path"), TranscriptionProfile(language = "ru"))
+        delay(500)
+        assertNull(viewModel.scopeRedoOffer.value)
+
+        gate.complete(Unit)
+        delay(1_000)
+
+        assertNull(viewModel.scopeRedoOffer.value)
+    }
+
+    @Test
+    fun `confirm with a stale offer id does nothing`() = runBlocking {
+        viewModel.saveFolderRule(HistoryGroupScope.Subfolder(tree, "Russian"), TranscriptionProfile(language = "ru"))
+        val offerA = awaitOffer()
+        viewModel.saveFolderRule(HistoryGroupScope.Subfolder(tree, "Russian/Work"), TranscriptionProfile(backendId = "parakeet"))
+        val offerB = awaitOffer()
+
+        viewModel.confirmScopeRedo(offerA.id)
+
+        assertEquals(offerB, viewModel.scopeRedoOffer.value)
+        assertEquals(BulkRedoUiState.Idle, viewModel.bulkRedoState.value)
+        coVerify(exactly = 0) { bulkRedo.prepare(any(), any(), any()) }
+    }
+
+    @Test
+    fun `a double confirm submits the redo once`() = runBlocking {
+        val gate = CompletableDeferred<PreparedBatch>()
+        coEvery { bulkRedo.prepare(any(), any(), any()) } coAnswers { gate.await() }
+        viewModel.saveFolderRule(HistoryGroupScope.Subfolder(tree, "Russian"), TranscriptionProfile(language = "ru"))
+        val offer = awaitOffer()
+
+        viewModel.confirmScopeRedo(offer.id)
+        viewModel.confirmScopeRedo(offer.id)
+
+        assertFalse(viewModel.scopeRedoBusy.value)
+        coVerify(exactly = 1) { bulkRedo.prepare(any(), any(), any()) }
+        viewModel.cancelBulkRedo()
     }
 }

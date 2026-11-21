@@ -1222,6 +1222,11 @@ class LogsViewModel @Inject constructor(
      * rows the rule now governs ([scopeRedoOffer]).
      */
     internal fun saveFolderRule(scope: HistoryGroupScope, profile: TranscriptionProfile?) {
+        // Each save is an independent coroutine: a slower older save must never
+        // publish its offer over a newer one. The generation is taken (and any
+        // pending offer cleared) synchronously, before the launch.
+        val generation = ++scopeRedoGeneration
+        _scopeRedoOffer.value = null
         viewModelScope.launch {
             val folders: List<WatchedFolder>? = try {
                 when (scope) {
@@ -1243,7 +1248,7 @@ class LogsViewModel @Inject constructor(
             }
             if (folders == null) return@launch
             try {
-                offerScopeRedo(scope, folders, ruleRemoved = profile == null || profile.isEmpty)
+                offerScopeRedo(generation, scope, folders, ruleRemoved = profile == null || profile.isEmpty)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -1254,11 +1259,16 @@ class LogsViewModel @Inject constructor(
 
     /** "Redo N existing files with this rule?": the rows and the profile the rule resolves to. */
     data class ScopeRedoOffer(
+        /** The save generation that produced it; confirm must present the id it displayed. */
+        val id: Int,
         val rowIds: List<String>,
         val profile: TranscriptionProfile,
         /** The save removed the rule: the rows now follow the folder default or global model. */
         val ruleRemoved: Boolean,
     )
+
+    /** Bumped by every [saveFolderRule]; only the latest save's offer may be published. Main thread only. */
+    private var scopeRedoGeneration = 0
 
     private val _scopeRedoOffer = MutableStateFlow<ScopeRedoOffer?>(null)
     val scopeRedoOffer: StateFlow<ScopeRedoOffer?> = _scopeRedoOffer.asStateFlow()
@@ -1268,6 +1278,7 @@ class LogsViewModel @Inject constructor(
     val scopeRedoBusy: StateFlow<Boolean> = _scopeRedoBusy.asStateFlow()
 
     private suspend fun offerScopeRedo(
+        generation: Int,
         scope: HistoryGroupScope,
         folders: List<WatchedFolder>,
         ruleRemoved: Boolean,
@@ -1295,17 +1306,26 @@ class LogsViewModel @Inject constructor(
         Log.i(TAG, "event=scope_redo_planned rows=${ids.size}")
         if (ids.isEmpty()) return
         val resolved = scopeProfileSource.resolve(OriginFacts(folderTreeUri = treeUri, subPath = scopeSubPath))
+        // A newer save started while this one was planning: its state owns the offer.
+        if (generation != scopeRedoGeneration) return
         _scopeRedoOffer.value = ScopeRedoOffer(
+            id = generation,
             rowIds = ids,
             profile = TranscriptionProfile(resolved.backendOverride, resolved.languageOverride),
             ruleRemoved = ruleRemoved,
         )
     }
 
-    /** The offer's Redo: starts the bulk redo, or flags [scopeRedoBusy] when another batch runs. */
-    fun confirmScopeRedo() {
+    /**
+     * The offer's Redo for the offer the dialog DISPLAYS ([offerId]): starts the
+     * bulk redo, or flags [scopeRedoBusy] when another batch runs. A stale id
+     * (the offer was replaced) or a repeated tap does nothing.
+     */
+    fun confirmScopeRedo(offerId: Int) {
         val offer = _scopeRedoOffer.value ?: return
-        _scopeRedoOffer.value = null
+        if (offer.id != offerId) return
+        // compareAndSet: a double tap clears once, so the redo is submitted once.
+        if (!_scopeRedoOffer.compareAndSet(offer, null)) return
         if (!redoRows(offer.rowIds, offer.profile)) _scopeRedoBusy.value = true
     }
 
