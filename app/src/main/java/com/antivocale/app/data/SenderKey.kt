@@ -92,19 +92,29 @@ object FrameworkPhoneNormalizer : PhoneNormalizer {
     }
 }
 
-/** The device's country (network, then SIM, then locale), lowercase ISO 3166 alpha-2, or null. */
+/**
+ * The device's country (SIM, then network, then locale), lowercase ISO 3166
+ * alpha-2, or null. The SIM country is the home country and stays put; the
+ * network country follows the phone while roaming, so a national-format call
+ * label normalized under it would drift to another key and stop matching
+ * the user's sender rule (and History or a re-run deriving it later would
+ * disagree with the original).
+ */
 object DeviceCountry {
     fun iso(context: Context): String? {
         val telephony = context.getSystemService(TelephonyManager::class.java)
-        return sequenceOf<() -> String?>(
-            { telephony?.networkCountryIso },
-            { telephony?.simCountryIso },
-            { Locale.getDefault().country },
+        return pick(
+            sim = telephony?.simCountryIso,
+            network = telephony?.networkCountryIso,
+            locale = Locale.getDefault().country,
         )
-            .map { it() }
+    }
+
+    /** The first non-blank of [sim], [network], [locale], lowercased. */
+    internal fun pick(sim: String?, network: String?, locale: String?): String? =
+        sequenceOf(sim, network, locale)
             .firstOrNull { !it.isNullOrBlank() }
             ?.lowercase(Locale.ROOT)
-    }
 }
 
 /** Pure derivation of [SenderKey]s from what each origin knows about its sender. */

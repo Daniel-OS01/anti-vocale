@@ -198,4 +198,16 @@ class SenderKeysTest {
         assertNull(SenderKeys.forRow(SourceKind.FOLDER_WATCH, null, null, "us", fakeE164))
         assertNull(SenderKeys.forRow(SourceKind.SHARE, "com.whatsapp", null, "us", fakeE164))
     }
+
+    @Test
+    fun `roaming keeps the SIM home country over the network country`() {
+        assertEquals("il", DeviceCountry.pick(sim = "il", network = "it", locale = "US"))
+    }
+
+    @Test
+    fun `country falls back to network then locale and lowercases`() {
+        assertEquals("it", DeviceCountry.pick(sim = "", network = "IT", locale = "US"))
+        assertEquals("us", DeviceCountry.pick(sim = null, network = " ", locale = "US"))
+        assertNull(DeviceCountry.pick(sim = null, network = null, locale = ""))
+    }
 }
