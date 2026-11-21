@@ -169,10 +169,12 @@ class TranscriptionNotificationListener(
         isNoModelError: Boolean,
         durationMs: Long,
         isMemoryFailure: Boolean,
-        isDecodeError: Boolean
+        isDecodeError: Boolean,
+        titleRes: Int,
     ) {
         if (!isShareRequest) return
-        if (isNoModelError) showNoModelNotification() else showErrorNotification(errorMessage, isMemoryFailure)
+        if (isNoModelError) showNoModelNotification()
+        else showErrorNotification(errorMessage, isMemoryFailure, titleRes)
     }
 
     // ---- Auto-Copy (ported from InferenceService to keep the service untouched) ----
@@ -242,10 +244,10 @@ class TranscriptionNotificationListener(
 
     // ---- Notifications (ported from InferenceService) ----
 
-    private fun showErrorNotification(errorMessage: String, isMemoryFailure: Boolean) {
+    private fun showErrorNotification(errorMessage: String, isMemoryFailure: Boolean, titleRes: Int) {
         // TASK-625: composition lives in ResultNotificationFactory (both error
         // surfaces and the TEST_SPI simulate op share this one builder).
-        val notification = resultNotificationFactory.errorNotification(errorMessage, isMemoryFailure)
+        val notification = resultNotificationFactory.errorNotification(errorMessage, isMemoryFailure, titleRes)
         val id = ResultNotificationFactory.nextNotificationId()
         notificationManager.notify(id, notification)
         Log.i(TAG, "Worker showed error notification: $errorMessage (memoryAction=$isMemoryFailure, id=$id)")

@@ -266,6 +266,8 @@
     </plurals>
     <string name="transcription_partial_chip">Incomplete</string>
     <string name="transcription_failed">Transcription failed</string>
+    <string name="no_speech_detected_title">No speech detected</string>
+    <string name="no_speech_detected_message">The recording seems to contain no speech</string>
     <string name="error_model_load">The model file may be corrupt or the wrong format. Try re-downloading it from the Model tab.</string>
     <string name="error_model_external_corrupt">The files of the imported model are corrupt. Delete it from the Models tab and import it again.</string>
     <string name="error_model_corrupt_healed">Some model files were corrupt, so the app removed them. Open the Models tab and download the model again.</string>

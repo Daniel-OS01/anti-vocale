@@ -129,6 +129,20 @@ private fun OfflineModelConfig.withCommonTail(
 )
 
 /**
+ * Per-stream sherpa options to set on a fresh OFFLINE stream, right after
+ * `createStream()`, for [family] (null = a built-in catalog entry with no
+ * external-family equivalent). One definition shared by [ExternalSherpaBackend]
+ * (user imports) and [SherpaBackend] (built-in catalog entries).
+ */
+fun offlineStreamOptions(family: ModelFamily?): Map<String, String> = when (family) {
+    // sherpa's default per-stream token budget truncates Whisper output
+    // mid-utterance (logcat "token limit"); 30/s matches the desktop eval and
+    // cut ivrit Whisper Turbo HE WER from 12.5% to 8.7% on device.
+    ModelFamily.WHISPER -> mapOf("max_tokens_per_second" to "30")
+    else -> emptyMap()
+}
+
+/**
  * The family support table (spec: multi-family external models): per-family copy
  * planning, metadata routing, and sherpa config construction behind one interface,
  * so the importer (import-time) and [ExternalSherpaBackend] (load-time) share a
@@ -242,9 +256,9 @@ sealed interface ModelFamilySupport {
          * definition so the two moments cannot promise different things.
          */
         const val TRANSDUCER_EXPORT_GUIDANCE =
-            "Supported transducer exports are OFFLINE (non-streaming) ones carrying their " +
-                "original vocab_size/subsampling_factor metadata (Parakeet, GigaAM, k2-fsa " +
-                "offline zipformers); exports with 'streaming' in the name are not supported"
+            "Supported transducer exports are offline ones carrying their original " +
+                "vocab_size/subsampling_factor metadata (Parakeet, GigaAM, k2-fsa offline " +
+                "zipformers); streaming zipformer exports are detected automatically"
 
         /** Error raised when CTC is imported without an explicit modelType (single
          *  definition, DERIVED from [validModelTypes] so the list can never drift
@@ -345,8 +359,9 @@ object TransducerSupport : ModelFamilySupport {
             "vocab_size and subsampling_factor metadata. k2-fsa offline zipformers " +
             "import without metadata through the catalog entries (modelType empty); " +
             "a MANUAL import of one needs the NeMo subtype deselected and still cannot " +
-            "be pre-validated, so prefer the catalog entry. Anything 'streaming' in " +
-            "the name needs the catalog's streaming entry, never the offline importer."
+            "be pre-validated, so prefer the catalog entry. Streaming zipformer exports " +
+            "are detected automatically; a streaming NeMo export needs the catalog's " +
+            "streaming entry."
 
     override val family: ModelFamily = ModelFamily.TRANSDUCER
 

@@ -233,6 +233,8 @@
     </plurals>
     <string name="transcription_partial_chip">Kesken</string>
     <string name="transcription_failed">Transkriptio epäonnistui</string>
+    <string name="no_speech_detected_title">Puhetta ei havaittu</string>
+    <string name="no_speech_detected_message">Tallenne ei näytä sisältävän puhetta</string>
     <string name="error_model_load">Mallitiedosto voi olla vioittunut tai väärässä muodossa. Lataa se uudelleen Mallit-välilehdeltä.</string>
     <string name="error_model_external_corrupt">Tuodun mallin tiedostot ovat vioittuneet. Poista malli Mallit-välilehdeltä ja tuo se uudelleen.</string>
     <string name="error_model_corrupt_healed">Osa mallitiedostoista oli vioittunut, joten sovellus poisti ne. Avaa Mallit-välilehti ja lataa malli uudelleen.</string>

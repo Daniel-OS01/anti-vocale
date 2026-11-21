@@ -39,6 +39,7 @@ class TranscriptionOrchestratorQueueStatusTest {
             // TASK-670: never reached here (logQueued only), same rule.
             speakerIdentityStore = com.antivocale.app.transcription.diarization.SpeakerIdentityStore(
                 java.nio.file.Files.createTempDirectory("speaker-ids").toFile()),
+            blankDecodeSpeechProbe = mockk(),
         )
 
     @Test

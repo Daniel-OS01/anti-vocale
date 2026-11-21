@@ -375,6 +375,7 @@ sealed class TranscriptionException(message: String, cause: Throwable? = null) :
     class NoTranscriptionProduced(
         val blankChunks: Int? = null,
         val retriedChunks: Int? = null,
+        val noSpeech: Boolean = false,
     ) : TranscriptionException("No transcription produced")
 
     /** The device had too little free memory to load the model (pre-flight block). */

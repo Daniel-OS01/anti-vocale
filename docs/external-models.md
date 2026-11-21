@@ -288,8 +288,10 @@ carry their **original** ONNX metadata (`vocab_size`, and for NeMo-style exports
 NeMo-style sources. k2-fsa offline zipformers import through the catalog entries
 (modelType empty, no metadata demanded since TASK-667); a manual import of one
 needs the NeMo subtype deselected and cannot be pre-validated, so prefer the
-entry. Exports with `streaming` in the name (sherpa-onnx streaming zipformers)
-target the online recognizer and are **not supported** by the offline path.
+entry. Streaming zipformer exports (sherpa-onnx, usually `streaming` in the
+name) are detected from the encoder graph on a folder or Hugging Face import
+and routed to the online recognizer automatically (no streaming declaration
+needed).
 The streaming flag is validated against the encoder graph itself at import
 (since TASK-720: streaming graphs carry `decode_chunk_len` metadata and
 comment `streaming zipformer2`, offline ones say `non-streaming
@@ -297,6 +299,7 @@ zipformer2`); a mismatched entry is rejected naming the fix, instead of
 dying at first transcription. Graphs carrying neither marker pass
 unchecked (fail open). A
 hand-patched encoder that fakes the metadata is rejected too (the vocab_size
-value must be a plausible positive integer). If a manual import fails on
-missing metadata, pick the non-streaming export from the same repository;
-every sherpa release page ships both.
+value must be a plausible positive integer). If a manual import of an
+offline export fails on missing metadata, pick another export from the same
+repository; every sherpa release page ships both a streaming and a
+non-streaming one.

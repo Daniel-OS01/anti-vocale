@@ -65,6 +65,7 @@ class MemoryMarginWarningTest {
             // reach the naming pass.
             com.antivocale.app.transcription.diarization.SpeakerIdentityStore(
                 java.nio.file.Files.createTempDirectory("speaker-ids").toFile()),
+            blankDecodeSpeechProbe = mockk(),
         )
     }
 

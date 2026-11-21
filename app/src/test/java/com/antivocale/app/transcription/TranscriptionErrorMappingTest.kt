@@ -133,10 +133,26 @@ class TranscriptionErrorMappingTest {
     }
 
     @Test
-    fun `NoTranscriptionProduced maps to generic transcription_failed string`() {
-        val error = TranscriptionException.NoTranscriptionProduced()
+    fun `blank decode with speech present maps to transcription_failed`() {
+        val error = TranscriptionException.NoTranscriptionProduced(noSpeech = false)
+        assertEquals(R.string.transcription_failed, TranscriptionOrchestrator.blankDecodeErrorCopy(error).titleRes)
         val msg = TranscriptionOrchestrator.userFacingErrorMessage(context, error)
         assertEquals(context.getString(R.string.transcription_failed), msg)
+    }
+
+    @Test
+    fun `blank decode without speech maps to no-speech title`() {
+        val error = TranscriptionException.NoTranscriptionProduced(noSpeech = true)
+        assertEquals(R.string.no_speech_detected_title, TranscriptionOrchestrator.blankDecodeErrorCopy(error).titleRes)
+    }
+
+    @Test
+    fun `blank decode without speech maps to no-speech message`() {
+        val error = TranscriptionException.NoTranscriptionProduced(noSpeech = true)
+        assertEquals(
+            context.getString(R.string.no_speech_detected_message),
+            TranscriptionOrchestrator.userFacingErrorMessage(context, error)
+        )
     }
 
     @Test

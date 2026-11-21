@@ -10,6 +10,7 @@ import com.antivocale.app.util.DecodedOfTotalFormat
 import com.antivocale.app.util.SubtitleParser
 import com.antivocale.app.audio.AudioDurationPolicy
 import com.antivocale.app.audio.AudioPreprocessor
+import com.antivocale.app.audio.BlankDecodeSpeechProbe
 import com.antivocale.app.service.ResultNotificationFactory
 import com.antivocale.app.service.StartupSweepGate
 import com.antivocale.app.audio.AudioPreprocessor.PreprocessingError
@@ -81,6 +82,7 @@ class TranscriptionOrchestrator @Inject constructor(
     // TASK-670 (GH #83): the enrolled-voiceprint store read at diarization
     // time, only when the speakerIdEnabled privacy gate is on.
     private val speakerIdentityStore: SpeakerIdentityStore,
+    private val blankDecodeSpeechProbe: BlankDecodeSpeechProbe,
 ) {
     companion object {
         private const val TAG = "TranscriptionOrchestrator"
@@ -115,6 +117,15 @@ class TranscriptionOrchestrator @Inject constructor(
                 // A dangling external id is the same UX class: no usable model configured.
                 error is TranscriptionException.ExternalModelUnavailable
         }
+
+        internal data class BlankDecodeErrorCopy(val titleRes: Int, val messageRes: Int)
+
+        internal fun blankDecodeErrorCopy(error: TranscriptionException.NoTranscriptionProduced): BlankDecodeErrorCopy =
+            if (error.noSpeech) {
+                BlankDecodeErrorCopy(R.string.no_speech_detected_title, R.string.no_speech_detected_message)
+            } else {
+                BlankDecodeErrorCopy(R.string.transcription_failed, R.string.transcription_failed)
+            }
 
         /**
          * Maps a [TranscriptionException] to a user-facing localized message via the given [context].
@@ -166,7 +177,7 @@ class TranscriptionOrchestrator @Inject constructor(
                     // message; the user just needs to pick another model (TASK-342).
                     context.getString(R.string.error_model_unavailable)
                 is TranscriptionException.NoTranscriptionProduced ->
-                    context.getString(R.string.transcription_failed)
+                    context.getString(blankDecodeErrorCopy(error).messageRes)
                 // TASK-681: the LAN-offload failure classes; each carries its
                 // own advice (budget tripped, box unreachable, server said no)
                 // instead of the generic failure string.
@@ -749,8 +760,9 @@ class TranscriptionOrchestrator @Inject constructor(
                             requestBackendId = backendOverride
                                 ?: backendManager.activeBackendId.value)
                     }
-                    logError(taskId, logMsg)
+                    val blankError = error as? TranscriptionException.NoTranscriptionProduced
                     var userMsg = userFacingErrorMessage(context, error)
+                    logError(taskId, if (blankError?.noSpeech == true) userMsg else logMsg)
                     if (error is PipelineFailure) {
                         DecodedOfTotalFormat.format(context, error.decodedSeconds, error.totalSeconds)
                             ?.let { userMsg += " $it" }
@@ -758,7 +770,9 @@ class TranscriptionOrchestrator @Inject constructor(
                     val isNoModel = isNoModelConfiguredError(error)
                     listener.onError(taskId, "INFERENCE_ERROR", userMsg, isShareRequest, isNoModel, duration,
                         isMemoryFailure = isMemoryClassFailure(error),
-                        isDecodeError = isDecodeFamilyError(error))
+                        isDecodeError = isDecodeFamilyError(error),
+                        titleRes = blankError?.let { blankDecodeErrorCopy(it).titleRes }
+                            ?: R.string.transcription_failed)
                 }
             )
 
@@ -2915,6 +2929,8 @@ class TranscriptionOrchestrator @Inject constructor(
                 context = context,
                 coroutineScope = coroutineScope,
                 listener = listener,
+                threadCount = threadCount,
+                resolvedProvider = resolvedProvider,
                 prompt = promptPlan.perChunk,
                 progressiveEnabled = progressiveEnabled,
                 earlyPreviewActive = earlyPreviewActive,
@@ -3103,7 +3119,10 @@ class TranscriptionOrchestrator @Inject constructor(
                             vadEnabled && preprocessingResult.totalDurationSeconds > 0.0,
                             // TASK-664: the ladder count rides the failure
                             // context too (the run reached here after it).
-                            retriedChunks = ladderRetried)
+                            retriedChunks = ladderRetried,
+                            noSpeech = preprocessingResult.vadFoundNoSpeech ||
+                                (!effectiveVad && isSpeechlessAfterBlankDecode(
+                                    context, preprocessingResult.chunks.first(), threadCount, resolvedProvider)))
                     }
                 }
                 else -> {
@@ -3115,7 +3134,10 @@ class TranscriptionOrchestrator @Inject constructor(
                     if (failure is TranscriptionException.NoTranscriptionProduced) {
                         silentDecodeFailure<TranscriptionResult>(
                             backend, failure.blankChunks ?: 1,
-                            vadEnabled && preprocessingResult.totalDurationSeconds > 0.0)
+                            vadEnabled && preprocessingResult.totalDurationSeconds > 0.0,
+                            noSpeech = preprocessingResult.vadFoundNoSpeech ||
+                                (!effectiveVad && isSpeechlessAfterBlankDecode(
+                                    context, preprocessingResult.chunks.first(), threadCount, resolvedProvider)))
                     } else {
                         Result.failure(failure)
                     }
@@ -3161,6 +3183,7 @@ class TranscriptionOrchestrator @Inject constructor(
                 availableRamBytes = availableRamBytes,
                 vadRequested = vadRequested,
                 vadSegmented = preprocessingResult.isVadSegmented,
+                vadFoundNoSpeech = preprocessingResult.vadFoundNoSpeech,
                 chunks = preprocessingResult.chunks,
                 sampleRate = preprocessingResult.sampleRate,
                 segmentRangesMs = preprocessingResult.chunkRangesMs,
@@ -3303,11 +3326,38 @@ class TranscriptionOrchestrator @Inject constructor(
         backend: TranscriptionBackend,
         blankChunks: Int,
         speechPresent: Boolean,
+        noSpeech: Boolean,
         retriedChunks: Int? = null,
     ): Result<T> {
         if (blankChunks > 0) recordSilentDecodeForDemotion(backend, speechPresent)
         return Result.failure(TranscriptionException.NoTranscriptionProduced(
-            blankChunks = blankChunks, retriedChunks = retriedChunks))
+            blankChunks = blankChunks, retriedChunks = retriedChunks, noSpeech = noSpeech))
+    }
+
+    // Without VAD, only digital silence is conclusive. Nonzero PCM might contain speech.
+    private fun FloatArray.isDigitalSilence(): Boolean = isNotEmpty() && all { it == 0f }
+
+    private suspend fun isSpeechlessAfterBlankDecode(
+        context: Context,
+        samples: FloatArray,
+        threadCount: Int,
+        onnxProvider: String,
+    ): Boolean {
+        if (samples.isEmpty()) return false
+        if (samples.isDigitalSilence()) return true
+        // A cancelled run must not pay for a VAD pass.
+        currentCoroutineContext().ensureActive()
+        return try {
+            !blankDecodeSpeechProbe.detectsSpeech(context, samples, threadCount, onnxProvider)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.w(TAG, "VAD speech check failed after a blank decode", e)
+            false
+        } catch (e: LinkageError) {
+            Log.w(TAG, "VAD unavailable for blank decode speech check", e)
+            false
+        }
     }
 
     private suspend fun recordSilentDecodeForDemotion(
@@ -3513,6 +3563,7 @@ class TranscriptionOrchestrator @Inject constructor(
         availableRamBytes: Long?,
         vadRequested: Boolean,
         vadSegmented: Boolean,
+        vadFoundNoSpeech: Boolean,
         chunks: List<FloatArray>,
         sampleRate: Int,
         /** GH #92: per-chunk offsets aligned with the chunks; empty when no timing exists. */
@@ -3765,9 +3816,13 @@ class TranscriptionOrchestrator @Inject constructor(
         // rides to the ERROR row's FailureContext (and demotion is
         // considered before the raise, per the shared helper).
         return if (combinedResult.isBlank()) {
+            // VAD-off runs never reach this arm with more than one chunk (a
+            // chunk cap streams; no cap keeps one whole-file chunk), so only
+            // the preprocessing VAD verdict can say "no speech" here.
             silentDecodeFailure(backend, blankChunks,
                 vadSegmented && audioDurationSeconds > 0,
-                retriedChunks = retriedChunks.get().takeIf { it > 0 })
+                retriedChunks = retriedChunks.get().takeIf { it > 0 },
+                noSpeech = blankChunks > 0 && failedChunks == 0 && vadFoundNoSpeech)
         } else {
             if (failedChunks > 0) {
                 Log.w(TAG, "Parallel completed with $failedChunks/$chunkCount failed chunks")
@@ -3816,6 +3871,9 @@ class TranscriptionOrchestrator @Inject constructor(
         context: Context,
         coroutineScope: CoroutineScope,
         listener: TranscriptionListener,
+        /** The blank-chunk speech probe's VAD settings (the run's thread count and provider). */
+        threadCount: Int,
+        resolvedProvider: String,
         prompt: String = "",
         progressiveEnabled: Boolean = false,
         /** TASK-186: the conjoined preview gate (flag plus interim emission);
@@ -3886,6 +3944,10 @@ class TranscriptionOrchestrator @Inject constructor(
         var decodedSeconds = 0.0
         var expectedChunkCount = 0
         var processedChunks = 0
+        // "Every blank chunk so far was conclusively speechless": digital
+        // silence, or the VAD probe found no speech in it. Only consulted at
+        // the all-blank raise, where every counted chunk is blank.
+        var blankChunksSpeechless = true
         var firstChunkDecodeMs = 0L
         var firstChunkInferStartMs = 0L
         var failedChunks = 0
@@ -3905,6 +3967,21 @@ class TranscriptionOrchestrator @Inject constructor(
         var previousSamples: FloatArray? = null
         var heldEmpty: HeldEmptyChunk? = null
         var retriedChunks = 0
+
+        /**
+         * Counts a chunk that decoded blank and, while the run is still
+         * all-blank, probes [samples] (this chunk's own PCM, alive here, decoded
+         * inline on this collector) for speech. Probing stops once a blank chunk
+         * may hold speech or any chunk produced text: either way the run can no
+         * longer end as "No speech detected".
+         */
+        suspend fun countBlankChunk(samples: FloatArray) {
+            blankChunks++
+            if (blankChunksSpeechless && accumulatedText.isEmpty()) {
+                blankChunksSpeechless = isSpeechlessAfterBlankDecode(
+                    context, samples, threadCount, resolvedProvider)
+            }
+        }
 
         /**
          * The one delivery of a decoded non-blank chunk into the stream
@@ -3978,7 +4055,7 @@ class TranscriptionOrchestrator @Inject constructor(
                 return
             }
             outcome?.exceptionOrNull()?.let { throw WedgeAbortException(it, retriedChunks) }
-            blankChunks++
+            countBlankChunk(held.samples)
             Log.i(TAG, "Pipeline chunk ${held.index + 1} stayed empty after the recovery ladder")
         }
 
@@ -4117,7 +4194,7 @@ class TranscriptionOrchestrator @Inject constructor(
                                         endMs = chunkEndMs,
                                         index = chunk.chunkIndex)
                                 } else {
-                                    blankChunks++
+                                    countBlankChunk(chunk.samples)
                                 }
                                 minConfidence = aggregateConfidence(minConfidence, tr.confidence)
                                 if (detectedLang == null) detectedLang = tr.detectedLanguage
@@ -4137,7 +4214,7 @@ class TranscriptionOrchestrator @Inject constructor(
                                         if (tr.text.isNotBlank()) {
                                             deliverDecodedChunk(tr, chunk.chunkIndex, chunkStartMs, chunkEndMs, "$chunkLabel (retry)")
                                         } else {
-                                            blankChunks++
+                                            countBlankChunk(chunk.samples)
                                         }
                                         minConfidence = aggregateConfidence(minConfidence, tr.confidence)
                                         if (detectedLang == null) detectedLang = tr.detectedLanguage
@@ -4218,7 +4295,8 @@ class TranscriptionOrchestrator @Inject constructor(
             // reached the model, not that speech was in it. The design note's
             // confirm-gate rule wins over coverage: no demotion here.
             silentDecodeFailure(backend, blankChunks, false,
-                retriedChunks = retriedChunks.takeIf { it > 0 })
+                retriedChunks = retriedChunks.takeIf { it > 0 },
+                noSpeech = blankChunks > 0 && failedChunks == 0 && blankChunksSpeechless)
         } else {
             if (failedChunks > 0) {
                 Log.w(TAG, "Pipeline completed with $failedChunks/$processedChunks failed chunks")

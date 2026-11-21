@@ -266,6 +266,8 @@
     </plurals>
     <string name="transcription_partial_chip">Onvolledig</string>
     <string name="transcription_failed">Transcriptie mislukt</string>
+    <string name="no_speech_detected_title">Geen spraak gedetecteerd</string>
+    <string name="no_speech_detected_message">De opname lijkt geen spraak te bevatten</string>
     <string name="error_model_load">Het modelbestand is mogelijk beschadigd of heeft het verkeerde formaat. Download het opnieuw via het tabblad Modellen.</string>
     <string name="error_model_external_corrupt">De bestanden van het geïmporteerde model zijn beschadigd. Verwijder het via het tabblad Modellen en importeer het opnieuw.</string>
     <string name="error_model_corrupt_healed">Sommige modelbestanden waren beschadigd en zijn door de app verwijderd. Open het tabblad Modellen en download het model opnieuw.</string>

@@ -262,6 +262,8 @@
     </plurals>
     <string name="transcription_partial_chip">חלקי</string>
     <string name="transcription_failed">התמלול נכשל</string>
+    <string name="no_speech_detected_title">לא זוהה דיבור</string>
+    <string name="no_speech_detected_message">נראה שאין דיבור בהקלטה</string>
     <string name="error_model_load">ייתכן שקובץ המודל פגום או בפורמט שגוי. נסה להוריד אותו מחדש מהלשונית מודלים.</string>
     <string name="error_model_external_corrupt">הקבצים של המודל המיובא פגומים. מחק אותו מלשונית המודלים וייבא אותו מחדש.</string>
     <string name="error_model_corrupt_healed">חלק מקבצי המודל היו פגומים, ולכן האפליקציה הסירה אותם. פתח את הלשונית מודלים והורד את המודל מחדש.</string>

@@ -1,6 +1,7 @@
 package com.antivocale.app.transcription
 
 import android.content.Context
+import com.antivocale.app.R
 import com.antivocale.app.audio.AudioPreprocessor
 import com.antivocale.app.audio.AudioPreprocessor.PreprocessingError
 import com.antivocale.app.data.TranscriptionCalibrator
@@ -160,6 +161,110 @@ class TranscriptionOrchestratorAudioTest : TranscriptionOrchestratorTestBase() {
         assertEquals("No transcription produced", error?.message)
         verify {
             listener.onError(eq("test-1"), eq("INFERENCE_ERROR"), any(), eq(false), eq(false), any())
+        }
+    }
+
+    @Test
+    fun `blank pipeline decode of digital silence sends the no-speech title`() = runTest {
+        stubSingleChunkStream(FloatArray(3))
+        coEvery { backend.transcribeAudio(any(), any(), any()) } returns
+            Result.success(TranscriptionResult(text = ""))
+
+        val result = callProcessRequest()
+
+        val error = result.exceptionOrNull() as? TranscriptionException.NoTranscriptionProduced
+        assertEquals(true, error?.noSpeech)
+        verify {
+            listener.onError(
+                eq("test-1"), eq("INFERENCE_ERROR"), any(), eq(false), eq(false), any(),
+                titleRes = eq(R.string.no_speech_detected_title)
+            )
+        }
+    }
+
+    @Test
+    fun `blank pipeline decode of low-noise audio sends the no-speech title when probe finds no speech`() = runTest {
+        val samples = floatArrayOf(0.01f, -0.01f, 0.02f)
+        stubSingleChunkStream(samples)
+        every { blankDecodeSpeechProbe.detectsSpeech(any(), eq(samples), eq(4), any()) } returns false
+        coEvery { backend.transcribeAudio(any(), any(), any()) } returns
+            Result.success(TranscriptionResult(text = ""))
+
+        assertBlankDecodeTitle(callProcessRequest(), R.string.no_speech_detected_title)
+        verify(exactly = 1) { blankDecodeSpeechProbe.detectsSpeech(any(), eq(samples), eq(4), any()) }
+    }
+
+    @Test
+    fun `blank pipeline decode of audio the probe hears speech in sends the generic title`() = runTest {
+        val samples = floatArrayOf(0.01f, -0.01f, 0.02f)
+        stubSingleChunkStream(samples)
+        every { blankDecodeSpeechProbe.detectsSpeech(any(), eq(samples), eq(4), any()) } returns true
+        coEvery { backend.transcribeAudio(any(), any(), any()) } returns
+            Result.success(TranscriptionResult(text = ""))
+
+        assertBlankDecodeTitle(callProcessRequest(), R.string.transcription_failed)
+        verify(exactly = 1) { blankDecodeSpeechProbe.detectsSpeech(any(), eq(samples), eq(4), any()) }
+    }
+
+    @Test
+    fun `blank whole-file decode uses the no-speech result from preprocessing VAD`() = runTest {
+        every { preferencesManager.vadEnabled } returns flowOf(true)
+        stubPreprocessing(listOf(floatArrayOf(0.01f)), vadFoundNoSpeech = true)
+        coEvery { backend.transcribeAudioStreaming(any(), any(), any(), any()) } returns
+            Result.success(TranscriptionResult(text = ""))
+
+        assertBlankDecodeTitle(callProcessRequest(), R.string.no_speech_detected_title)
+        verify { blankDecodeSpeechProbe wasNot Called }
+    }
+
+    @Test
+    fun `blank parallel decode uses the no-speech result from preprocessing VAD`() = runTest {
+        every { preferencesManager.vadEnabled } returns flowOf(true)
+        stubPreprocessing(
+            listOf(floatArrayOf(0.01f), floatArrayOf(-0.01f)),
+            vadFoundNoSpeech = true,
+        )
+        coEvery { backend.transcribeAudio(any(), any(), any()) } returns
+            Result.success(TranscriptionResult(text = ""))
+
+        assertBlankDecodeTitle(callProcessRequest(), R.string.no_speech_detected_title)
+        verify { blankDecodeSpeechProbe wasNot Called }
+    }
+
+    @Test
+    fun `blank whole-file decode with VAD off sends no-speech title when probe finds no speech`() = runTest {
+        every { backend.maxChunkDurationSeconds } returns null
+        val samples = floatArrayOf(0.01f, -0.01f)
+        stubPreprocessing(listOf(samples))
+        every { blankDecodeSpeechProbe.detectsSpeech(any(), eq(samples), eq(4), any()) } returns false
+        coEvery { backend.transcribeAudioStreaming(any(), any(), any(), any()) } returns
+            Result.success(TranscriptionResult(text = ""))
+
+        assertBlankDecodeTitle(callProcessRequest(), R.string.no_speech_detected_title)
+        verify(exactly = 1) { blankDecodeSpeechProbe.detectsSpeech(any(), eq(samples), eq(4), any()) }
+    }
+
+    @Test
+    fun `blank whole-file failure with VAD off sends generic title when probe finds speech`() = runTest {
+        every { backend.maxChunkDurationSeconds } returns null
+        val samples = floatArrayOf(0.01f, -0.01f)
+        stubPreprocessing(listOf(samples))
+        every { blankDecodeSpeechProbe.detectsSpeech(any(), eq(samples), eq(4), any()) } returns true
+        coEvery { backend.transcribeAudioStreaming(any(), any(), any(), any()) } returns
+            Result.failure(TranscriptionException.NoTranscriptionProduced())
+
+        assertBlankDecodeTitle(callProcessRequest(), R.string.transcription_failed)
+        verify(exactly = 1) { blankDecodeSpeechProbe.detectsSpeech(any(), eq(samples), eq(4), any()) }
+    }
+
+    private fun assertBlankDecodeTitle(result: Result<String>, expectedTitle: Int) {
+        val error = result.exceptionOrNull() as? TranscriptionException.NoTranscriptionProduced
+        assertEquals(expectedTitle == R.string.no_speech_detected_title, error?.noSpeech)
+        verify {
+            listener.onError(
+                eq("test-1"), eq("INFERENCE_ERROR"), any(), eq(false), eq(false), any(),
+                titleRes = eq(expectedTitle)
+            )
         }
     }
 

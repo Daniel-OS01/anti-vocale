@@ -1,5 +1,7 @@
 package com.antivocale.app.service
 
+import androidx.annotation.StringRes
+import com.antivocale.app.R
 import com.antivocale.app.transcription.TimedSegment
 
 /**
@@ -99,6 +101,7 @@ interface TranscriptionListener {
          * cannot express this (decode failures ride INFERENCE_ERROR like
          * every other inference failure), and the Open Transcribe contract
          * needs DECODE_FAILED separated from UNEXPECTED. */
-        isDecodeError: Boolean = false
+        isDecodeError: Boolean = false,
+        @StringRes titleRes: Int = R.string.transcription_failed,
     )
 }

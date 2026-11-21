@@ -132,6 +132,8 @@ class AudioPreprocessor @Inject constructor() {
          * SentenceCueBuilder maps token times through them to the
          * ORIGINAL timeline, closing the merged-chunk cue drift. */
         val chunkAnchorsMs: List<List<Pair<Long, Long>>> = emptyList(),
+        /** True when VAD completed with no segments and kept the full audio as a fallback. */
+        val vadFoundNoSpeech: Boolean = false,
     )
 
     /**
@@ -241,6 +243,7 @@ class AudioPreprocessor @Inject constructor() {
         // decoded audio; the VAD single-segment path strips to one speech span, so
         // its buffer starts at that span's offset instead.
         var originMs = 0L
+        var vadFoundNoSpeech = false
         if (enableVad && context != null) {
             try {
                 val floatSamples = audioData.samples
@@ -296,6 +299,7 @@ class AudioPreprocessor @Inject constructor() {
                 // The stripped buffer starts at the (single) speech span's offset, so
                 // window slices below stay in original-clip coordinates.
                 originMs = rangesMs.firstOrNull()?.first ?: 0L
+                vadFoundNoSpeech = rangesMs.isEmpty()
             } catch (e: Exception) {
                 Log.e(TAG, "VAD processing failed, using full audio", e)
                 samplesToProcess = audioData.samples
@@ -315,7 +319,8 @@ class AudioPreprocessor @Inject constructor() {
                 chunkCount = 1,
                 chunkRangesMs = listOf(
                     originMs to originMs + (processedDuration * 1000).toLong()
-                )
+                ),
+                vadFoundNoSpeech = vadFoundNoSpeech,
             )
         } else {
             // TASK-410 prototype A: place the fixed-window cuts on silence
@@ -323,6 +328,7 @@ class AudioPreprocessor @Inject constructor() {
             // silence sits within the placer's search window).
             val cuts = SilenceAwareCutPlacer.cutOffsets(samplesToProcess, audioData.sampleRate, maxChunkDurationSeconds)
             return chunkFloatAudio(samplesToProcess, audioData.sampleRate, processedDuration, maxChunkDurationSeconds, originMs, cuts)
+                .copy(vadFoundNoSpeech = vadFoundNoSpeech)
         }
     }
 

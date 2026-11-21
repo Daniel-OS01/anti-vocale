@@ -78,6 +78,32 @@ class ExternalModelImporterTest {
     }
 
     @Test
+    fun `streaming zipformer folder import without a streaming declaration imports as streaming`() = runTest {
+        // The ivrit Zipformer2 streaming class: a folder import cannot declare
+        // streaming, and the encoder carries the k2 streaming markers but none
+        // of the NeMo keys (vocab_size/subsampling_factor). The encoder probe
+        // must classify it streaming, giving the exact record a declared
+        // streaming import gets (streaming=true, modelType "").
+        val src = tmp.newFolder("zipformer2-streaming-66m")
+        File(src, "encoder-epoch-99-avg-1.int8.onnx").writeBytes(
+            ByteArray(2048) { if (it == 0) 8 else 1 } +
+                metadataProp("comment", "streaming zipformer2") +
+                metadataProp("decode_chunk_len", "32"))
+        File(src, "decoder-epoch-99-avg-1.onnx").writeBytes(ByteArray(2048) { if (it == 0) 8 else 2 })
+        File(src, "joiner-epoch-99-avg-1.int8.onnx").writeBytes(ByteArray(2048) { if (it == 0) 8 else 3 })
+        File(src, "tokens.txt").writeText((0..99).joinToString("\n") { "tok$it $it" })
+
+        val result = runCatching { importer.importFromDirectory(src) }
+
+        assertTrue("streaming zipformer folder import must succeed, got: ${result.exceptionOrNull()?.message}",
+            result.isSuccess)
+        val record = result.getOrThrow()
+        assertTrue(record.streaming)
+        assertEquals("", record.modelType)
+        assertEquals(listOf(record), store.records())
+    }
+
+    @Test
     fun `offline graph imports clean under the non-streaming default (TASK-720)`() = runTest {
         // The same shape with the OFFLINE comment: passes the discriminator
         // (the staged ru/vi/ko class).
