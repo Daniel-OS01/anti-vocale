@@ -347,4 +347,38 @@ class InferenceServiceTeardownRaceTest {
         io.mockk.verify(exactly = 2) { keepalive.start() }
         io.mockk.verify(exactly = 2) { keepalive.stop() }
     }
+
+    /**
+     * A kept-loaded override model must not outlive the queue: the drain
+     * asks the orchestrator to release it once the queue is empty (the
+     * request the keep was made for may have been cancelled or cleared).
+     */
+    @Test
+    fun `the drain releases a kept override model when the queue empties`() {
+        val controller = Robolectric.buildService(InferenceService::class.java)
+        val service = controller.create().get()
+
+        val preferences = mockk<PreferencesManager>()
+        every { preferences.freezeProtectionEnabled } returns flowOf(false)
+        every { preferences.autoCopyEnabled } returns flowOf(false)
+        every { preferences.outputFolderUri } returns flowOf(null)
+        every { preferences.transcriptExportFormat } returns flowOf("TXT")
+        val orchestrator = mockk<TranscriptionOrchestrator>(relaxed = true)
+
+        inject(service, "preferencesManager", preferences)
+        inject(service, "perAppPreferencesManager", mockk<PerAppPreferencesManager>(relaxed = true))
+        inject(service, "orchestrator", orchestrator)
+        inject(service, "logDao", mockk<LogDao>(relaxed = true))
+
+        val intent = Intent().apply {
+            putExtra(TaskerRequestReceiver.EXTRA_TASK_ID, "keep-1")
+            putExtra(TaskerRequestReceiver.EXTRA_REQUEST_TYPE, "audio")
+            putExtra(TaskerRequestReceiver.EXTRA_PROMPT, "")
+            putExtra(TaskerRequestReceiver.EXTRA_FILE_PATH, "/nonexistent/keep-1.wav")
+        }
+        service.onStartCommand(intent, 0, 1)
+        runBlocking { withTimeout(TIMEOUT_MS) { drainJobOf(service).join() } }
+
+        io.mockk.coVerify(exactly = 1) { orchestrator.releaseKeptOverride() }
+    }
 }

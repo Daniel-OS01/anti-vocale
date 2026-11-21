@@ -223,6 +223,34 @@ class TranscriptionOrchestrator @Inject constructor(
     private val runMutex = Mutex()
 
     /**
+     * Whether the LAST request run kept its [processRequest] backendOverride
+     * model resident (keepBackendLoaded). Reset at every request start, so it
+     * is set only while that kept model is still the resident one; a later
+     * global-model request clears it and leaves the keep-alive timer in
+     * charge of its own model. Guarded by [runMutex].
+     */
+    private var keptOverrideResident = false
+
+    /**
+     * Unloads the override model the last request kept resident, if any, and
+     * clears the flag; a no-op otherwise (a global-model run is never
+     * unloaded here). The queue drain calls this when it finds the queue
+     * empty: the next request the keep was made for may have been cancelled
+     * or cleared after the decision, and nothing else unloads an override
+     * model (the keep-alive timer owns only the global one).
+     */
+    suspend fun releaseKeptOverride() {
+        runMutex.withLock {
+            if (!keptOverrideResident) return@withLock
+            keptOverrideResident = false
+            try {
+                backendManager.unloadActiveBackend()
+            } catch (_: Exception) {
+            }
+        }
+    }
+
+    /**
      * TASK-699 stage 2 (code-review F1/F2): whether THIS run has written a
      * seed. The run-level heartbeat ticks only when this is set, so a run
      * that never seeds (subtitle import/extract, text LLM) costs no ticks,
@@ -312,6 +340,7 @@ class TranscriptionOrchestrator @Inject constructor(
         // subtitle arms never seed (verified: no savePartial in their
         // scopes) so their stay inside the span is a no-op.
         return runMutex.withLock {
+            keptOverrideResident = false
             withSeedHeartbeat {
                 processRequestInner(
                     taskId, requestType, prompt, filePath, source, sourcePackage,
@@ -845,6 +874,9 @@ class TranscriptionOrchestrator @Inject constructor(
                 } catch (_: Exception) {
                 }
             }
+            // Recorded so the drain can release it if the request it was
+            // kept for never runs (cancelled or cleared after the peek).
+            keptOverrideResident = backendOverride != null && keepBackendLoaded
         }
     }
 

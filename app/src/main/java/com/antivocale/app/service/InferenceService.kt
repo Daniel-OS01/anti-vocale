@@ -582,7 +582,8 @@ class InferenceService : Service(), TranscriptionListener {
                             // Peeked now, after this request was polled: the head is
                             // the request that runs next. A cancel or clear that
                             // changes the head afterwards leaves at most one model
-                            // resident, which the next ensureBackendLoaded swaps.
+                            // resident, which the next ensureBackendLoaded swaps or
+                            // the drain's releaseKeptOverride unloads.
                             val keepBackendLoaded = BackendRetention.keepLoaded(
                                 request.backendOverride,
                                 requestQueue.peek()?.backendOverride,
@@ -662,6 +663,15 @@ class InferenceService : Service(), TranscriptionListener {
                 // (flag clause); a batch holding a started keepalive can
                 // never see batchIdle() true here.
                 if (batchIdle()) silentKeepalive.stop()
+            }
+
+            // A keepBackendLoaded decision is made from the queue head at
+            // poll time; a cancel or clear afterwards can empty the queue
+            // with the override model still resident, and nothing else
+            // unloads it. NonCancellable: a batch cancel reaches here with
+            // this coroutine cancelled, the exact case that strands it.
+            if (batchIdle()) {
+                withContext(NonCancellable) { orchestrator.releaseKeptOverride() }
             }
 
             // TASK-1010: a dictionary-change re-arm deferred while the batch

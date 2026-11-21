@@ -414,4 +414,30 @@ class TranscriptionOrchestratorBackendOverrideTest : TranscriptionOrchestratorTe
 
         verify(exactly = 1) { backendManager.unloadActiveBackend() }
     }
+
+    @Test
+    fun `releaseKeptOverride unloads a kept override model once`() = runTest {
+        runParakeetOverride(keepBackendLoaded = true)
+        verify(exactly = 0) { backendManager.unloadActiveBackend() }
+
+        orchestrator.releaseKeptOverride()
+        verify(exactly = 1) { backendManager.unloadActiveBackend() }
+
+        // The flag is cleared: a second drain end unloads nothing more.
+        orchestrator.releaseKeptOverride()
+        verify(exactly = 1) { backendManager.unloadActiveBackend() }
+    }
+
+    @Test
+    fun `releaseKeptOverride is a no-op when no override was kept`() = runTest {
+        every { backendManager.unloadActiveBackend() } returns Unit
+        orchestrator.releaseKeptOverride()
+        verify(exactly = 0) { backendManager.unloadActiveBackend() }
+
+        // An unkept override already unloaded in its own finally; the
+        // drain-end release adds nothing.
+        runParakeetOverride(keepBackendLoaded = false)
+        orchestrator.releaseKeptOverride()
+        verify(exactly = 1) { backendManager.unloadActiveBackend() }
+    }
 }
