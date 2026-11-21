@@ -43,7 +43,6 @@ import com.antivocale.app.data.TranscriptionProfile
 import com.antivocale.app.transcription.LanguageSupport
 import com.antivocale.app.transcription.LanguageSupportLookup
 import com.antivocale.app.transcription.ScopeChain
-import com.antivocale.app.data.catalog.BundledCatalog
 import com.antivocale.app.transcription.BuiltInBackendIds
 import com.antivocale.app.transcription.InferenceProvider
 import com.antivocale.app.transcription.Language
@@ -1545,22 +1544,14 @@ class SettingsViewModel @Inject constructor(
         _languageModelDraft.value = language?.trim()?.lowercase()?.takeUnless { it.isEmpty() }
     }
 
-    /**
-     * The concrete language codes the rule pickers offer, lowercase:
-     * every built-in catalog language (any variant) plus every imported
-     * model's. Installed-agnostic on purpose: a rule for a language no
-     * installed model handles is still writable, and its outcome line says so.
-     */
+    /** The shared rule-editor inputs (History's long-press editor reads the same source). */
+    private val profileOutcomeSource = ProfileOutcomeSource(
+        scopeProfileStore, preferencesManager, activeModelRepository, languageSupportLookup, externalRecordsProvider,
+    )
+
+    /** The concrete language codes the rule pickers offer ([ProfileOutcomeSource.ruleLanguageCodes]). */
     val ruleLanguageCodes: StateFlow<List<String>> =
-        externalRecordsProvider.records
-            .map { records ->
-                buildSet {
-                    BundledCatalog.entries().forEach { entry ->
-                        entry.variants.forEach { v -> entry.languagesFor(v).forEach { add(it.lowercase()) } }
-                    }
-                    records.forEach { record -> record.languages.forEach { add(it.lowercase()) } }
-                }.sorted()
-            }
+        profileOutcomeSource.ruleLanguageCodes()
             .flowOn(Dispatchers.Default)
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
@@ -1596,13 +1587,6 @@ class SettingsViewModel @Inject constructor(
             .flowOn(Dispatchers.Default)
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    /** What a rule editor is previewing: [profile] placed at [scope] over [base]. */
-    data class ProfilePreview(
-        val scope: EditedScope,
-        val base: ScopeChain,
-        val profile: TranscriptionProfile?,
-    )
-
     private val _profilePreview = MutableStateFlow<ProfilePreview?>(null)
 
     fun previewProfile(scope: EditedScope, base: ScopeChain, profile: TranscriptionProfile?) {
@@ -1615,20 +1599,10 @@ class SettingsViewModel @Inject constructor(
 
     /** The open editor's outcome line (null while no editor previews). */
     val profileOutcome: StateFlow<ProfileOutcomeUi?> =
-        combine(
+        profileOutcomeSource.outcomes(
             _profilePreview,
-            scopeProfileStore.languageModelsFlow,
-            preferencesManager.transcriptionBackend,
-            activeModelRepository.installedBackendsFlow,
             combine(_refinementEnabled, _refinementAvailable) { on, available -> on && available },
-        ) { preview, languageModels, global, installed, twoPass ->
-            preview?.let { p ->
-                val chain = ProfileOutcome.chainWith(p.base, p.scope, p.profile)
-                val support = ProfileOutcome.supportPairs(chain, languageModels, global)
-                    .associateWith { (backend, language) -> languageSupportLookup.support(backend, language) }
-                ProfileOutcome.compute(chain, languageModels, global, installed, twoPass, support)
-            }
-        }
+        )
             .flowOn(Dispatchers.Default)
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
