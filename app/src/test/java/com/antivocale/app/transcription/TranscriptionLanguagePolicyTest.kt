@@ -1,11 +1,16 @@
 package com.antivocale.app.transcription
 
+import com.antivocale.app.data.ExternalModelRecord
+import com.antivocale.app.data.ExternalModelSource
+import com.antivocale.app.data.ModelFamily
 import com.antivocale.app.data.catalog.CatalogEntry
 import com.antivocale.app.data.catalog.CatalogFlags
 import com.antivocale.app.data.catalog.CatalogSource
 import com.antivocale.app.data.catalog.CatalogVariant
 import com.antivocale.app.data.catalog.CatalogDisplay
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
@@ -292,5 +297,55 @@ class TranscriptionLanguagePolicyTest {
             TranscriptionLanguagePolicy.pinState(
                 TranscriptionLanguagePolicy.PREF_PHONE, offered, phoneLanguage = ""),
         )
+    }
+
+    // ---- Whether the backend conditions on language (the row's pin claim) ----
+
+    private fun externalRecordOf(family: ModelFamily) = ExternalModelRecord(
+        id = "ext-${family.name.lowercase()}",
+        displayName = "Test ${family.name}",
+        dir = "/models/external/${family.name.lowercase()}",
+        family = family,
+        modelType = "",
+        languages = listOf("ru"),
+        source = ExternalModelSource.LOCAL,
+        sourceUrl = null,
+        files = emptyMap(),
+        sizeBytes = 1L,
+        importedAt = 0L,
+    )
+
+    @Test
+    fun `catalog entries condition on language only through their flags`() {
+        // passLanguage (Whisper).
+        assertTrue(TranscriptionLanguagePolicy.conditionsOnLanguage(whisperEntry(variant())))
+        // languageOption (Nemotron).
+        val nemotron = CatalogEntry(
+            id = BuiltInBackendIds.NEMOTRON,
+            runtime = "online",
+            modelType = "",
+            family = "TRANSDUCER",
+            display = CatalogDisplay.Literal("nemotron"),
+            flags = CatalogFlags(languageOption = true),
+            variants = listOf(variant()),
+        )
+        assertTrue(TranscriptionLanguagePolicy.conditionsOnLanguage(nemotron))
+        // Neither flag (GigaAM / Parakeet / Qwen3-ASR / Gemma).
+        val gigaam = CatalogEntry(
+            id = BuiltInBackendIds.GIGAAM,
+            runtime = "offline",
+            modelType = "nemo_transducer",
+            family = "TRANSDUCER",
+            display = CatalogDisplay.Literal("gigaam"),
+            flags = CatalogFlags(),
+            variants = listOf(variant()),
+        )
+        assertFalse(TranscriptionLanguagePolicy.conditionsOnLanguage(gigaam))
+    }
+
+    @Test
+    fun `external records condition on language through their family`() {
+        assertTrue(TranscriptionLanguagePolicy.conditionsOnLanguage(externalRecordOf(ModelFamily.WHISPER)))
+        assertFalse(TranscriptionLanguagePolicy.conditionsOnLanguage(externalRecordOf(ModelFamily.TRANSDUCER)))
     }
 }
