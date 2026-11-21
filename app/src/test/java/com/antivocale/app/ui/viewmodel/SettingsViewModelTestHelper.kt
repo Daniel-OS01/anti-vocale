@@ -124,5 +124,10 @@ internal class SettingsViewModelTestHelper(
         voiceNoteTreeGrant = mockk(relaxed = true),
         speakerIdentityStore = com.antivocale.app.transcription.diarization.SpeakerIdentityStore(
             speakerIdsDir),
+        // R6: real store and lookup over the fake prefs (no test here
+        // subscribes to the scope-profile flows that read them).
+        scopeProfileStore = com.antivocale.app.data.ScopeProfileStore(fakePrefs),
+        languageSupportLookup = com.antivocale.app.transcription.LanguageSupportLookup(
+            fakePrefs, staticRegistry(), com.antivocale.app.data.ExternalModelStore(fakePrefs)),
     )
 }
