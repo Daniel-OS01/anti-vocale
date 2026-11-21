@@ -182,7 +182,7 @@ fun FolderTranscriptionRulesScreen(
 }
 
 @Composable
-private fun RuleRow(
+internal fun RuleRow(
     title: String?,
     summary: String,
     notFound: Boolean,
@@ -219,7 +219,7 @@ private fun RuleRow(
 
 /** "Language: Русский · Model: GigaAM v3", or "No rule". */
 @Composable
-private fun profileSummary(profile: TranscriptionProfile?, installed: List<InstalledBackend>): String {
+internal fun profileSummary(profile: TranscriptionProfile?, installed: List<InstalledBackend>): String {
     if (profile == null || profile.isEmpty) return stringResource(R.string.scope_rule_no_rule)
     val language = profile.language?.let { code ->
         if (code == TranscriptionProfile.LANGUAGE_AUTO) stringResource(R.string.scope_rule_language_auto)

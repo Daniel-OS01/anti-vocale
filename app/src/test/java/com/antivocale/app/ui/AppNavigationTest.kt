@@ -54,7 +54,7 @@ class AppNavigationTest {
     fun `scrollable destinations are the scroll sub-pages`() {
         // per_app is deliberately out of v1: its body is a LazyColumn.
         assertEquals(
-            setOf("automation", "performance", "speaker", "prompt", "icon_picker", "export", "voice_notes", "backup", "dictionary", "language_models"),
+            setOf("automation", "performance", "speaker", "prompt", "icon_picker", "export", "voice_notes", "backup", "dictionary", "language_models", "sender_rules"),
             AppNavigation.SUBPAGE_KEYS.filter { key ->
                 AppNavigation.isScrollableDest(AppNavigation.parse("settings:$key")!!)
             }.toSet(),
@@ -68,7 +68,7 @@ class AppNavigationTest {
             setOf("settings:automation", "settings:performance", "settings:speaker",
                 "settings:prompt", "settings:icon_picker", "settings:export",
                 "settings:voice_notes", "settings:backup", "settings:dictionary",
-                "settings:language_models"),
+                "settings:language_models", "settings:sender_rules"),
             AppNavigation.scrollableDestTokens().toSet())
     }
 
@@ -91,9 +91,10 @@ class AppNavigationTest {
         // The four SettingsTab sections and the three sub-screens, pinned so
         // a UI rename without a parser update (or the reverse) fails here.
         assertEquals(setOf("transcription", "appearance", "advanced", "feedback"), AppNavigation.SECTION_KEYS)
-        assertEquals(setOf("icon_picker", "prompt", "per_app", "export", "speaker", "performance", "automation", "voice_notes", "backup", "dictionary", "language_models"), AppNavigation.SUBPAGE_KEYS)
-        // R6: the model-per-language key is pinned as a constant too.
+        assertEquals(setOf("icon_picker", "prompt", "per_app", "export", "speaker", "performance", "automation", "voice_notes", "backup", "dictionary", "language_models", "sender_rules"), AppNavigation.SUBPAGE_KEYS)
+        // R6: the model-per-language and sender-rules keys are pinned as constants too.
         assertEquals("language_models", AppNavigation.SUBPAGE_KEY_LANGUAGE_MODELS)
+        assertEquals("sender_rules", AppNavigation.SUBPAGE_KEY_SENDER_RULES)
         assertEquals(setOf("import", "gemma"), AppNavigation.MODEL_KEYS)
         assertEquals(listOf("history", "models", "settings"), AppNavigation.TAB_KEYS)
         // TASK-617 F2: the derived indices pin the TabRow ORDER, not just

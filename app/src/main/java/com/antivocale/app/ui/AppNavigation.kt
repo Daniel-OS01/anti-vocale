@@ -104,11 +104,14 @@ object AppNavigation {
     /** R6: the model-per-language page (the N>=2 subpage rule). */
     const val SUBPAGE_KEY_LANGUAGE_MODELS = "language_models"
 
+    /** R6: the per-sender rules page (the N>=2 subpage rule: one row per sender). */
+    const val SUBPAGE_KEY_SENDER_RULES = "sender_rules"
+
     /** Settings sections reachable by key (single source for parser + UI). */
     val SECTION_KEYS = setOf("transcription", "appearance", "advanced", "feedback")
 
     /** Settings sub-pages reachable by key. */
-    val SUBPAGE_KEYS = setOf("icon_picker", "prompt", "per_app", SUBPAGE_KEY_EXPORT, "speaker", "performance", "automation", SUBPAGE_KEY_VOICE_NOTES, SUBPAGE_KEY_BACKUP, SUBPAGE_KEY_DICTIONARY, SUBPAGE_KEY_LANGUAGE_MODELS)
+    val SUBPAGE_KEYS = setOf("icon_picker", "prompt", "per_app", SUBPAGE_KEY_EXPORT, "speaker", "performance", "automation", SUBPAGE_KEY_VOICE_NOTES, SUBPAGE_KEY_BACKUP, SUBPAGE_KEY_DICTIONARY, SUBPAGE_KEY_LANGUAGE_MODELS, SUBPAGE_KEY_SENDER_RULES)
 
     /**
      * TASK-632: Settings ROWS reachable by key (the deep-link targets one

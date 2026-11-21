@@ -1491,4 +1491,10 @@
     <string name="history_scope_rule_subfolder_title">Transcribe this subfolder as…</string>
     <string name="history_scope_rule_sender_title">Always transcribe %1$s with…</string>
     <string name="history_scope_rule_long_press_label">Set transcription rule</string>
+    <string name="sender_rules_title">Sender rules</string>
+    <string name="sender_rules_summary">Transcribe chosen people with their own model or language</string>
+    <string name="sender_rules_note">Rules match the name WhatsApp shows, or the caller in a recording\'s file name. Renaming a contact stops its rule. Rules are included in backups.</string>
+    <string name="sender_rules_empty">No sender rules yet. Long-press a sender in History to add one.</string>
+    <string name="sender_rules_section_calls">Call recordings</string>
+    <string name="backup_export_includes_sender_rules">The archive includes your sender rules (contact names and phone numbers).</string>
 </resources>

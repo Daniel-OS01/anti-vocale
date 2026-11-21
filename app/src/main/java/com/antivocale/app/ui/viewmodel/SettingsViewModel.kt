@@ -1537,6 +1537,25 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    /** The sender rules page: storage id → profile, as the store holds it. */
+    val senderProfiles: StateFlow<Map<String, TranscriptionProfile>> =
+        scopeProfileStore.senderProfiles
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
+
+    /** One sender rule; null or an empty profile deletes it. */
+    fun setSenderProfile(storageId: String, profile: TranscriptionProfile?) {
+        viewModelScope.launch {
+            try {
+                scopeProfileStore.setSenderProfile(storageId, profile)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // Never the storage id: it carries a contact name or a phone number.
+                Log.w(TAG, "scope_rule_write_failed scope=sender", e)
+            }
+        }
+    }
+
     /** A language added on the page but not mapped yet (its row asks for a model). */
     private val _languageModelDraft = MutableStateFlow<String?>(null)
 

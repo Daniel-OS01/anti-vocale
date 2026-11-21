@@ -190,6 +190,8 @@ fun SettingsTab(
     var showDictionarySettings by rememberSaveable("showDictionarySettings") { mutableStateOf(false) }
     // R6: the model-per-language page (the N>=2 subpage rule: one row per language).
     var showLanguageModelSettings by rememberSaveable("showLanguageModelSettings") { mutableStateOf(false) }
+    // R6: the per-sender rules page (one row per sender rule).
+    var showSenderRules by rememberSaveable("showSenderRules") { mutableStateOf(false) }
     // TASK-929: the What's-New notes hold a List<String>, which is not
     // saveable; the dialog is transient view state and drops on rotation
     // like every other content dialog.
@@ -210,6 +212,7 @@ fun SettingsTab(
         showBackupTransfer = false
         showDictionarySettings = false
         showLanguageModelSettings = false
+        showSenderRules = false
     }
 
     // 2026-09-30 regroup: system back on ANY subpage must return to the
@@ -218,7 +221,7 @@ fun SettingsTab(
     androidx.activity.compose.BackHandler(enabled = showIconSettings || showExportSettings ||
         showPromptSettings || showPerAppSettings || showSpeakerSettings ||
         showPerformanceSettings || showAutomationSettings || showVoiceNoteSettings ||
-        showBackupTransfer || showDictionarySettings || showLanguageModelSettings) {
+        showBackupTransfer || showDictionarySettings || showLanguageModelSettings || showSenderRules) {
         closeSubPages()
     }
     // TASK-625 deep-link carrier: the memory-failure notification action
@@ -266,6 +269,7 @@ fun SettingsTab(
                     "backup" -> showBackupTransfer = true
                     "dictionary" -> showDictionarySettings = true
                     "language_models" -> showLanguageModelSettings = true
+                    "sender_rules" -> showSenderRules = true
                 }
             }
             is AppNavigation.Destination.SettingsRow -> {
@@ -433,6 +437,18 @@ fun SettingsTab(
                 onNavigateToModelTab()
             },
             onBack = { showLanguageModelSettings = false }
+        )
+    } else if (showSenderRules) {
+        // R6: review, edit and delete the rules History's sender long-press creates.
+        com.antivocale.app.ui.screens.SenderRulesScreen(
+            viewModel = viewModel,
+            initialScroll = pendingSubPageScroll,
+            onScrollConsumed = { pendingSubPageScroll = null },
+            onOpenLanguageModels = {
+                closeSubPages()
+                showLanguageModelSettings = true
+            },
+            onBack = { showSenderRules = false }
         )
     } else if (showPromptSettings) {
         PromptSettingsScreen(
@@ -2235,6 +2251,14 @@ fun SettingsTab(
                     leadingIcon = Icons.Default.RecordVoiceOver,
                 ) { showVoiceNoteSettings = true }
             }
+            // R6: the per-sender rules hub. Search vocabulary: the hub's title and summary.
+            SearchFilterRow(searchQuery, SettingsSearchId.SENDER_RULES_HUB, searchState) {
+                SettingsHubCard(
+                    titleRes = R.string.sender_rules_title,
+                    summaryRes = R.string.sender_rules_summary,
+                    leadingIcon = Icons.Default.Person,
+                ) { showSenderRules = true }
+            }
             SearchFilterRow(searchQuery, SettingsSearchId.SHARE_SHORTCUT_ICONS, searchState) {
                 ShareShortcutIconsCard(viewModel)
             }
@@ -2820,6 +2844,11 @@ internal fun BackupTransferScreen(
             title = stringResource(R.string.backup_export_title),
             description = stringResource(R.string.backup_export_description),
         ) {
+            Text(
+                text = stringResource(R.string.backup_export_includes_sender_rules),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
             Button(
                 onClick = { showExportDisclosure = true },
                 enabled = backupState !is SettingsViewModel.BackupState.Exporting &&
@@ -4103,7 +4132,7 @@ internal enum class SettingsSearchId {
     WORD_TAP_SEEK,
     // Advanced
     BATTERY_EXEMPTION, HUGGINGFACE_AUTH, PERFORMANCE_HUB,
-    SHARE_TARGETS, SUBTITLE_TIMEOUT, AUTOMATION_HUB, VOICE_NOTE_HUB, PER_APP_SETTINGS,
+    SHARE_TARGETS, SUBTITLE_TIMEOUT, AUTOMATION_HUB, VOICE_NOTE_HUB, SENDER_RULES_HUB, PER_APP_SETTINGS,
     SHARE_SHORTCUT_ICONS, BACKUP_HUB,
     // Feedback
     FEEDBACK, WHATS_NEW,
@@ -4605,6 +4634,13 @@ internal val SETTINGS_SEARCH_CARDS: List<SettingsSearchCard> = listOf(
             R.string.voice_note_watched_folder_card_desc,
             R.string.voice_note_model_title, R.string.voice_note_model_default,
             R.string.voice_note_model_single_pass_hint),
+        group = SettingsSearchGroup.INTEGRATIONS,
+    ),
+    // R6 (the N>=2 subpage rule): the sender-rules hub. Vocabulary: the
+    // hub's title and summary (the page's rows are user data, not strings).
+    SettingsSearchCard(
+        SettingsSearchId.SENDER_RULES_HUB, SettingsSearchSection.ADVANCED,
+        listOf(R.string.sender_rules_title, R.string.sender_rules_summary),
         group = SettingsSearchGroup.INTEGRATIONS,
     ),
     SettingsSearchCard(
