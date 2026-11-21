@@ -177,11 +177,24 @@ class TranscriptionLanguageSupportTest {
     }
 
     @Test
-    fun `codes compare on the primary subtag, case-insensitively`() {
+    fun `codes compare on the full code, case-insensitively`() {
         val small = builtIn(whisper, "sherpa-onnx-whisper-small")
-        assertEquals(LanguageSupport.HONORS, support(small, "ru-RU"))
+        assertEquals(LanguageSupport.UNSUPPORTED, support(small, "ru-RU"))
         assertEquals(LanguageSupport.HONORS, support(small, "RU"))
-        assertEquals(LanguageSupport.HONORS, support(external(ModelFamily.WHISPER, listOf("he-IL")), "HE"))
-        assertEquals(LanguageSupport.HONORS, support(external(ModelFamily.WHISPER, listOf("pt")), "pt_BR"))
+        assertEquals(LanguageSupport.HONORS, support(external(ModelFamily.WHISPER, listOf("he-IL")), "HE-il"))
+        assertEquals(LanguageSupport.UNSUPPORTED, support(external(ModelFamily.WHISPER, listOf("pt")), "pt_BR"))
+        assertEquals(LanguageSupport.UNSUPPORTED, support(builtIn(gigaam, "gigaam"), "ru-RU"))
+    }
+
+    @Test
+    fun `whistle finds en-US unsupported and honors EN`() {
+        val whistle = entry(
+            BuiltInBackendIds.WHISTLE,
+            CatalogFlags(passLanguage = true),
+            listOf(variant("whistle-v1")),
+            listOf("en", "de", "fr", "es", "it", "nl", "pl"),
+        )
+        assertEquals(LanguageSupport.UNSUPPORTED, support(builtIn(whistle, "whistle-v1"), "en-US"))
+        assertEquals(LanguageSupport.HONORS, support(builtIn(whistle, "whistle-v1"), "EN"))
     }
 }

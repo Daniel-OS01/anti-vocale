@@ -206,7 +206,10 @@ object TranscriptionLanguagePolicy {
      * and exclude it: then it is UNSUPPORTED (GigaAM is Russian-only, so a
      * Hebrew pin on it is a wrong-model choice, not a no-op). An empty
      * declared set is unknown and IGNORES; so does [LanguageTarget.Opaque].
-     * Codes compare on the primary subtag, case-insensitively (`ru` == `ru-RU`).
+     * Codes compare on the FULL code, case-insensitively (`EN` == `en`, but
+     * `en-US` != `en`): the backends' adapters require an exact catalog code
+     * (Whistle detects silently on anything else), so a subtag match would
+     * report HONORS for a pin the model never receives.
      */
     fun support(target: LanguageTarget, language: String): LanguageSupport {
         val (conditions, codes) = when (target) {
@@ -230,8 +233,8 @@ object TranscriptionLanguagePolicy {
     }
 
     private fun listsLanguage(codes: Set<String>, language: String): Boolean {
-        val wanted = primarySubtag(language)
-        return wanted.isNotEmpty() && codes.any { primarySubtag(it) == wanted }
+        val wanted = language.trim()
+        return wanted.isNotEmpty() && codes.any { it.trim().equals(wanted, ignoreCase = true) }
     }
 
     /** A built-in conditions on language when either catalog language flag
@@ -243,7 +246,4 @@ object TranscriptionLanguagePolicy {
      *  (the [externalOverride] axis). */
     private fun conditionsOnLanguage(record: ExternalModelRecord): Boolean =
         ModelFamilySupport.forFamily(record.family).languageCapable
-
-    private fun primarySubtag(code: String): String =
-        code.trim().substringBefore('-').substringBefore('_').lowercase()
 }
