@@ -293,7 +293,13 @@ class TranscriptionOrchestrator @Inject constructor(
         context: Context,
         cacheDir: File,
         listener: TranscriptionListener,
-        coroutineScope: CoroutineScope
+        coroutineScope: CoroutineScope,
+        /**
+         * Skip the end-of-request unload of [backendOverride]'s model because
+         * the next queued request uses the same override (see
+         * [BackendRetention.keepLoaded]). False keeps the one-off behavior.
+         */
+        keepBackendLoaded: Boolean = false,
     ): Result<String> {
         runArmedSeed = false
         // TASK-699 stage 2: ONE heartbeat span for the whole run, the only
@@ -829,7 +835,9 @@ class TranscriptionOrchestrator @Inject constructor(
                 isDecodeError = isDecodeFamilyError(e))
             return Result.failure(e)
         } finally {
-            if (backendOverride != null) {
+            // keepBackendLoaded: the next queued request names the same
+            // override, so it reuses this model warm (BackendRetention).
+            if (backendOverride != null && !keepBackendLoaded) {
                 try {
                     backendManager.unloadActiveBackend()
                 } catch (_: Exception) {

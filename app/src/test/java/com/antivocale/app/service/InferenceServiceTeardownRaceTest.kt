@@ -199,6 +199,8 @@ class InferenceServiceTeardownRaceTest {
                 any(), any(), any(), any(), any(), any(), any(), any(),
                 // TASK-546 AC3: languageOverride joined the signature.
                 any(), any(), any(), any(), any(), any(), any(),
+                // keepBackendLoaded joined the signature.
+                any(),
             )
         } coAnswers {
             val listener = args.filterIsInstance<TranscriptionListener>().first()
