@@ -1174,8 +1174,15 @@
     <string name="external_section_subtitle">Modèles de transcription vocale supplémentaires que tu ajoutes toi-même. Ils fonctionnent à côté des modèles intégrés et apparaissent dans la liste ci-dessous après import.</string>
 
     <!-- TASK-741 (GH #125): the scheduled folder watch -->
-    <string name="folder_watch_title">Surveillance planifiée des dossiers</string>
-    <string name="folder_watch_description">Surveille les dossiers que vous choisissez et transcrit automatiquement les nouveaux fichiers audio. Les analyses s\'exécutent quand le système le permet ; les économiseurs de batterie agressifs peuvent les retarder, et l\'analyse manuelle fonctionne toujours.</string>
+    <string name="folder_watch_title">Surveillance des dossiers</string>
+    <string name="folder_watch_description">Surveille les dossiers que vous choisissez et leurs sous-dossiers. Un nouveau fichier audio est généralement transcrit quelques secondes après son enregistrement si l’index multimédia d’Android le détecte ; sinon, l’analyse planifiée le détecte. Si un dossier ajouté contient déjà des fichiers audio, vous choisissez de les transcrire ou non. L’analyse manuelle fonctionne toujours.</string>
+    <string name="folder_watch_existing_title">Fichiers audio existants</string>
+    <string name="folder_watch_existing_description">Choisissez les fichiers audio à transcrire dans %1$s.</string>
+    <string name="folder_watch_only_new">Uniquement les nouveaux fichiers</string>
+    <plurals name="folder_watch_transcribe_existing">
+        <item quantity="one">Transcrire aussi %1$d fichier existant</item>
+        <item quantity="other">Transcrire aussi %1$d fichiers existants</item>
+    </plurals>
     <string name="folder_watch_add">Surveiller un dossier</string>
     <string name="folder_watch_empty">Aucun dossier surveillé pour le moment.</string>
     <string name="folder_watch_scan_now">Analyser maintenant</string>

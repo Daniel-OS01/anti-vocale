@@ -1331,8 +1331,17 @@
     <string name="external_section_subtitle">Дополнительные модели расшифровки речи, которые вы добавляете сами. Они работают вместе со встроенными и появляются в списке ниже после импорта.</string>
 
     <!-- TASK-741 (GH #125): the scheduled folder watch -->
-    <string name="folder_watch_title">Запланированное наблюдение за папками</string>
-    <string name="folder_watch_description">Следит за выбранными вами папками и автоматически расшифровывает новые аудиофайлы. Проверки выполняются, когда система позволяет; агрессивные экономители батареи могут их задержать, а ручная проверка работает всегда.</string>
+    <string name="folder_watch_title">Отслеживание папок</string>
+    <string name="folder_watch_description">Отслеживает выбранные папки и их подпапки. Новый аудиофайл обычно расшифровывается через несколько секунд после сохранения, если его видит медиаиндекс Android; иначе его обнаружит плановое сканирование. При добавлении папки, в которой уже есть аудиофайлы, вы выбираете, расшифровывать ли их тоже. Ручное сканирование работает всегда.</string>
+    <string name="folder_watch_existing_title">Имеющиеся аудиофайлы</string>
+    <string name="folder_watch_existing_description">Выберите, какие аудиофайлы в папке %1$s нужно расшифровать.</string>
+    <string name="folder_watch_only_new">Только новые файлы</string>
+    <plurals name="folder_watch_transcribe_existing">
+        <item quantity="one">Расшифровать также %1$d имеющийся файл</item>
+        <item quantity="few">Расшифровать также %1$d имеющихся файла</item>
+        <item quantity="many">Расшифровать также %1$d имеющихся файлов</item>
+        <item quantity="other">Расшифровать также %1$d имеющегося файла</item>
+    </plurals>
     <string name="folder_watch_add">Следить за папкой</string>
     <string name="folder_watch_empty">Пока нет отслеживаемых папок.</string>
     <string name="folder_watch_scan_now">Проверить сейчас</string>

@@ -1174,8 +1174,15 @@
     <string name="external_section_subtitle">Modelos extras de transcrição de voz que você mesmo adiciona. Funcionam junto aos integrados e aparecem na lista abaixo após a importação.</string>
 
     <!-- TASK-741 (GH #125): the scheduled folder watch -->
-    <string name="folder_watch_title">Monitoramento agendado de pastas</string>
-    <string name="folder_watch_description">Observa as pastas que você escolher e transcreve automaticamente novos arquivos de áudio. As verificações ocorrem quando o sistema permite; economizadores agressivos de bateria podem atrasá-las, e a verificação manual sempre funciona.</string>
+    <string name="folder_watch_title">Monitoramento de pastas</string>
+    <string name="folder_watch_description">Monitora as pastas escolhidas e suas subpastas. Um novo arquivo de áudio geralmente é transcrito em segundos após ser salvo se o índice de mídia do Android o detectar; caso contrário, a verificação agendada o encontrará. Ao adicionar uma pasta que já contém áudio, você escolhe se deseja transcrever esses arquivos também. A verificação manual sempre funciona.</string>
+    <string name="folder_watch_existing_title">Arquivos de áudio existentes</string>
+    <string name="folder_watch_existing_description">Escolha quais arquivos de áudio transcrever em %1$s.</string>
+    <string name="folder_watch_only_new">Somente arquivos novos</string>
+    <plurals name="folder_watch_transcribe_existing">
+        <item quantity="one">Transcrever também %1$d arquivo existente</item>
+        <item quantity="other">Transcrever também %1$d arquivos existentes</item>
+    </plurals>
     <string name="folder_watch_add">Observar uma pasta</string>
     <string name="folder_watch_empty">Nenhuma pasta observada ainda.</string>
     <string name="folder_watch_scan_now">Verificar agora</string>

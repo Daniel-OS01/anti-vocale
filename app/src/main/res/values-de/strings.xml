@@ -1306,8 +1306,15 @@
     <string name="external_section_subtitle">Zusätzliche Sprach-Transkriptionsmodelle, die du selbst hinzufügst. Sie laufen neben den integrierten und erscheinen nach dem Import in der Liste unten.</string>
 
     <!-- TASK-741 (GH #125): the scheduled folder watch -->
-    <string name="folder_watch_title">Geplante Ordnerüberwachung</string>
-    <string name="folder_watch_description">Überwacht ausgewählte Ordner und transkribiert neue Audiodateien automatisch. Scans laufen, wenn das System es zulässt; aggressive Akkusparer können sie verzögern, der manuelle Scan funktioniert immer.</string>
+    <string name="folder_watch_title">Ordnerüberwachung</string>
+    <string name="folder_watch_description">Überwacht die von dir ausgewählten Ordner einschließlich ihrer Unterordner. Eine neue Audiodatei wird normalerweise innerhalb weniger Sekunden nach dem Speichern transkribiert, wenn der Medienindex von Android sie erkennt; andernfalls erfasst sie der geplante Scan. Enthält ein hinzugefügter Ordner bereits Audiodateien, entscheidest du, ob diese ebenfalls transkribiert werden sollen. Der manuelle Scan funktioniert immer.</string>
+    <string name="folder_watch_existing_title">Vorhandene Audiodateien</string>
+    <string name="folder_watch_existing_description">Wähle aus, welche Audiodateien in %1$s transkribiert werden sollen.</string>
+    <string name="folder_watch_only_new">Nur neue Dateien</string>
+    <plurals name="folder_watch_transcribe_existing">
+        <item quantity="one">Auch %1$d vorhandene Datei transkribieren</item>
+        <item quantity="other">Auch %1$d vorhandene Dateien transkribieren</item>
+    </plurals>
     <string name="folder_watch_add">Ordner überwachen</string>
     <string name="folder_watch_empty">Noch keine Ordner überwacht.</string>
     <string name="folder_watch_scan_now">Jetzt scannen</string>

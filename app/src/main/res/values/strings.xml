@@ -1339,8 +1339,15 @@
     <string name="model_shortcut_switch_label">Switch to %1$s</string>
 
     <!-- TASK-741 (GH #125): the scheduled folder watch -->
-    <string name="folder_watch_title">Scheduled folder watch</string>
-    <string name="folder_watch_description">Watches folders you choose and transcribes new audio files automatically. Scans run on a schedule the system allows; aggressive battery savers may delay them, and the manual scan always works.</string>
+    <string name="folder_watch_title">Folder watch</string>
+    <string name="folder_watch_description">Watches folders you choose, including their subfolders. A new audio file is usually transcribed within seconds of being saved, when it is saved where Android\'s media index sees it; otherwise the scheduled scan picks it up. When a folder already holds audio, you choose whether to transcribe those files too. The manual scan always works.</string>
+    <string name="folder_watch_existing_title">Existing audio files</string>
+    <string name="folder_watch_existing_description">Choose which audio files to transcribe in %1$s.</string>
+    <string name="folder_watch_only_new">Only new files</string>
+    <plurals name="folder_watch_transcribe_existing">
+        <item quantity="one">Also transcribe %1$d existing file</item>
+        <item quantity="other">Also transcribe %1$d existing files</item>
+    </plurals>
     <string name="folder_watch_add">Watch a folder</string>
     <string name="folder_watch_empty">No folders watched yet.</string>
     <string name="folder_watch_scan_now">Scan now</string>

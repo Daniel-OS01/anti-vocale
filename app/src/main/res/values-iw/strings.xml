@@ -1316,8 +1316,16 @@
     <string name="external_section_subtitle">מודלי תמלול קול נוספים שאתם מוסיפים בעצמכם. הם פועלים לצד המודלים המובנים ומופיעים ברשימה למטה לאחר הייבוא.</string>
 
     <!-- TASK-741 (GH #125): the scheduled folder watch -->
-    <string name="folder_watch_title">מעקב מתוזמן אחר תיקיות</string>
-    <string name="folder_watch_description">עוקב אחר תיקיות שתבחר ומתעתק קובצי שמע חדשים אוטומטית. הסריקות פועלות כשהמערכת מתירה; חיסכון סוללה אגרסיבי עלול לעכב אותן, והסריקה הידנית תמיד עובדת.</string>
+    <string name="folder_watch_title">מעקב אחר תיקיות</string>
+    <string name="folder_watch_description">עוקב אחר התיקיות שבחרת, כולל תיקיות המשנה שלהן. קובץ אודיו חדש מתומלל בדרך כלל תוך שניות מרגע שמירתו, אם אינדקס המדיה של Android מזהה אותו; אחרת הסריקה המתוזמנת תמצא אותו. כשמוסיפים תיקייה שכבר מכילה קובצי אודיו, אפשר לבחור אם לתמלל גם אותם. הסריקה הידנית פועלת תמיד.</string>
+    <string name="folder_watch_existing_title">קובצי אודיו קיימים</string>
+    <string name="folder_watch_existing_description">אפשר לבחור אילו קובצי אודיו לתמלל בתיקייה %1$s.</string>
+    <string name="folder_watch_only_new">רק קבצים חדשים</string>
+    <plurals name="folder_watch_transcribe_existing">
+        <item quantity="one">לתמלל גם קובץ קיים אחד (%1$d)</item>
+        <item quantity="two">לתמלל גם את שני הקבצים הקיימים (%1$d)</item>
+        <item quantity="other">לתמלל גם %1$d קבצים קיימים</item>
+    </plurals>
     <string name="folder_watch_add">עקוב אחר תיקייה</string>
     <string name="folder_watch_empty">אין עדיין תיקיות במעקב.</string>
     <string name="folder_watch_scan_now">סרוק עכשיו</string>

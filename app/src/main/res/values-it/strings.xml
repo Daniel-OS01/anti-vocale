@@ -1312,8 +1312,15 @@
     <string name="external_section_subtitle">Modelli di trascrizione vocali extra che aggiungi tu. Girano accanto a quelli integrati e compaiono nell\'elenco sopra una volta importati.</string>
 
     <!-- TASK-741 (GH #125): the scheduled folder watch -->
-    <string name="folder_watch_title">Controllo cartella programmato</string>
-    <string name="folder_watch_description">Osserva le cartelle che scegli e trascrive automaticamente i nuovi file audio. Le scansioni avvengono quando il sistema lo consente; i risparmiatori di batteria aggressivi possono rallentarle, e la scansione manuale funziona sempre.</string>
+    <string name="folder_watch_title">Monitoraggio cartelle</string>
+    <string name="folder_watch_description">Monitora le cartelle che scegli e le relative sottocartelle. Un nuovo file audio viene solitamente trascritto entro pochi secondi dal salvataggio se l’indice multimediale di Android lo rileva; altrimenti lo rileva la scansione programmata. Quando aggiungi una cartella che contiene già file audio, scegli se trascrivere anche quelli. La scansione manuale funziona sempre.</string>
+    <string name="folder_watch_existing_title">File audio già presenti</string>
+    <string name="folder_watch_existing_description">Scegli quali file audio trascrivere in %1$s.</string>
+    <string name="folder_watch_only_new">Solo i nuovi file</string>
+    <plurals name="folder_watch_transcribe_existing">
+        <item quantity="one">Trascrivi anche %1$d file già presente</item>
+        <item quantity="other">Trascrivi anche %1$d file già presenti</item>
+    </plurals>
     <string name="folder_watch_add">Osserva una cartella</string>
     <string name="folder_watch_empty">Nessuna cartella osservata.</string>
     <string name="folder_watch_scan_now">Scansiona ora</string>

@@ -1153,8 +1153,15 @@
     <string name="model_switched_message">Aktiivinen malli: %1$s</string>
     <string name="model_switch_failed">Vaihto epäonnistui: mallia ei ole laitteella</string>
     <string name="model_shortcut_switch_label">Vaihda malliin %1$s</string>
-    <string name="folder_watch_title">Ajastettu kansioiden valvonta</string>
-    <string name="folder_watch_description">Valvoo valitsemiasi kansioita ja transkriboi uudet äänitiedostot automaattisesti. Tarkistukset ajetaan järjestelmän sallimissa väleissä; aggressiiviset virransäästäjät voivat viivästyttää niitä, ja manuaalinen tarkistus toimii aina.</string>
+    <string name="folder_watch_title">Kansioiden seuranta</string>
+    <string name="folder_watch_description">Seuraa valitsemiasi kansioita alikansioineen. Uusi äänitiedosto litteroidaan yleensä muutaman sekunnin kuluessa tallentamisesta, jos Androidin mediaindeksi näkee sen; muuten ajastettu tarkistus löytää sen. Kun lisättävässä kansiossa on jo äänitiedostoja, voit valita, litteroidaanko nekin. Manuaalinen tarkistus toimii aina.</string>
+    <string name="folder_watch_existing_title">Aiemmat äänitiedostot</string>
+    <string name="folder_watch_existing_description">Valitse, mitkä kansion %1$s äänitiedostot litteroidaan.</string>
+    <string name="folder_watch_only_new">Vain uudet tiedostot</string>
+    <plurals name="folder_watch_transcribe_existing">
+        <item quantity="one">Litteroi myös %1$d aiempi tiedosto</item>
+        <item quantity="other">Litteroi myös %1$d aiempaa tiedostoa</item>
+    </plurals>
     <string name="folder_watch_add">Valvo kansiota</string>
     <string name="folder_watch_empty">Mitään kansioita ei vielä valvota.</string>
     <string name="folder_watch_scan_now">Tarkista nyt</string>

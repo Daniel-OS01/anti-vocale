@@ -1330,8 +1330,17 @@
     <string name="external_section_subtitle">Dodatkowe modele transkrypcji mowy, które dodajesz sam. Działają obok wbudowanych i po zaimportowaniu pojawią się na liście poniżej.</string>
 
     <!-- TASK-741 (GH #125): the scheduled folder watch -->
-    <string name="folder_watch_title">Zaplanowane obserwowanie folderów</string>
-    <string name="folder_watch_description">Obserwuje wybrane przez Ciebie foldery i automatycznie transkrybuje nowe pliki audio. Skanowanie odbywa się, gdy system na to pozwala; agresywne oszczędzanie baterii może je opóźnić, a skanowanie ręczne działa zawsze.</string>
+    <string name="folder_watch_title">Obserwowanie folderów</string>
+    <string name="folder_watch_description">Obserwuje wybrane foldery wraz z podfolderami. Nowy plik audio jest zwykle transkrybowany w ciągu kilku sekund od zapisania, jeśli indeks multimediów Androida go widzi; w przeciwnym razie wykryje go zaplanowane skanowanie. Dodając folder zawierający już pliki audio, wybierasz, czy je również transkrybować. Skanowanie ręczne działa zawsze.</string>
+    <string name="folder_watch_existing_title">Istniejące pliki audio</string>
+    <string name="folder_watch_existing_description">Wybierz pliki audio do transkrypcji w folderze %1$s.</string>
+    <string name="folder_watch_only_new">Tylko nowe pliki</string>
+    <plurals name="folder_watch_transcribe_existing">
+        <item quantity="one">Transkrybuj też %1$d istniejący plik</item>
+        <item quantity="few">Transkrybuj też %1$d istniejące pliki</item>
+        <item quantity="many">Transkrybuj też %1$d istniejących plików</item>
+        <item quantity="other">Transkrybuj też %1$d istniejącego pliku</item>
+    </plurals>
     <string name="folder_watch_add">Obserwuj folder</string>
     <string name="folder_watch_empty">Nie obserwujesz jeszcze żadnych folderów.</string>
     <string name="folder_watch_scan_now">Skanuj teraz</string>

@@ -1286,8 +1286,15 @@
     <string name="model_shortcut_switch_label">Overschakelen naar %1$s</string>
 
     <!-- TASK-741 (GH #125): the scheduled folder watch -->
-    <string name="folder_watch_title">Geplande mapcontrole</string>
-    <string name="folder_watch_description">Houdt mappen die je kiest in de gaten en transcribeert nieuwe audiobestanden automatisch. Scans draaien op een planning die het systeem toestaat; agressieve batterijbespaarders kunnen ze vertragen, en de handmatige scan werkt altijd.</string>
+    <string name="folder_watch_title">Mapbewaking</string>
+    <string name="folder_watch_description">Bewaakt de mappen die je kiest, inclusief hun submappen. Een nieuw audiobestand wordt meestal binnen enkele seconden na het opslaan getranscribeerd als de media-index van Android het ziet; anders vindt de geplande scan het. Als een toegevoegde map al audiobestanden bevat, kies je of je die ook wilt transcriberen. Handmatig scannen werkt altijd.</string>
+    <string name="folder_watch_existing_title">Bestaande audiobestanden</string>
+    <string name="folder_watch_existing_description">Kies welke audiobestanden je wilt transcriberen in %1$s.</string>
+    <string name="folder_watch_only_new">Alleen nieuwe bestanden</string>
+    <plurals name="folder_watch_transcribe_existing">
+        <item quantity="one">Ook %1$d bestaand bestand transcriberen</item>
+        <item quantity="other">Ook %1$d bestaande bestanden transcriberen</item>
+    </plurals>
     <string name="folder_watch_add">Een map in de gaten houden</string>
     <string name="folder_watch_empty">Nog geen mappen in de gaten gehouden.</string>
     <string name="folder_watch_scan_now">Nu scannen</string>
