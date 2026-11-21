@@ -345,6 +345,38 @@ class HuggingFaceRepoListingTest {
     }
 
     @Test
+    fun `importFromHuggingFaceRepo of a streaming zipformer without a streaming declaration imports as streaming`() = runTest {
+        // The URL twin of the folder case: the repo listing carries no
+        // streaming flag, the encoder graph does (k2 streaming markers, no
+        // NeMo vocab_size/subsampling_factor).
+        val streamingEncoder = ByteArray(2048) { if (it == 0) 8 else 1 } +
+            "comment".toByteArray() + byteArrayOf(0x12, 20) + "streaming zipformer2".toByteArray() +
+            "decode_chunk_len".toByteArray() + byteArrayOf(0x12, 2) + "32".toByteArray()
+        server.enqueue(MockResponse().setBody("""
+            [
+              {"type":"file","path":"encoder-epoch-99-avg-1.int8.onnx","lfs":{"oid":"${sha256(streamingEncoder)}","size":${streamingEncoder.size}},"size":${streamingEncoder.size}},
+              {"type":"file","path":"decoder-epoch-99-avg-1.onnx","lfs":{"oid":"${sha256(decoderBytes)}","size":${decoderBytes.size}},"size":${decoderBytes.size}},
+              {"type":"file","path":"joiner-epoch-99-avg-1.int8.onnx","lfs":{"oid":"${sha256(joinerBytes)}","size":${joinerBytes.size}},"size":${joinerBytes.size}},
+              {"type":"file","path":"tokens.txt","size":${tokensBytes.size}}
+            ]
+        """.trimIndent()))
+        server.enqueue(MockResponse().setBody(okio.Buffer().write(streamingEncoder)))
+        server.enqueue(MockResponse().setBody(okio.Buffer().write(decoderBytes)))
+        server.enqueue(MockResponse().setBody(okio.Buffer().write(joinerBytes)))
+        server.enqueue(MockResponse().setBody(okio.Buffer().write(tokensBytes)))
+
+        val result = runCatching {
+            importer.importFromHuggingFaceRepo("https://huggingface.co/someone/zipformer2-streaming-66m")
+        }
+
+        assertTrue("streaming zipformer URL import must succeed, got: ${result.exceptionOrNull()?.message}",
+            result.isSuccess)
+        val record = result.getOrThrow()
+        assertTrue(record.streaming)
+        assertEquals("", record.modelType)
+    }
+
+    @Test
     fun `importFromEntryJson downloads all files and verifies their hashes`() = runTest {
         val base = server.url("/").toString().trimEnd('/')
         server.enqueue(MockResponse().setBody("""

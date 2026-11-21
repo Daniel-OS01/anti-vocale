@@ -298,6 +298,17 @@ internal fun buildCopyPlan(files: List<String>, family: ModelFamily = ModelFamil
     }
 
     /**
+     * Folder and repo-URL imports carry no streaming declaration (only entry
+     * JSON can), so a streaming zipformer would default to nemo_transducer and
+     * fail the NeMo metadata gate. When neither streaming nor a modelType was
+     * declared for a TRANSDUCER, [registerImported] probes the landed encoder
+     * graph instead. An explicit modelType keeps its meaning, exactly as it
+     * does for a declared-streaming import in [resolveModelType].
+     */
+    private fun shouldProbeStreaming(modelType: String?, family: ModelFamily, streaming: Boolean): Boolean =
+        !streaming && modelType == null && family == ModelFamily.TRANSDUCER
+
+    /**
      * ONNX split-file sidecars (AC #9): a sibling `<source>.data` (or `.weights`)
      * external-data file of any planned `.onnx` source joins the plan as an extra
      * entry. It is copied and pinned like a role but is NOT a role (the family
@@ -427,7 +438,8 @@ internal fun buildCopyPlan(files: List<String>, family: ModelFamily = ModelFamil
         return downloadCore(
             triples, resolveModelType(modelType, family, streaming), repoId.substringAfter('/'),
             ExternalModelSource.URL, repoUrl, family, options, languages, streaming,
-            licence = null, onProgress = onProgress)
+            licence = null, onProgress = onProgress,
+            probeStreaming = shouldProbeStreaming(modelType, family, streaming))
     }
 
     /**
@@ -622,7 +634,8 @@ internal fun buildCopyPlan(files: List<String>, family: ModelFamily = ModelFamil
             }
 
             registerImported(targetDir, pins, family, resolvedModelType, options, languages,
-                ExternalModelSource.LOCAL, null, displayName, streaming, linkedCatalog, licence)
+                ExternalModelSource.LOCAL, null, displayName, streaming, linkedCatalog, licence,
+                probeStreaming = shouldProbeStreaming(modelType, family, streaming))
         }
     }
 
@@ -648,6 +661,7 @@ internal fun buildCopyPlan(files: List<String>, family: ModelFamily = ModelFamil
         streaming: Boolean = false,
         licence: String? = null,
         onProgress: ExternalImportProgress = NOOP_PROGRESS,
+        probeStreaming: Boolean = false,
     ): ExternalModelRecord {
         val root = filesRoot()
         // Unconditional pre-flight (spec binding): callers must supply sizes (the HF
@@ -731,7 +745,7 @@ internal fun buildCopyPlan(files: List<String>, family: ModelFamily = ModelFamil
             }
 
             registerImported(targetDir, pins, family, modelType, options, languages, source, sourceUrl, displayName, streaming,
-                licence = licence)
+                licence = licence, probeStreaming = probeStreaming)
         }
     }
 
@@ -783,7 +797,20 @@ internal fun buildCopyPlan(files: List<String>, family: ModelFamily = ModelFamil
         streaming: Boolean = false,
         linkedCatalog: LinkedCatalogRef? = null,
         licence: String? = null,
+        probeStreaming: Boolean = false,
     ): ExternalModelRecord {
+        val support = ModelFamilySupport.forFamily(family)
+        val metadataFile = File(targetDir, support.metadataFileRole())
+        // The streaming probe (see [shouldProbeStreaming]): the one site both
+        // the folder core and the download core reach with the encoder on
+        // disk. A probed-streaming graph re-resolves exactly as a declared
+        // streaming import does (streaming=true, modelType ""), BEFORE the
+        // metadata gate picks its keys; offline or undeterminable graphs
+        // keep the caller's values.
+        val probedStreaming = probeStreaming &&
+            SherpaBackend.zipformerGraphIsStreaming(metadataFile) == true
+        val effectiveStreaming = streaming || probedStreaming
+        val effectiveModelType = if (probedStreaming) resolveModelType(null, family, streaming = true) else modelType
         // Pre-native metadata validation BEFORE persisting: a wrong family is an
         // import-time error, never a transcription-time exit(255). Both the checked
         // file and the required keys are family-routed ([ModelFamilySupport]); the
@@ -791,10 +818,8 @@ internal fun buildCopyPlan(files: List<String>, family: ModelFamily = ModelFamil
         // alongside the key-presence check, otherwise a generic-name transducer set
         // imported as WHISPER passes (NeMo transducer encoders also carry a
         // model_type key; only the VALUE discriminates them).
-        val support = ModelFamilySupport.forFamily(family)
-        val metadataFile = File(targetDir, support.metadataFileRole())
         val (missingMeta, metadataValue) = SherpaBackend.missingOnnxMetadataAndValue(
-            metadataFile, support.metadataKeys(modelType), support.valueMetadataKey())
+            metadataFile, support.metadataKeys(effectiveModelType), support.valueMetadataKey())
         if (missingMeta.isNotEmpty()) {
             // TASK-481: the family's cure (for transducer: which exports are
             // known good and why k2/streaming ones fail) rides the EARLIEST
@@ -812,7 +837,7 @@ internal fun buildCopyPlan(files: List<String>, family: ModelFamily = ModelFamil
         // the process at first decode, so it dies HERE instead. The metadata
         // scan above short-circuited without reading for this modelType; the
         // gate's own model_type and graph probes are bounded head+tail reads.
-        support.streamingFlagMismatch(metadataFile, streaming)
+        support.streamingFlagMismatch(metadataFile, effectiveStreaming)
             ?.let { throw IllegalArgumentException(it) }
 
         // TASK-304: cheap header/magic integrity at registration, before the
@@ -856,14 +881,14 @@ internal fun buildCopyPlan(files: List<String>, family: ModelFamily = ModelFamil
             val updated = existing.copy(
                 displayName = displayName.trim(),
                 family = family,
-                modelType = modelType,
+                modelType = effectiveModelType,
                 languages = effectiveLanguages,
                 options = options,
                 // TASK-968: the streaming flag rides the re-import (an
                 // index entry re-importing the same files with streaming
                 // flipped to true must upgrade the record, not keep the
                 // stale offline import's flag).
-                streaming = streaming || existing.streaming,
+                streaming = effectiveStreaming || existing.streaming,
                 // Licence: a fresh declaration refreshes, an absent one
                 // PRESERVES the existing value (the sourceUrl/linkedCatalog
                 // carry-preservation rule: a plain re-import must not erase
@@ -889,7 +914,7 @@ internal fun buildCopyPlan(files: List<String>, family: ModelFamily = ModelFamil
             displayName = displayName.trim(),
             dir = targetDir.absolutePath,
             family = family,
-            modelType = modelType,
+            modelType = effectiveModelType,
             languages = effectiveLanguages,
             source = source,
             sourceUrl = sourceUrl,
@@ -897,7 +922,7 @@ internal fun buildCopyPlan(files: List<String>, family: ModelFamily = ModelFamil
             files = pins,
             sizeBytes = sizeBytes,
             importedAt = System.currentTimeMillis(),
-            streaming = streaming,
+            streaming = effectiveStreaming,
             linkedCatalog = linkedCatalog,
             licence = licence?.takeIf { it.isNotBlank() },
         )
