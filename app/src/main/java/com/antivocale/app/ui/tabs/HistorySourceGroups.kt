@@ -1,5 +1,9 @@
 package com.antivocale.app.ui.tabs
 
+import com.antivocale.app.data.FrameworkPhoneNormalizer
+import com.antivocale.app.data.PhoneNormalizer
+import com.antivocale.app.data.SenderKey
+import com.antivocale.app.data.SenderKeys
 import com.antivocale.app.data.SourceKind
 import com.antivocale.app.data.SourceOrigin
 import com.antivocale.app.data.SubfolderPaths
@@ -91,6 +95,26 @@ internal fun resolveHistoryGroup(
     }
 }
 
+/**
+ * R6: the per-sender rule key [entry]'s row menu edits, or null when the row
+ * has no sender key. The kind is the effective one (a pre-R3 folder-watch
+ * row recorded none), so a recording in a subfolder or in the legacy Folder
+ * sync section gets its caller's rule even with no caller header.
+ */
+internal fun senderKeyForRow(
+    entry: LogEntry,
+    watchedFolders: List<WatchedFolder>,
+    countryIso: String?,
+    phone: PhoneNormalizer = FrameworkPhoneNormalizer,
+): SenderKey? {
+    val kind = effectiveSourceOrigin(
+        entry.taskId,
+        SourceOrigin(entry.sourceKind, entry.sourceFolderKey, entry.sourceFolderName, entry.sourceSubPath),
+        watchedFolders,
+    ).kind
+    return SenderKeys.forRow(kind, entry.sourcePackageName, entry.senderName, countryIso, phone)
+}
+
 private fun otherPlacement(sender: HistorySubGroupRef?) =
     HistoryGroupPlacement(UNKNOWN_GROUP_KEY, HistoryGroupTitle.Other, sender)
 
@@ -154,8 +178,8 @@ private fun folderGroupKey(treeUri: String) = FOLDER_GROUP_PREFIX + treeUri
 /**
  * R6: the transcription-rule scope a History group header stands for, read
  * back off the keys the grouping wrote (the ONE reader of those prefixes
- * outside this file). Sender sub-groups ("who:") are [None] here: sender
- * rules are a separate scope with their own editor.
+ * outside this file). A sender ("who:") sub-header is a [Sender] scope,
+ * keyed exactly as the enqueue origin that produced its rows keys it.
  */
 internal sealed interface HistoryGroupScope {
     /** A watched folder's section header: its default profile. */
@@ -164,7 +188,13 @@ internal sealed interface HistoryGroupScope {
     /** A subfolder sub-header under a folder section; [subPath] is normalized. */
     data class Subfolder(val treeUri: String, val subPath: String) : HistoryGroupScope
 
-    /** Any other header (app, imported, shared, sender, unknown). */
+    /**
+     * A sender sub-header: the per-sender rule at [storageId] (personal
+     * data, never log it). Needs no watched folder.
+     */
+    data class Sender(val storageId: String) : HistoryGroupScope
+
+    /** Any other header (non-WhatsApp app, imported, shared, unknown). */
     data object None : HistoryGroupScope
 
     companion object {
@@ -172,12 +202,40 @@ internal sealed interface HistoryGroupScope {
          * @param groupKey the section key ([HistoryGroupPlacement.groupKey]).
          * @param subKey the sub-group key ([HistorySubGroupRef.key]), or null
          *   for the section header itself.
+         * @param countryIso the device country a folder section's caller
+         *   label is normalized for, as the folder scan normalizes it.
          */
-        fun parse(groupKey: String, subKey: String? = null): HistoryGroupScope {
-            if (!groupKey.startsWith(FOLDER_GROUP_PREFIX)) return None
+        fun parse(
+            groupKey: String,
+            subKey: String? = null,
+            countryIso: String? = null,
+            phone: PhoneNormalizer = FrameworkPhoneNormalizer,
+        ): HistoryGroupScope {
+            if (groupKey == FOLDER_SYNC_GROUP_KEY) {
+                // An unattributable folder-watch row still carries its caller
+                // label, keyed as a call recording like any folder row's.
+                val label = subKey?.takeIf { it.startsWith(SENDER_SUBGROUP_PREFIX) }
+                    ?.removePrefix(SENDER_SUBGROUP_PREFIX) ?: return None
+                return SenderKeys.forCallRecording(label, countryIso, phone)?.let { Sender(it.storageId()) }
+                    ?: None
+            }
+            if (!groupKey.startsWith(FOLDER_GROUP_PREFIX)) {
+                // An app section keys on the bare package name; only the two
+                // WhatsApp clients carry a sender key (the share and
+                // voice-note origins both derive it this way).
+                val label = subKey?.takeIf { it.startsWith(SENDER_SUBGROUP_PREFIX) }
+                    ?.removePrefix(SENDER_SUBGROUP_PREFIX) ?: return None
+                return SenderKeys.forShare(groupKey, label)?.let { Sender(it.storageId()) } ?: None
+            }
             // Only the first prefix is stripped: a tree uri carries ':' and '/'.
             val treeUri = groupKey.removePrefix(FOLDER_GROUP_PREFIX).takeUnless { it.isBlank() } ?: return None
             if (subKey == null) return Folder(treeUri)
+            if (subKey.startsWith(SENDER_SUBGROUP_PREFIX)) {
+                // The caller label, keyed as ScheduledFolderWorker.fileOriginKey keys it.
+                val label = subKey.removePrefix(SENDER_SUBGROUP_PREFIX)
+                return SenderKeys.forCallRecording(label, countryIso, phone)?.let { Sender(it.storageId()) }
+                    ?: None
+            }
             if (!subKey.startsWith(FOLDER_SUBGROUP_PREFIX)) return None
             val subPath = SubfolderPaths.normalize(subKey.removePrefix(FOLDER_SUBGROUP_PREFIX)) ?: return None
             return Subfolder(treeUri, subPath)
@@ -185,16 +243,17 @@ internal sealed interface HistoryGroupScope {
     }
 }
 
-/** The tree uri [this] scope writes to, or null for [HistoryGroupScope.None]. */
+/** The tree uri [this] scope writes to, or null for a sender scope or [HistoryGroupScope.None]. */
 internal val HistoryGroupScope.treeUri: String?
     get() = when (val scope = this) {
         is HistoryGroupScope.Folder -> scope.treeUri
         is HistoryGroupScope.Subfolder -> scope.treeUri
-        HistoryGroupScope.None -> null
+        is HistoryGroupScope.Sender, HistoryGroupScope.None -> null
     }
 
 /**
- * The watched folder [this] scope edits, or null: [HistoryGroupScope.None],
+ * The watched folder [this] scope edits, or null: a sender scope (it edits
+ * no folder), [HistoryGroupScope.None],
  * or a folder no longer watched (its section survives in History, but an
  * unwatched folder has no rules to edit).
  */
@@ -208,5 +267,5 @@ internal fun HistoryGroupScope.storedRuleIn(folder: WatchedFolder): Transcriptio
     when (val scope = this) {
         is HistoryGroupScope.Folder -> folder.profile
         is HistoryGroupScope.Subfolder -> folder.subfolderRules[scope.subPath]
-        HistoryGroupScope.None -> null
+        is HistoryGroupScope.Sender, HistoryGroupScope.None -> null
     }

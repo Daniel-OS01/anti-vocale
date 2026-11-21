@@ -7,8 +7,12 @@ import android.util.Log
 import android.widget.Toast
 import androidx.work.WorkManager
 import com.antivocale.app.R
+import com.antivocale.app.data.DeviceCountry
+import com.antivocale.app.data.FrameworkPhoneNormalizer
 import com.antivocale.app.data.OriginFacts
+import com.antivocale.app.data.PhoneNormalizer
 import com.antivocale.app.data.ScopeProfileSource
+import com.antivocale.app.data.SenderKeys
 import com.antivocale.app.data.SourceKind
 import com.antivocale.app.service.InferenceService
 import com.antivocale.app.util.ClipboardWriter
@@ -69,17 +73,36 @@ class NotificationActionReceiver : BroadcastReceiver() {
          * from one of the two WhatsApp packages, that source (its default
          * pin). A shared WhatsApp file carries the package too but is not a
          * voice-note row, so the kind gates the source.
+         *
+         * The row's sender label keys its sender profile: a voice-note row
+         * as that WhatsApp source's sender, a folder-watch row as a call
+         * recording (its stored label IS the parsed caller, normalized with
+         * [countryIso]), any other row from a WhatsApp package as a shared
+         * WhatsApp note; nothing else has a sender key.
          */
-        internal fun rerunOriginFacts(intent: Intent): OriginFacts = OriginFacts(
-            voiceNoteSource =
-                if (intent.getStringExtra(InferenceService.EXTRA_SOURCE_KIND) == SourceKind.VOICE_NOTE) {
-                    ScopeProfileSource.voiceNoteSourceForPackage(intent.getStringExtra(EXTRA_SOURCE_PACKAGE))
+        internal fun rerunOriginFacts(
+            intent: Intent,
+            countryIso: String?,
+            phone: PhoneNormalizer = FrameworkPhoneNormalizer,
+        ): OriginFacts {
+            val sourceKind = intent.getStringExtra(InferenceService.EXTRA_SOURCE_KIND)
+            val sourcePackage = intent.getStringExtra(EXTRA_SOURCE_PACKAGE)
+            val senderName = intent.getStringExtra(InferenceService.EXTRA_SENDER_NAME)
+            val voiceNoteSource =
+                if (sourceKind == SourceKind.VOICE_NOTE) {
+                    ScopeProfileSource.voiceNoteSourceForPackage(sourcePackage)
                 } else {
                     null
-                },
-            folderTreeUri = intent.getStringExtra(InferenceService.EXTRA_SOURCE_FOLDER_KEY),
-            subPath = intent.getStringExtra(InferenceService.EXTRA_SOURCE_SUB_PATH),
-        )
+                }
+            // The History row menu derives the same key from the same facts.
+            val senderKey = SenderKeys.forRow(sourceKind, sourcePackage, senderName, countryIso, phone)
+            return OriginFacts(
+                voiceNoteSource = voiceNoteSource,
+                folderTreeUri = intent.getStringExtra(InferenceService.EXTRA_SOURCE_FOLDER_KEY),
+                subPath = intent.getStringExtra(InferenceService.EXTRA_SOURCE_SUB_PATH),
+                senderStorageId = senderKey?.storageId(),
+            )
+        }
         // TASK-764: the sixteen result-spec round-trip extras moved to
         // ResultNotificationSpecNav (the one write/read owner, values
         // frozen for pre-update notifications); only the keys other
@@ -217,8 +240,8 @@ class NotificationActionReceiver : BroadcastReceiver() {
                 putExtra(InferenceService.EXTRA_SOURCE_SUB_PATH, it)
             }
         }
-        val facts = rerunOriginFacts(intent)
         val appContext = context.applicationContext
+        val facts = rerunOriginFacts(intent, DeviceCountry.iso(appContext))
         val pendingResult = goAsync()
         CoroutineScope(Dispatchers.IO + SupervisorJob() + CrashReporter.handler).launch {
             try {

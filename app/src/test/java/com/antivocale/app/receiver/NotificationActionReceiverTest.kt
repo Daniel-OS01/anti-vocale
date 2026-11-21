@@ -152,18 +152,70 @@ class NotificationActionReceiverTest {
 
     // ---- R6: the suspension re-run re-resolves from the row's facts ----
 
-    private fun rerunIntent(kind: String?, pkg: String?, folderKey: String?, subPath: String?): Intent =
+    private fun rerunIntent(
+        kind: String?,
+        pkg: String?,
+        folderKey: String?,
+        subPath: String?,
+        sender: String? = null,
+    ): Intent =
         mockk<Intent>(relaxed = true).also {
             every { it.getStringExtra(com.antivocale.app.service.InferenceService.EXTRA_SOURCE_KIND) } returns kind
             every { it.getStringExtra(NotificationActionReceiver.EXTRA_SOURCE_PACKAGE) } returns pkg
             every { it.getStringExtra(com.antivocale.app.service.InferenceService.EXTRA_SOURCE_FOLDER_KEY) } returns folderKey
             every { it.getStringExtra(com.antivocale.app.service.InferenceService.EXTRA_SOURCE_SUB_PATH) } returns subPath
+            every { it.getStringExtra(com.antivocale.app.service.InferenceService.EXTRA_SENDER_NAME) } returns sender
         }
+
+    /** A fake E.164 normalizer: any number is "+1" plus its digits. */
+    private val fakePhone = com.antivocale.app.data.PhoneNormalizer { raw, _ -> "+1" + raw.filter { it.isDigit() } }
+
+    @Test
+    fun `a voice-note rerun keys its sender as that WhatsApp source's sender`() {
+        val facts = NotificationActionReceiver.rerunOriginFacts(
+            rerunIntent(com.antivocale.app.data.SourceKind.VOICE_NOTE, "com.whatsapp", null, null, "Test Contact"),
+            countryIso = "us", phone = fakePhone)
+        org.junit.Assert.assertEquals(
+            com.antivocale.app.data.SenderKey.WhatsApp("com.whatsapp", "Test Contact").storageId(),
+            facts.senderStorageId)
+    }
+
+    @Test
+    fun `a folder-watch rerun keys its stored caller label as a call recording`() {
+        val facts = NotificationActionReceiver.rerunOriginFacts(
+            rerunIntent(com.antivocale.app.data.SourceKind.FOLDER_WATCH, null, "content://tree/rec", null, "5550100"),
+            countryIso = "us", phone = fakePhone)
+        org.junit.Assert.assertEquals(
+            com.antivocale.app.data.SenderKey.Call("+15550100").storageId(), facts.senderStorageId)
+    }
+
+    @Test
+    fun `a shared WhatsApp rerun keys its sender as a share`() {
+        val facts = NotificationActionReceiver.rerunOriginFacts(
+            rerunIntent(com.antivocale.app.data.SourceKind.SHARE, "com.whatsapp.w4b", null, null, "Test Contact"),
+            countryIso = "us", phone = fakePhone)
+        org.junit.Assert.assertNull(facts.voiceNoteSource)
+        org.junit.Assert.assertEquals(
+            com.antivocale.app.data.SenderKey.WhatsApp("com.whatsapp.w4b", "Test Contact").storageId(),
+            facts.senderStorageId)
+    }
+
+    @Test
+    fun `a rerun with no sender or a non-WhatsApp share has no sender id`() {
+        val noSender = NotificationActionReceiver.rerunOriginFacts(
+            rerunIntent(com.antivocale.app.data.SourceKind.VOICE_NOTE, "com.whatsapp", null, null),
+            countryIso = "us", phone = fakePhone)
+        org.junit.Assert.assertNull(noSender.senderStorageId)
+        val otherApp = NotificationActionReceiver.rerunOriginFacts(
+            rerunIntent(com.antivocale.app.data.SourceKind.SHARE, "org.example.messenger", null, null, "Test Contact"),
+            countryIso = "us", phone = fakePhone)
+        org.junit.Assert.assertNull(otherApp.senderStorageId)
+    }
 
     @Test
     fun `a folder-watch rerun re-resolves from its tree and subfolder`() {
         val facts = NotificationActionReceiver.rerunOriginFacts(
-            rerunIntent(com.antivocale.app.data.SourceKind.FOLDER_WATCH, null, "content://tree/rec", "Russian"))
+            rerunIntent(com.antivocale.app.data.SourceKind.FOLDER_WATCH, null, "content://tree/rec", "Russian"), countryIso = null)
         org.junit.Assert.assertEquals("content://tree/rec", facts.folderTreeUri)
         org.junit.Assert.assertEquals("Russian", facts.subPath)
         org.junit.Assert.assertNull(facts.voiceNoteSource)
@@ -173,11 +225,11 @@ class NotificationActionReceiverTest {
     @Test
     fun `a WhatsApp Business voice-note rerun carries its source, a shared WhatsApp file does not`() {
         val note = NotificationActionReceiver.rerunOriginFacts(
-            rerunIntent(com.antivocale.app.data.SourceKind.VOICE_NOTE, "com.whatsapp.w4b", null, null))
+            rerunIntent(com.antivocale.app.data.SourceKind.VOICE_NOTE, "com.whatsapp.w4b", null, null), countryIso = null)
         org.junit.Assert.assertEquals(com.antivocale.app.data.VoiceNoteSource.WHATSAPP_BUSINESS, note.voiceNoteSource)
 
         val share = NotificationActionReceiver.rerunOriginFacts(
-            rerunIntent(com.antivocale.app.data.SourceKind.SHARE, "com.whatsapp.w4b", null, null))
+            rerunIntent(com.antivocale.app.data.SourceKind.SHARE, "com.whatsapp.w4b", null, null), countryIso = null)
         org.junit.Assert.assertNull(share.voiceNoteSource)
     }
 }

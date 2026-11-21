@@ -1194,6 +1194,7 @@
     <string name="backup_transfer_summary">Tallenna asetukset ja historia tiedostoon tai palauta ne toisella laitteella</string>
     <string name="backup_export_title">Varmuuskopion vienti</string>
     <string name="backup_export_description">Kirjoittaa yhteen tiedostoon asetuksesi ja koko transkriptiohistoriasi. Tiedosto on selväkielistä: sen haltija voi lukea jokaisen transkription ja lähettäjän nimen.</string>
+    <string name="backup_export_includes_sender_rules">Arkisto sisältää lähettäjäsääntösi (yhteystietojen nimet ja puhelinnumerot).</string>
     <string name="backup_export_action">Luo varmuuskopiotiedosto</string>
     <string name="backup_import_title">Varmuuskopion tuonti</string>
     <string name="backup_import_description">Lisää varmuuskopiotiedostosta asetukset ja aiemmat transkriptiot tähän laitteeseen. Olemassa olevia tietoja ei poisteta.</string>
@@ -1312,7 +1313,14 @@
     <string name="scope_rule_next">Seuraava</string>
     <string name="history_scope_rule_folder_title">Litteroi tämä kansio näin…</string>
     <string name="history_scope_rule_subfolder_title">Litteroi tämä alikansio näin…</string>
+    <string name="history_scope_rule_sender_title">Litteroi %1$s aina näin…</string>
     <string name="history_scope_rule_long_press_label">Aseta litterointisääntö</string>
+    <string name="history_row_sender_rule">Tämän lähettäjän litterointisääntö…</string>
+    <string name="sender_rules_title">Lähettäjäsäännöt</string>
+    <string name="sender_rules_summary">Litteroi valitut henkilöt omalla mallilla tai kielellä</string>
+    <string name="sender_rules_note">Säännöt vastaavat nimeä, jonka WhatsApp näyttää, tai soittajaa tallenteen tiedostonimessä. Yhteystiedon nimen muuttaminen lopettaa sen säännön. Säännöt sisältyvät varmuuskopioihin.</string>
+    <string name="sender_rules_empty">Lähettäjäsääntöjä ei vielä ole. Lisää sääntö painamalla lähettäjää pitkään Historiassa.</string>
+    <string name="sender_rules_section_calls">Puhelutallenteet</string>
     <string name="bulk_redo_single_pass_hint">Kaksivaiheinen tila on pois päältä tässä uusinnassa: yksi kierros valitulla mallilla.</string>
     <string name="bulk_redo_preparing">Valmistellaan %1$d/%2$d</string>
     <string name="bulk_redo_all">Tee kaikki uudelleen</string>

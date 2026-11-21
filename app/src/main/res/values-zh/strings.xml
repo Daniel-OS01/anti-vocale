@@ -1143,6 +1143,7 @@
     <string name="backup_transfer_summary">将你的设置和历史记录保存到文件，或在其他设备上恢复</string>
     <string name="backup_export_title">导出备份</string>
     <string name="backup_export_description">将你的设置和完整转写历史写入单个文件。该文件为纯文本：任何拿到它的人都能读到每条转写内容和发件人姓名。</string>
+    <string name="backup_export_includes_sender_rules">归档包含你的发件人规则（联系人姓名和电话号码）。</string>
     <string name="backup_export_action">创建备份文件</string>
     <string name="backup_import_title">导入备份</string>
     <string name="backup_import_description">将备份文件中的设置和过往转写添加到此设备。你已有的内容会保留。</string>
@@ -1296,7 +1297,14 @@
     <string name="scope_rule_next">下一步</string>
     <string name="history_scope_rule_folder_title">将此文件夹转写为…</string>
     <string name="history_scope_rule_subfolder_title">将此子文件夹转写为…</string>
+    <string name="history_scope_rule_sender_title">始终使用以下方式转写 %1$s…</string>
     <string name="history_scope_rule_long_press_label">设置转写规则</string>
+    <string name="history_row_sender_rule">此发件人的转写规则…</string>
+    <string name="sender_rules_title">发件人规则</string>
+    <string name="sender_rules_summary">用专属模型或语言转写指定的人</string>
+    <string name="sender_rules_note">规则会匹配 WhatsApp 显示的名称，或录音文件名中的来电者。重命名联系人会使其规则失效。规则会包含在备份中。</string>
+    <string name="sender_rules_empty">还没有发件人规则。在历史中长按发件人即可添加。</string>
+    <string name="sender_rules_section_calls">通话录音</string>
     <string name="bulk_redo_single_pass_hint">本次重做关闭双遍模式：使用所选模型单遍转写。</string>
     <string name="bulk_redo_preparing">正在准备 %1$d / %2$d</string>
     <string name="bulk_redo_all">全部重做</string>

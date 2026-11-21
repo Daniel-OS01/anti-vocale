@@ -107,6 +107,12 @@ internal class TestSpiOps(
     private val asyncImportOutcome: (String) -> Unit = { line ->
         android.util.Log.i(SPI_LOG_TAG, line)
     },
+    /** The sender_profile key writes per-sender language rules through the
+     *  production store. It is a thin wrapper over [preferences] (the write
+     *  lock is process-wide), so a default built from the same preferences
+     *  keeps the receiver and every unit fake unchanged. */
+    private val scopeProfiles: com.antivocale.app.data.ScopeProfileStore =
+        com.antivocale.app.data.ScopeProfileStore(preferences),
 ) {
     /** TASK-974: the record_delete op runs the shared delete semantics over
      *  the same store+preferences pair every other op uses. */
@@ -551,6 +557,23 @@ internal class TestSpiOps(
                     "unknown backend '$value' (blank, a catalog id or '${ExternalModelRecord.BACKEND_ID_PREFIX}<record id>')"
                 }
             }
+            // A per-sender language rule for a FAKE sender id (call:<number> or
+            // wa:<package>:<name>). Blank value deletes the rule. The entry is a
+            // sender identifier: it never enters an error message or the ack,
+            // because the receiver mirrors every response into logcat.
+            putUnique("sender_profile") { value, entry ->
+                if (entry == null || com.antivocale.app.data.SenderKey.parse(entry) == null) {
+                    "sender_profile requires entry=<sender storage id> (call:<number> or wa:<package>:<name>)"
+                } else {
+                    val profile = if (value.isBlank()) {
+                        null
+                    } else {
+                        com.antivocale.app.data.TranscriptionProfile.of(null, value)
+                    }
+                    scopeProfiles.setSenderProfile(entry, profile)
+                    null
+                }
+            }
             putUnique("sherpa_path") { value, entry ->
                 if (entry == null || entry !in BuiltInBackendIds.ALL) {
                     "sherpa_path requires entry=<catalog id> " +
@@ -580,6 +603,8 @@ internal class TestSpiOps(
         "refinement_model",
         // Blank is the preview pin's documented clear (automatic).
         "preview_model",
+        // Blank deletes the sender's rule.
+        "sender_profile",
     )
 
     private suspend fun set(key: String?, value: String?, entry: String?): String {

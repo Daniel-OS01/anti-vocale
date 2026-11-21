@@ -38,6 +38,19 @@ class ContextMenuActionsTest {
     }
 
     @Test
+    fun `entry with a sender key offers its sender rule before report`() {
+        val actions = buildContextMenuActions(entry(), canRetranscribe = true, hasSenderRule = true)
+
+        assertEquals(
+            listOf(
+                ContextMenuAction.RETRANSCRIBE, ContextMenuAction.COPY, ContextMenuAction.SENDER_RULE,
+                ContextMenuAction.REPORT, ContextMenuAction.DELETE,
+            ),
+            actions
+        )
+    }
+
+    @Test
     fun `entry with empty result omits copy`() {
         val actions = buildContextMenuActions(entry(result = ""), canRetranscribe = true)
 

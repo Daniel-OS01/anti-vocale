@@ -50,7 +50,7 @@ class LogsViewModelRetranscribeNamesTest : ViewModelTeardownTest() {
         manager = mockk(relaxed = true)
         preferences = stubPreferencesManager()
         every { preferences.sherpaModelPath(any()) } returns flowOf("/data/models/saved")
-        viewModel = register(LogsViewModel(manager, mockk<LogDao>(relaxed = true), preferences, staticRegistry(), mockk(relaxed = true), mockk(relaxed = true), mockk(relaxed = true), mockk(relaxed = true), orchestrator = mockk(relaxed = true), duplicateGuard = mockk(relaxed = true), scheduledFolderStore = mockk(relaxed = true), profileOutcomeSource = mockk(relaxed = true), historyBulkRedo = mockk(relaxed = true), appScope = appScope))
+        viewModel = register(LogsViewModel(manager, mockk<LogDao>(relaxed = true), preferences, staticRegistry(), mockk(relaxed = true), mockk(relaxed = true), mockk(relaxed = true), mockk(relaxed = true), orchestrator = mockk(relaxed = true), duplicateGuard = mockk(relaxed = true), scheduledFolderStore = mockk(relaxed = true), profileOutcomeSource = mockk(relaxed = true), historyBulkRedo = mockk(relaxed = true), scopeProfileStore = mockk(relaxed = true), appScope = appScope))
     }
 
     @Test

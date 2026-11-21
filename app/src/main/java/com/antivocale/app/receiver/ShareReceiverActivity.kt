@@ -21,7 +21,11 @@ import com.antivocale.app.R
 import com.antivocale.app.data.SourceKind
 import com.antivocale.app.MainActivity
 import com.antivocale.app.data.ExternalModelRecord
+import com.antivocale.app.data.OriginFacts
 import com.antivocale.app.data.PreferencesManager
+import com.antivocale.app.data.ScopeProfileSource
+import com.antivocale.app.data.SenderKeys
+import com.antivocale.app.data.TranscriptionProfile
 import com.antivocale.app.data.VoiceNoteDuplicateGuard
 import com.antivocale.app.receiver.ChooserBroadcastReceiver
 import com.antivocale.app.service.AudioRequestIntent
@@ -29,6 +33,7 @@ import com.antivocale.app.service.InferenceEnqueue
 import com.antivocale.app.service.InferenceService
 import com.antivocale.app.service.ResultNotificationFactory
 import com.antivocale.app.transcription.BackendRegistry
+import com.antivocale.app.transcription.ResolvedProfile
 import com.antivocale.app.ui.dialogs.DuplicateFoundDialog
 import com.antivocale.app.ui.dialogs.ExternalModelChooserDialog
 import com.antivocale.app.ui.theme.AntiVocaleTheme
@@ -98,6 +103,7 @@ class ShareReceiverActivity : ComponentActivity() {
     @javax.inject.Inject lateinit var transcriptionOrchestrator: com.antivocale.app.transcription.TranscriptionOrchestrator
     @javax.inject.Inject lateinit var duplicateGuard: com.antivocale.app.data.VoiceNoteDuplicateGuard
     @javax.inject.Inject lateinit var preferencesManager: PreferencesManager
+    @javax.inject.Inject lateinit var scopeProfileSource: ScopeProfileSource
 
     @com.antivocale.app.di.ApplicationScope
     @javax.inject.Inject lateinit var injectedAppScope: CoroutineScope
@@ -116,6 +122,46 @@ class ShareReceiverActivity : ComponentActivity() {
          * keeps the legacy error behavior.
          */
         const val EXTRA_FROM_SHORTCUT = "com.antivocale.app.FROM_SHORTCUT"
+
+        /**
+         * The share's sender-profile facts, or null when the share has no
+         * sender key (not a WhatsApp client, or no matched label): null means
+         * the caller makes no resolve call. [backendOverride] (the alias's or
+         * the chooser's pick) rides as the explicit profile, so it still
+         * wins over the sender's backend while the sender fills the language.
+         */
+        internal fun shareSenderOriginFacts(
+            sourcePackage: String?,
+            senderName: String?,
+            backendOverride: String?,
+        ): OriginFacts? =
+            SenderKeys.forShare(sourcePackage, senderName)?.let { key ->
+                OriginFacts(
+                    senderStorageId = key.storageId(),
+                    explicit = backendOverride?.let { TranscriptionProfile.of(it, null) },
+                )
+            }
+
+        /**
+         * The share's sender decision, made ONCE before the duplicate check
+         * so the duplicate lookup and the enqueued intent read the same
+         * effective backend ([ShareSenderDecision.backendOverride]). No
+         * sender key: [resolve] is never called and the decision is the
+         * alias's backend ([backendOverride]) with no language, as before.
+         */
+        internal suspend fun shareSenderDecision(
+            sourcePackage: String?,
+            senderName: String?,
+            backendOverride: String?,
+            resolve: suspend (OriginFacts) -> ResolvedProfile,
+        ): ShareSenderDecision {
+            val profile = shareSenderOriginFacts(sourcePackage, senderName, backendOverride)?.let { resolve(it) }
+            return ShareSenderDecision(
+                senderName = senderName,
+                backendOverride = if (profile != null) profile.backendOverride else backendOverride,
+                languageOverride = profile?.languageOverride,
+            )
+        }
 
         // The choice prompt auto-resolves to ASR after this delay if the user does nothing.
         // Keeps a shared video from silently hanging when the notification is ignored.
@@ -283,6 +329,15 @@ class ShareReceiverActivity : ComponentActivity() {
     // guard finishes the new instance, so that file's share is lost without
     // a toast; the covered set (V6) keeps the common rotations alive.
 
+    /** The share's matched sender and its resolved profile: the backend
+     *  both the duplicate lookup and the service intent use. */
+    internal data class ShareSenderDecision(
+        val senderName: String?,
+        /** null = the global backend. */
+        val backendOverride: String?,
+        val languageOverride: String?,
+    )
+
     /** One pending interaction. Every variant carries its flow's unique
      *  per-file taskId, so two entries are never data-equal twins; the
      *  interface owns it because the surface keys composition on it. */
@@ -297,6 +352,7 @@ class ShareReceiverActivity : ComponentActivity() {
             val localPath: String,
             val backendOverride: String?,
             val contentHash: String,
+            val sender: ShareSenderDecision,
         ) : PendingDialog
 
         /** ShareExternal family chooser: pick one imported model. */
@@ -607,13 +663,14 @@ class ShareReceiverActivity : ComponentActivity() {
                 return@launchShareFlow
             }
 
+            val sender = resolveShareSender(localPath, backendOverride)
             if (contentHash != null &&
-                offerDuplicateDialogIfNeeded(taskId, localPath, backendOverride, contentHash)
+                offerDuplicateDialogIfNeeded(taskId, localPath, backendOverride, contentHash, sender)
             ) {
                 return@launchShareFlow  // the dialog owns the request from here
             }
 
-            dispatch(taskId, localPath, backendOverride, contentHash)
+            dispatch(taskId, localPath, backendOverride, contentHash, sender)
         }
     }
 
@@ -662,6 +719,28 @@ class ShareReceiverActivity : ComponentActivity() {
         pendingDialogs.add(PendingDialog.ExternalChooser(taskId, localPath, records, contentHash))
     }
 
+    /**
+     * TASK-736: match the shared audio against the identity cache (the free
+     * candidates check first; the duration probe runs only when a voice note
+     * from this package is actually cached). TASK-271 moved the probe +
+     * matcher into VoiceNoteSenderResolution so the share flow and the
+     * automatic route share one implementation. A labeled WhatsApp share
+     * then resolves that sender's profile; the alias's (or the chooser's)
+     * backend stays the explicit pick.
+     */
+    private suspend fun resolveShareSender(localPath: String, backendOverride: String?): ShareSenderDecision {
+        val senderName = withContext(Dispatchers.IO) {
+            VoiceNoteSenderResolution.match(
+                voiceNoteIdentityCache,
+                audioPreprocessor,
+                sourcePackage,
+                localPath)
+        }
+        return shareSenderDecision(sourcePackage, senderName, backendOverride) { facts ->
+            withContext(Dispatchers.IO) { scopeProfileSource.resolve(facts) }
+        }
+    }
+
     /** The subtitle probe branch plus the default ASR path, shared by every
      *  entry. Suspending: callers run it inside their own coroutine on Main
      *  (no nested launch hop). */
@@ -669,7 +748,8 @@ class ShareReceiverActivity : ComponentActivity() {
         taskId: String,
         localPath: String,
         backendOverride: String?,
-        contentHash: String? = null,
+        contentHash: String?,
+        sender: ShareSenderDecision,
     ) {
         // TASK-517: the subtitle probe (MediaExtractor on potentially
         // GB-scale videos) and the preference reads inside offerIfTracks
@@ -681,7 +761,10 @@ class ShareReceiverActivity : ComponentActivity() {
                 this@ShareReceiverActivity, taskId, localPath,
                 source = InferenceService.SOURCE_SHARE,
                 sourcePackage = sourcePackage,
-                backendOverride = backendOverride,
+                // The sender-resolved backend, the same one the duplicate
+                // check used (equal to the alias's when there is no sender).
+                // The subtitle path carries no language override yet.
+                backendOverride = sender.backendOverride,
                 contentHash = contentHash,
                 sourceKind = SourceKind.SHARE,
             )
@@ -715,25 +798,17 @@ class ShareReceiverActivity : ComponentActivity() {
         }
 
         // ---- Default ASR path ----
-        // TASK-736: match the shared audio against the identity cache (the
-        // free candidates check first; the duration probe runs only when a
-        // voice note from this package is actually cached). TASK-271 moved
-        // the probe + matcher into VoiceNoteSenderResolution so the share
-        // flow and the automatic route share one implementation.
-        val senderName = withContext(Dispatchers.IO) {
-            VoiceNoteSenderResolution.match(
-                voiceNoteIdentityCache,
-                audioPreprocessor,
-                sourcePackage,
-                localPath)
-        }
+        // The sender was matched and its profile resolved before the
+        // duplicate check ([resolveShareSender]): the intent carries the
+        // same effective backend the duplicate lookup used.
         val serviceIntent = AudioRequestIntent.make(
             this, InferenceService.SOURCE_SHARE, taskId, localPath,
             sourcePackage = sourcePackage,
-            backendOverride = backendOverride,
-            senderName = senderName,
+            backendOverride = sender.backendOverride,
+            senderName = sender.senderName,
             contentHash = contentHash,
             sourceKind = SourceKind.SHARE,
+            languageOverride = sender.languageOverride,
         )
 
         // F6: unified enqueue (trampoline fallback on the API 31+
@@ -761,10 +836,13 @@ class ShareReceiverActivity : ComponentActivity() {
         localPath: String,
         backendOverride: String?,
         contentHash: String,
+        sender: ShareSenderDecision,
     ): Boolean {
         if (isFinishing || isDestroyed) return false
+        // The sender's effective backend, never the alias's alone: a
+        // duplicate must match the model this run would stamp.
         val hit = duplicateGuard
-            .lookup(this, transcriptionOrchestrator, contentHash, backendOverride)
+            .lookup(this, transcriptionOrchestrator, contentHash, sender.backendOverride)
             ?: return false
         val existing = hit.row
         // Three suspension points sit between the entry check and the
@@ -782,6 +860,7 @@ class ShareReceiverActivity : ComponentActivity() {
                 localPath = localPath,
                 backendOverride = backendOverride,
                 contentHash = contentHash,
+                sender = sender,
             )
         )
         return true
@@ -818,7 +897,7 @@ class ShareReceiverActivity : ComponentActivity() {
     private fun onDuplicateReprocess(entry: PendingDialog.Duplicate) {
         removePendingDialog(entry)
         launchShareFlow {
-            dispatch(entry.taskId, entry.localPath, entry.backendOverride, entry.contentHash)
+            dispatch(entry.taskId, entry.localPath, entry.backendOverride, entry.contentHash, entry.sender)
         }
     }
 
@@ -827,12 +906,15 @@ class ShareReceiverActivity : ComponentActivity() {
         removePendingDialog(entry)
         Log.i(TAG, "External model chosen via share chooser: ${chosen.backendId}")
         launchShareFlow {
+            // The sender resolves after the pick: the chosen model rides
+            // as the explicit profile, as the alias does on a direct share.
+            val sender = resolveShareSender(entry.localPath, chosen.backendId)
             if (entry.contentHash != null &&
-                offerDuplicateDialogIfNeeded(entry.taskId, entry.localPath, chosen.backendId, entry.contentHash)
+                offerDuplicateDialogIfNeeded(entry.taskId, entry.localPath, chosen.backendId, entry.contentHash, sender)
             ) {
                 return@launchShareFlow  // the dialog owns the request from here
             }
-            dispatch(entry.taskId, entry.localPath, chosen.backendId, entry.contentHash)
+            dispatch(entry.taskId, entry.localPath, chosen.backendId, entry.contentHash, sender)
         }
     }
 

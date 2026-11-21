@@ -176,7 +176,7 @@ class SettingsSearchRegistryTest {
                 SettingsSearchId.WORD_TAP_SEEK, SettingsSearchId.ADVANCED_SHARE_FORMATS),
             SettingsSearchGroup.INTEGRATIONS to listOf(
                 SettingsSearchId.SHARE_TARGETS, SettingsSearchId.SUBTITLE_TIMEOUT, SettingsSearchId.AUTOMATION_HUB,
-                SettingsSearchId.VOICE_NOTE_HUB,
+                SettingsSearchId.VOICE_NOTE_HUB, SettingsSearchId.SENDER_RULES_HUB,
                 SettingsSearchId.SHARE_SHORTCUT_ICONS),
         )
         val registryOrder = SETTINGS_SEARCH_CARDS.map { it.id }
@@ -424,7 +424,7 @@ class SettingsSearchRegistryTest {
                 SettingsSearchId.SHARE_TARGETS,
                 SettingsSearchId.SUBTITLE_TIMEOUT,
                 SettingsSearchId.AUTOMATION_HUB,
-                SettingsSearchId.VOICE_NOTE_HUB,
+                SettingsSearchId.VOICE_NOTE_HUB, SettingsSearchId.SENDER_RULES_HUB,
                 SettingsSearchId.SHARE_SHORTCUT_ICONS,
             ),
             base,
@@ -472,6 +472,22 @@ class SettingsSearchRegistryTest {
                 R.string.language_models_title, R.string.language_models_summary,
                 R.string.language_models_explainer, R.string.language_models_add,
                 R.string.language_models_model_label),
+            hub.res(state()),
+        )
+    }
+
+    @Test
+    fun `the sender-rules hub carries its own and its subpage's static strings`() {
+        // R6: the page's rows are user data; the hub's two strings plus the
+        // page's section label and note are the vocabulary.
+        val hub = SETTINGS_SEARCH_CARDS.first { it.id == SettingsSearchId.SENDER_RULES_HUB }
+        assertEquals(SettingsSearchSection.ADVANCED, hub.section)
+        assertEquals(SettingsSearchGroup.INTEGRATIONS, hub.group)
+        assertEquals(
+            listOf(
+                R.string.sender_rules_title, R.string.sender_rules_summary,
+                R.string.sender_rules_section_calls, R.string.sender_rules_note,
+                R.string.sender_rules_empty),
             hub.res(state()),
         )
     }

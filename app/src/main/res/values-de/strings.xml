@@ -1352,6 +1352,7 @@
     <string name="backup_transfer_summary">Einstellungen und Verlauf in einer Datei sichern oder auf einem anderen Gerät wiederherstellen</string>
     <string name="backup_export_title">Backup exportieren</string>
     <string name="backup_export_description">Schreibt eine Datei mit deinen Einstellungen und deinem gesamten Transkriptionsverlauf. Die Datei ist Klartext: Wer sie hat, kann jedes Transkript und jeden Absendernamen lesen.</string>
+    <string name="backup_export_includes_sender_rules">Das Archiv enthält deine Absenderregeln (Kontaktnamen und Telefonnummern).</string>
     <string name="backup_export_action">Backupdatei erstellen</string>
     <string name="backup_import_title">Backup importieren</string>
     <string name="backup_import_description">Fügt Einstellungen und frühere Transkriptionen aus einer Backupdatei zu diesem Gerät hinzu. Was du bereits hast, bleibt erhalten.</string>
@@ -1472,7 +1473,14 @@
     <string name="scope_rule_next">Weiter</string>
     <string name="history_scope_rule_folder_title">Diesen Ordner transkribieren als…</string>
     <string name="history_scope_rule_subfolder_title">Diesen Unterordner transkribieren als…</string>
+    <string name="history_scope_rule_sender_title">%1$s immer transkribieren mit…</string>
     <string name="history_scope_rule_long_press_label">Transkriptionsregel festlegen</string>
+    <string name="history_row_sender_rule">Transkriptionsregel für diesen Absender…</string>
+    <string name="sender_rules_title">Absenderregeln</string>
+    <string name="sender_rules_summary">Ausgewählte Personen mit eigenem Modell oder eigener Sprache transkribieren</string>
+    <string name="sender_rules_note">Regeln greifen über den Namen, den WhatsApp anzeigt, oder den Anrufer im Dateinamen einer Aufnahme. Wird ein Kontakt umbenannt, greift seine Regel nicht mehr. Regeln sind in Backups enthalten.</string>
+    <string name="sender_rules_empty">Noch keine Absenderregeln. Halte im Verlauf einen Absender gedrückt, um eine hinzuzufügen.</string>
+    <string name="sender_rules_section_calls">Anrufaufnahmen</string>
     <string name="bulk_redo_single_pass_hint">Zwei-Durchgang-Modus ist für diese Wiederholung aus: ein Durchgang mit dem gewählten Modell.</string>
     <string name="bulk_redo_preparing">Vorbereitung %1$d von %2$d</string>
     <string name="bulk_redo_all">Alle wiederholen</string>

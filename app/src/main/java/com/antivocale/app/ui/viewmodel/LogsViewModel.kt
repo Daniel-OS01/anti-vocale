@@ -25,6 +25,7 @@ import com.antivocale.app.data.ActiveModelRepository
 import com.antivocale.app.data.InstalledBackend
 import com.antivocale.app.data.PreferencesManager
 import com.antivocale.app.data.ScheduledFolderStore
+import com.antivocale.app.data.ScopeProfileStore
 import com.antivocale.app.data.SourceOrigin
 import com.antivocale.app.data.SourceKind
 import com.antivocale.app.data.WatchedFolder
@@ -204,6 +205,8 @@ class LogsViewModel @Inject constructor(
     /** R6: the rule editor's outcome line and language codes (shared with
      *  the Settings rules pages, so the History long-press cannot drift). */
     private val profileOutcomeSource: ProfileOutcomeSource,
+    /** R6: the per-sender rules the History sender long-press edits. */
+    private val scopeProfileStore: ScopeProfileStore,
     /** The History bulk redo runner (prepare, enqueue, discard). */
     private val historyBulkRedo: HistoryBulkRedo,
     /** TASK-934: the staged-copy reclaims survive a ViewModel clear (a tap
@@ -1197,6 +1200,7 @@ class LogsViewModel @Inject constructor(
                     ),
                 )
             }
+            is HistoryGroupScope.Sender -> ProfilePreview(EditedScope.SENDER, ScopeChain(), profile)
             HistoryGroupScope.None -> null
         }
     }
@@ -1213,16 +1217,34 @@ class LogsViewModel @Inject constructor(
                     is HistoryGroupScope.Folder -> scheduledFolderStore.setFolderProfile(scope.treeUri, profile)
                     is HistoryGroupScope.Subfolder ->
                         scheduledFolderStore.setSubfolderRule(scope.treeUri, scope.subPath, profile)
+                    is HistoryGroupScope.Sender -> scopeProfileStore.setSenderProfile(scope.storageId, profile)
                     HistoryGroupScope.None -> Unit
                 }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                // Never the folder name, tree uri or path: they can identify people.
+                // Never the folder name, tree uri, path or sender: they can identify people.
                 Log.w(TAG, "history_scope_rule_write_failed", e)
             }
         }
     }
+
+    // R6: the History sender long-press editor. Its preview rides the same
+    // outcome pipeline as the folder editor (one editor is open at a time).
+
+    /** The sender rule stored at [storageId], or null (no rule). */
+    internal suspend fun senderRuleFor(storageId: String): TranscriptionProfile? =
+        scopeProfileStore.senderProfile(storageId)
+
+    /** Recomputes [folderRuleOutcome] for [profile] as the sender rule at [storageId]. */
+    internal fun previewSenderRule(storageId: String, profile: TranscriptionProfile?) =
+        previewFolderRule(HistoryGroupScope.Sender(storageId), profile)
+
+    /** Writes the sender rule at [storageId]; null (or an empty profile) removes it. */
+    internal fun saveSenderRule(storageId: String, profile: TranscriptionProfile?) =
+        saveFolderRule(HistoryGroupScope.Sender(storageId), profile)
+
+    fun clearSenderRulePreview() = clearFolderRulePreview()
 
     /** TASK-616: the technical processing-context line renders only when
      *  this is on (off by default); the data stays persisted either way. */

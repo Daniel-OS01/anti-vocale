@@ -1220,6 +1220,7 @@
     <string name="backup_transfer_summary">Guarda tus ajustes y tu historial en un archivo, o restáuralos en otro dispositivo</string>
     <string name="backup_export_title">Exportar copia de seguridad</string>
     <string name="backup_export_description">Escribe un archivo con tus ajustes y todo tu historial de transcripciones. El archivo es texto sin cifrar: quien lo tenga puede leer cada transcripción y cada nombre de remitente.</string>
+    <string name="backup_export_includes_sender_rules">El archivo incluye tus reglas de remitente (nombres de contactos y números de teléfono).</string>
     <string name="backup_export_action">Crear archivo de copia</string>
     <string name="backup_import_title">Importar copia de seguridad</string>
     <string name="backup_import_description">Añade a este dispositivo ajustes y transcripciones anteriores desde un archivo de copia. Lo que ya tienes se conserva.</string>
@@ -1340,7 +1341,14 @@
     <string name="scope_rule_next">Siguiente</string>
     <string name="history_scope_rule_folder_title">Transcribir esta carpeta como…</string>
     <string name="history_scope_rule_subfolder_title">Transcribir esta subcarpeta como…</string>
+    <string name="history_scope_rule_sender_title">Transcribir siempre a %1$s con…</string>
     <string name="history_scope_rule_long_press_label">Definir regla de transcripción</string>
+    <string name="history_row_sender_rule">Regla de transcripción para este remitente…</string>
+    <string name="sender_rules_title">Reglas de remitente</string>
+    <string name="sender_rules_summary">Transcribe a personas concretas con su propio modelo o idioma</string>
+    <string name="sender_rules_note">Las reglas coinciden con el nombre que muestra WhatsApp o con quien llama en el nombre de archivo de una grabación. Si renombras un contacto, su regla deja de aplicarse. Las reglas se incluyen en las copias de seguridad.</string>
+    <string name="sender_rules_empty">Aún no hay reglas de remitente. Mantén pulsado un remitente en el Historial para añadir una.</string>
+    <string name="sender_rules_section_calls">Grabaciones de llamadas</string>
     <string name="bulk_redo_single_pass_hint">El modo de dos pasadas está desactivado para esta repetición: una sola pasada con el modelo elegido.</string>
     <string name="bulk_redo_preparing">Preparando %1$d de %2$d</string>
     <string name="bulk_redo_all">Repetir todas</string>

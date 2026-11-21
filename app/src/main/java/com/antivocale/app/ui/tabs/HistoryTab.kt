@@ -72,7 +72,9 @@ import com.antivocale.app.util.DecodedOfTotalFormat
 import com.antivocale.app.util.SharedAudioHandler
 import com.antivocale.app.util.TranscriptLanguageHeuristic
 import com.antivocale.app.util.formatProcessingTime
+import com.antivocale.app.data.DeviceCountry
 import com.antivocale.app.data.PreferencesManager
+import com.antivocale.app.data.TranscriptionProfile
 import com.antivocale.app.data.WatchedFolder
 import com.antivocale.app.service.InferenceService
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -673,7 +675,7 @@ private fun RowScope.ResultActionButton(
  * Long-press context menu actions for a log entry (GH #52). Kept as a pure
  * function so the gating mirrors [buildSwipeActions] and stays unit-tested.
  */
-enum class ContextMenuAction { RETRANSCRIBE, CANCEL, COPY, REPORT, DELETE }
+enum class ContextMenuAction { RETRANSCRIBE, CANCEL, COPY, SENDER_RULE, REPORT, DELETE }
 
 /** Shared "Queued" label (collapsed and expanded views render it identically). */
 @Composable
@@ -685,7 +687,11 @@ private fun QueuedStatusLabel() {
     )
 }
 
-fun buildContextMenuActions(log: LogEntry, canRetranscribe: Boolean): List<ContextMenuAction> {
+fun buildContextMenuActions(
+    log: LogEntry,
+    canRetranscribe: Boolean,
+    hasSenderRule: Boolean = false,
+): List<ContextMenuAction> {
     val actions = mutableListOf<ContextMenuAction>()
     // In-flight entries (queued or processing) can be cancelled (GH #52 follow-up);
     // Cancel leads while the item is in flight, it is the primary action there.
@@ -697,6 +703,8 @@ fun buildContextMenuActions(log: LogEntry, canRetranscribe: Boolean): List<Conte
     // with text: mid-ASR progressive saves or the post-ASR summary tail; it
     // copies exactly what the row displays, which may be partial).
     if (log.hasCopyableResult) actions.add(ContextMenuAction.COPY)
+    // R6: only a row whose origin keys a sender can open that sender's rule.
+    if (hasSenderRule) actions.add(ContextMenuAction.SENDER_RULE)
     // TASK-374: report entry available on EVERY entry (errors are the most
     // valuable reports and have no completed result).
     actions.add(ContextMenuAction.REPORT)
@@ -830,6 +838,14 @@ fun HistoryTab(
     var ruleEditorScope by remember { mutableStateOf<HistoryGroupScope?>(null) }
     ruleEditorScope?.let { scope ->
         HistoryFolderRuleEditor(viewModel = viewModel, scope = scope, onClose = { ruleEditorScope = null })
+    }
+    // R6: the sender sub-header long-press rule editor (null = closed). The
+    // country is read once: a folder section's caller label is keyed for it
+    // exactly as the folder scan keys it.
+    val deviceCountryIso = remember(context) { DeviceCountry.iso(context) }
+    var senderRuleTarget by remember { mutableStateOf<SenderRuleTarget?>(null) }
+    senderRuleTarget?.let { target ->
+        HistorySenderRuleEditor(viewModel = viewModel, target = target, onClose = { senderRuleTarget = null })
     }
 
     var showClearDialog by remember { mutableStateOf(false) }
@@ -1420,6 +1436,14 @@ fun HistoryTab(
                 // drift bait); TASK-750 closed over historyRows like the
                 // other locals instead of threading it as a parameter.
                 val renderLogRow: @Composable (LogEntry) -> Unit = { log ->
+                    // R6: the row's own sender rule, for rows no sender header
+                    // reaches (a recording in a subfolder, a legacy Folder sync row).
+                    val rowSenderKey = remember(
+                        log.taskId, log.sourceKind, log.sourceFolderKey, log.sourcePackageName,
+                        log.senderName, watchedFolders, deviceCountryIso,
+                    ) {
+                        senderKeyForRow(log, watchedFolders, deviceCountryIso)
+                    }
                     LogEntryWithSwipe(
                         log = log,
                         searchQuery = searchQuery,
@@ -1440,6 +1464,9 @@ fun HistoryTab(
                         viewModel = viewModel,
                         playback = playbackController,
                         onRetranscribe = if (showRetranscribeButton && log.type == LogEntry.Type.AUDIO && log.filePath != null) {{ retranscribeTarget = log }} else null,
+                        onSenderRule = rowSenderKey?.let { key ->
+                            { senderRuleTarget = SenderRuleTarget(key.storageId(), log.senderName.orEmpty()) }
+                        },
                         compactActions = compactActions,
                         advancedShareFormats = advancedShare,
                         showLanguageChip = showLanguageChip,
@@ -1638,11 +1665,24 @@ fun HistoryTab(
                             }
                             is HistoryRow.SenderHeaderRow -> {
                                 val isSenderExpanded = row.senderKey in expandedSenderGroups
-                                // R6: a subfolder sub-header of a watched folder; sender
-                                // ("who:") sub-headers parse to None and get no gesture.
-                                val ruleScope = remember(row.groupKey, row.sender.key, watchedFolders) {
-                                    HistoryGroupScope.parse(row.groupKey, row.sender.key)
-                                        .takeIf { it.watchedFolderIn(watchedFolders) != null }
+                                // R6: a subfolder sub-header of a watched folder edits
+                                // that subfolder's rule; a sender ("who:") sub-header
+                                // edits the sender rule and needs no watched folder.
+                                val parsedScope = remember(row.groupKey, row.sender.key, deviceCountryIso) {
+                                    HistoryGroupScope.parse(row.groupKey, row.sender.key, deviceCountryIso)
+                                }
+                                val ruleScope = remember(parsedScope, watchedFolders) {
+                                    parsedScope.takeIf { it.watchedFolderIn(watchedFolders) != null }
+                                }
+                                val senderScope = parsedScope as? HistoryGroupScope.Sender
+                                val onSenderLongPress: (() -> Unit)? = when {
+                                    senderScope != null -> {
+                                        { senderRuleTarget = SenderRuleTarget(senderScope.storageId, row.sender.label) }
+                                    }
+                                    ruleScope != null -> {
+                                        { ruleEditorScope = ruleScope }
+                                    }
+                                    else -> null
                                 }
                                 val subGroupIds = row.sender.logs.map { it.id }
                                 SenderGroupHeader(
@@ -1657,7 +1697,7 @@ fun HistoryTab(
                                             expandedSenderGroups + row.senderKey
                                         }
                                     },
-                                    onLongPress = if (selectionMode) null else ruleScope?.let { scope -> { ruleEditorScope = scope } },
+                                    onLongPress = if (selectionMode) null else onSenderLongPress,
                                     selectionState = if (selectionMode) HistorySelection.triState(subGroupIds, selection) else null,
                                     onSelectionToggle = { viewModel.toggleGroupSelected(subGroupIds) },
                                     // Selection mode only, folder sub-groups only: the
@@ -1715,6 +1755,45 @@ private fun HistoryFolderRuleEditor(
         onSave = { edited -> viewModel.saveFolderRule(scope, edited) },
         onDismiss = {
             viewModel.clearFolderRulePreview()
+            onClose()
+        },
+    )
+}
+
+/** The sender rule the History long-press edits: its key, and the header label it shows (UI only). */
+private data class SenderRuleTarget(val storageId: String, val label: String)
+
+/** Loading the stored sender rule; [profile] null = no rule yet. */
+private data class LoadedSenderRule(val profile: TranscriptionProfile?)
+
+/**
+ * R6: the sender sub-header long-press editor, on the same [ProfileRuleSheet].
+ * Saving writes the sender rule; only notes transcribed afterwards follow it.
+ * The sheet seeds its pickers once, so it opens after the stored rule loads.
+ */
+@Composable
+private fun HistorySenderRuleEditor(
+    viewModel: LogsViewModel,
+    target: SenderRuleTarget,
+    onClose: () -> Unit,
+) {
+    val installed by viewModel.installedBackends.collectAsStateWithLifecycle()
+    val codes by viewModel.ruleLanguageCodes.collectAsStateWithLifecycle()
+    val outcome by viewModel.folderRuleOutcome.collectAsStateWithLifecycle()
+    val loaded by produceState<LoadedSenderRule?>(null, target.storageId) {
+        value = LoadedSenderRule(viewModel.senderRuleFor(target.storageId))
+    }
+    val initial = loaded ?: return
+    ProfileRuleSheet(
+        title = stringResource(R.string.history_scope_rule_sender_title, target.label),
+        initial = initial.profile,
+        installedBackends = installed,
+        languageCodes = codes,
+        outcome = outcome,
+        onPreview = { edited -> viewModel.previewSenderRule(target.storageId, edited) },
+        onSave = { edited -> viewModel.saveSenderRule(target.storageId, edited) },
+        onDismiss = {
+            viewModel.clearSenderRulePreview()
             onClose()
         },
     )
@@ -1943,6 +2022,8 @@ fun LogEntryItem(
     onExpandChange: (Boolean) -> Unit = {},
     playback: ResultPlaybackController? = null,
     onRetranscribe: (() -> Unit)? = null,
+    /** R6: open this row's sender rule; null = the row has no sender key. */
+    onSenderRule: (() -> Unit)? = null,
     onDelete: (() -> Unit)? = null,
     onCancel: (() -> Unit)? = null,
     compactActions: Boolean = PreferencesManager.DEFAULT_COMPACT_RESULT_ACTIONS,
@@ -1984,8 +2065,12 @@ fun LogEntryItem(
     val context = LocalContext.current
     val rowScope = rememberCoroutineScope()
     var contextMenuExpanded by remember { mutableStateOf(false) }
-    val menuActions = remember(log.id, log.status, log.result, onRetranscribe) {
-        buildContextMenuActions(log, canRetranscribe = onRetranscribe != null)
+    val menuActions = remember(log.id, log.status, log.result, onRetranscribe, onSenderRule != null) {
+        buildContextMenuActions(
+            log,
+            canRetranscribe = onRetranscribe != null,
+            hasSenderRule = onSenderRule != null,
+        )
     }
 
     Card(
@@ -2149,6 +2234,7 @@ fun LogEntryItem(
                                                         ContextMenuAction.RETRANSCRIBE -> R.string.retranscribe
                                                         ContextMenuAction.CANCEL -> R.string.logs_cancel
                                                         ContextMenuAction.COPY -> R.string.copy
+                                                        ContextMenuAction.SENDER_RULE -> R.string.history_row_sender_rule
                                                         ContextMenuAction.REPORT -> R.string.feedback_report_transcription
                                                         ContextMenuAction.DELETE -> R.string.logs_delete_entry
                                                     }
@@ -2161,6 +2247,7 @@ fun LogEntryItem(
                                                     ContextMenuAction.RETRANSCRIBE -> Icons.Default.Refresh
                                                     ContextMenuAction.CANCEL -> Icons.Default.Close
                                                     ContextMenuAction.COPY -> Icons.Default.ContentCopy
+                                                    ContextMenuAction.SENDER_RULE -> Icons.Default.Person
                                                     ContextMenuAction.REPORT -> Icons.Default.Mail
                                                     ContextMenuAction.DELETE -> Icons.Default.Delete
                                                 },
@@ -2177,6 +2264,7 @@ fun LogEntryItem(
                                                     // GH #107/TASK-598 F3: the stateless row
                                                     // already receives the annotated text.
                                                     context, speakerAnnotated ?: log.result)
+                                                ContextMenuAction.SENDER_RULE -> onSenderRule?.invoke()
                                                 ContextMenuAction.REPORT -> reportTranscription(context, log)
                                                 ContextMenuAction.DELETE -> onDelete?.invoke()
                                             }
@@ -2915,6 +3003,8 @@ private fun LogEntryWithSwipe(
     viewModel: LogsViewModel,
     playback: ResultPlaybackController? = null,
     onRetranscribe: (() -> Unit)? = null,
+    /** R6: open this row's sender rule; null = the row has no sender key. */
+    onSenderRule: (() -> Unit)? = null,
     compactActions: Boolean = PreferencesManager.DEFAULT_COMPACT_RESULT_ACTIONS,
     advancedShareFormats: Boolean = PreferencesManager.DEFAULT_ADVANCED_SHARE_FORMATS,
     showLanguageChip: Boolean = PreferencesManager.DEFAULT_LANGUAGE_CHIP_ENABLED,
@@ -3063,6 +3153,7 @@ private fun LogEntryWithSwipe(
                 },
                 playback = playback,
                 onRetranscribe = onRetranscribe,
+                onSenderRule = onSenderRule,
                 onCancel = { cancelTask(context, log.taskId) },
                 onDelete = { onDeleted(log); viewModel.deleteLog(log.id) },
                 compactActions = compactActions,
@@ -3128,6 +3219,7 @@ private fun LogEntryWithSwipe(
                 onExpandChange = onExpandChange,
                 playback = playback,
                 onRetranscribe = onRetranscribe,
+                onSenderRule = onSenderRule,
                 onCancel = { cancelTask(context, log.taskId) },
                 onDelete = { onDeleted(log); onDeleteLog(log.id) },
                 compactActions = compactActions,

@@ -46,7 +46,7 @@ class TestSpiConformanceTest {
         // the doc cannot inject phantom keys; digits allowed (qwen3-style).
         val table = Regex("## Action and extras([\\s\\S]*?)\\n## ").find(doc)?.groupValues?.get(1)
             ?: error("key table section not found in " + docFile.absolutePath)
-        val docKeys = Regex("^\\| `([a-z0-9_]+)` \\| `save", RegexOption.MULTILINE).findAll(table)
+        val docKeys = Regex("^\\| `([a-z0-9_]+)` \\| `(?:save|ScopeProfileStore)", RegexOption.MULTILINE).findAll(table)
             .map { it.groupValues[1] }.toList()
         assertTrue(
             "no key rows in " + docFile.absolutePath + " (" + doc.length.toString() + " chars, cwd=" +

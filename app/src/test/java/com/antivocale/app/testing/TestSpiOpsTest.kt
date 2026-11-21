@@ -9,6 +9,8 @@ import com.antivocale.app.data.FakePreferencesManager
 import com.antivocale.app.data.FilePin
 import com.antivocale.app.data.ModelFamily
 import com.antivocale.app.data.PreferencesManager
+import com.antivocale.app.data.ScopeProfileStore
+import com.antivocale.app.data.TranscriptionProfile
 import com.antivocale.app.data.optStringList
 import com.antivocale.app.transcription.BuiltInBackendIds
 import kotlinx.coroutines.CompletableDeferred
@@ -369,6 +371,30 @@ class TestSpiOpsTest {
     }
 
     @Test
+    fun `set sender_profile writes the language rule and a blank value deletes it`() = runTest {
+        val sender = "call:+15550100"
+        val store = ScopeProfileStore(fake)
+        val json = JSONObject(ops.handle(TestSpiOps.OP_SET, key = "sender_profile", value = "ru", entry = sender))
+        assertFalse(json.has("error"))
+        assertFalse("the ack must not echo the sender id", json.toString().contains(sender))
+        assertEquals(TranscriptionProfile.of(null, "ru"), store.senderProfile(sender))
+
+        ops.handle(TestSpiOps.OP_SET, key = "sender_profile", value = null, entry = sender)
+        assertNull(store.senderProfile(sender))
+    }
+
+    @Test
+    fun `set sender_profile rejects a missing or malformed entry without echoing it`() = runTest {
+        val missing = JSONObject(ops.handle(TestSpiOps.OP_SET, key = "sender_profile", value = "ru"))
+        assertTrue(missing.getString("error").contains("entry"))
+
+        val bad = "tel:+15550101"
+        val malformed = JSONObject(ops.handle(TestSpiOps.OP_SET, key = "sender_profile", value = "ru", entry = bad))
+        assertFalse(malformed.getString("error").contains(bad))
+        assertNull(ScopeProfileStore(fake).senderProfile(bad))
+    }
+
+    @Test
     fun `set with an unknown key returns an error listing the supported keys`() = runTest {
         val json = JSONObject(ops.handle(TestSpiOps.OP_SET, key = "nope", value = "1"))
         assertTrue(json.getString("error").contains("nope"))
@@ -483,12 +509,13 @@ class TestSpiOpsTest {
             "model_filter_language" to "it",
             "sherpa_path" to "/m", "transcript_export_format" to "SRT",
             "signature_position" to "append", "signature_text" to "sig",
-            "biasing_score" to "2.5",
+            "biasing_score" to "2.5", "sender_profile" to "ru",
         )
+        val entries = mapOf("sherpa_path" to BuiltInBackendIds.PARAKEET, "sender_profile" to "call:+15550100")
         for (key in ops.SET_KEYS) {
             val sample = samples[key] ?: "true"
             val json = JSONObject(
-                ops.handle(TestSpiOps.OP_SET, key = key, value = sample, entry = if (key == "sherpa_path") BuiltInBackendIds.PARAKEET else null))
+                ops.handle(TestSpiOps.OP_SET, key = key, value = sample, entry = entries[key]))
             assertFalse("'$key' must dispatch '$sample', got: $json", json.has("error"))
         }
     }

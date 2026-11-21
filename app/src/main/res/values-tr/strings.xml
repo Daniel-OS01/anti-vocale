@@ -1352,6 +1352,7 @@
     <string name="backup_transfer_summary">Ayarlarınızı ve geçmişinizi bir dosyaya kaydedin ya da başka bir cihazda geri yükleyin</string>
     <string name="backup_export_title">Yedeği dışa aktar</string>
     <string name="backup_export_description">Ayarlarınızı ve tüm transkripsiyon geçmişinizi tek bir dosyaya yazar. Dosya düz metindir: dosyaya sahip olan herkes her transkripsiyonu ve her gönderen adını okuyabilir.</string>
+    <string name="backup_export_includes_sender_rules">Arşiv, gönderen kurallarınızı (kişi adları ve telefon numaraları) içerir.</string>
     <string name="backup_export_action">Yedek dosyası oluştur</string>
     <string name="backup_import_title">Yedeği içe aktar</string>
     <string name="backup_import_description">Bir yedek dosyasından bu cihaza ayarlar ve geçmiş transkripsiyonlar ekler. Elinizde olanlar korunur.</string>
@@ -1472,7 +1473,14 @@
     <string name="scope_rule_next">İleri</string>
     <string name="history_scope_rule_folder_title">Bu klasörü şöyle yazıya dök…</string>
     <string name="history_scope_rule_subfolder_title">Bu alt klasörü şöyle yazıya dök…</string>
+    <string name="history_scope_rule_sender_title">%1$s kişisini her zaman şununla yazıya dök…</string>
     <string name="history_scope_rule_long_press_label">Yazıya dökme kuralı belirle</string>
+    <string name="history_row_sender_rule">Bu gönderen için yazıya dökme kuralı…</string>
+    <string name="sender_rules_title">Gönderen kuralları</string>
+    <string name="sender_rules_summary">Seçilen kişileri kendi modeli veya diliyle yazıya dök</string>
+    <string name="sender_rules_note">Kurallar, WhatsApp\'ın gösterdiği adla veya bir kaydın dosya adındaki arayanla eşleşir. Bir kişinin adını değiştirmek kuralını durdurur. Kurallar yedeklere dahildir.</string>
+    <string name="sender_rules_empty">Henüz gönderen kuralı yok. Eklemek için Geçmiş\'te bir göndereni uzun basın.</string>
+    <string name="sender_rules_section_calls">Arama kayıtları</string>
     <string name="bulk_redo_single_pass_hint">Bu yineleme için iki geçiş kapalı: seçilen modelle tek geçiş.</string>
     <string name="bulk_redo_preparing">Hazırlanıyor: %1$d / %2$d</string>
     <string name="bulk_redo_all">Tümünü yinele</string>

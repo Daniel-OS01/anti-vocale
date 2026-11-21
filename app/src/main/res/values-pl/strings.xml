@@ -1384,6 +1384,7 @@
     <string name="backup_transfer_summary">Zapisz ustawienia i historię w pliku albo przywróć je na innym urządzeniu</string>
     <string name="backup_export_title">Eksportuj kopię zapasową</string>
     <string name="backup_export_description">Zapisuje jeden plik z ustawieniami i całą historią transkrypcji. Plik jest zwykłym tekstem: każdy, kto go posiada, może przeczytać wszystkie transkrypcje i nazwy nadawców.</string>
+    <string name="backup_export_includes_sender_rules">Archiwum zawiera Twoje reguły nadawców (nazwy kontaktów i numery telefonów).</string>
     <string name="backup_export_action">Utwórz plik kopii zapasowej</string>
     <string name="backup_import_title">Importuj kopię zapasową</string>
     <string name="backup_import_description">Dodaje na tym urządzeniu ustawienia i dawne transkrypcje z pliku kopii zapasowej. To, co już masz, zostaje zachowane.</string>
@@ -1506,7 +1507,14 @@
     <string name="scope_rule_next">Dalej</string>
     <string name="history_scope_rule_folder_title">Transkrybuj ten folder jako…</string>
     <string name="history_scope_rule_subfolder_title">Transkrybuj ten podfolder jako…</string>
+    <string name="history_scope_rule_sender_title">Zawsze transkrybuj %1$s za pomocą…</string>
     <string name="history_scope_rule_long_press_label">Ustaw regułę transkrypcji</string>
+    <string name="history_row_sender_rule">Reguła transkrypcji dla tego nadawcy…</string>
+    <string name="sender_rules_title">Reguły nadawców</string>
+    <string name="sender_rules_summary">Transkrybuj wybrane osoby własnym modelem lub językiem</string>
+    <string name="sender_rules_note">Reguły dopasowują nazwę wyświetlaną przez WhatsApp lub rozmówcę z nazwy pliku nagrania. Zmiana nazwy kontaktu wyłącza jego regułę. Reguły są uwzględniane w kopiach zapasowych.</string>
+    <string name="sender_rules_empty">Brak reguł nadawców. Przytrzymaj nadawcę w Historii, aby dodać regułę.</string>
+    <string name="sender_rules_section_calls">Nagrania rozmów</string>
     <string name="bulk_redo_single_pass_hint">Tryb dwuprzebiegowy jest wyłączony dla tego powtórzenia: jeden przebieg wybranym modelem.</string>
     <string name="bulk_redo_preparing">Przygotowywanie %1$d z %2$d</string>
     <string name="bulk_redo_all">Powtórz wszystkie</string>

@@ -1358,6 +1358,7 @@
     <string name="backup_transfer_summary">Salva impostazioni e cronologia in un file, oppure ripristinale su un altro dispositivo</string>
     <string name="backup_export_title">Esporta backup</string>
     <string name="backup_export_description">Scrive un unico file con le impostazioni e tutta la cronologia delle trascrizioni. Il file è in chiaro: chiunque lo abbia può leggere ogni trascrizione e ogni nome mittente.</string>
+    <string name="backup_export_includes_sender_rules">L\'archivio include le tue regole mittente (nomi dei contatti e numeri di telefono).</string>
     <string name="backup_export_action">Crea file di backup</string>
     <string name="backup_import_title">Importa backup</string>
     <string name="backup_import_description">Aggiunge a questo dispositivo impostazioni e trascrizioni passate da un file di backup. Quello che hai già viene conservato.</string>
@@ -1478,7 +1479,14 @@
     <string name="scope_rule_next">Avanti</string>
     <string name="history_scope_rule_folder_title">Trascrivi questa cartella come…</string>
     <string name="history_scope_rule_subfolder_title">Trascrivi questa sottocartella come…</string>
+    <string name="history_scope_rule_sender_title">Trascrivi sempre %1$s con…</string>
     <string name="history_scope_rule_long_press_label">Imposta regola di trascrizione</string>
+    <string name="history_row_sender_rule">Regola di trascrizione per questo mittente…</string>
+    <string name="sender_rules_title">Regole mittente</string>
+    <string name="sender_rules_summary">Trascrivi le persone scelte con un modello o una lingua dedicati</string>
+    <string name="sender_rules_note">Le regole corrispondono al nome mostrato da WhatsApp, o al chiamante nel nome file di una registrazione. Rinominare un contatto ne interrompe la regola. Le regole sono incluse nei backup.</string>
+    <string name="sender_rules_empty">Nessuna regola mittente per ora. Tieni premuto un mittente nella Cronologia per aggiungerne una.</string>
+    <string name="sender_rules_section_calls">Registrazioni di chiamate</string>
     <string name="bulk_redo_single_pass_hint">La modalità a due passaggi è disattivata per questa ripetizione: un solo passaggio con il modello scelto.</string>
     <string name="bulk_redo_preparing">Preparazione %1$d di %2$d</string>
     <string name="bulk_redo_all">Rifai tutte</string>
