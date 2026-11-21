@@ -1362,4 +1362,7 @@
     <string name="scope_rule_summary_model">النموذج: %1$s</string>
     <string name="scope_rule_summary_both">اللغة: %1$s · النموذج: %2$s</string>
     <string name="scope_rule_next">التالي</string>
+    <string name="history_scope_rule_folder_title">تفريغ هذا المجلد كـ…</string>
+    <string name="history_scope_rule_subfolder_title">تفريغ هذا المجلد الفرعي كـ…</string>
+    <string name="history_scope_rule_long_press_label">تعيين قاعدة التفريغ</string>
 </resources>

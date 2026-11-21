@@ -1491,4 +1491,7 @@
     <string name="scope_rule_summary_model">Model: %1$s</string>
     <string name="scope_rule_summary_both">Język: %1$s · Model: %2$s</string>
     <string name="scope_rule_next">Dalej</string>
+    <string name="history_scope_rule_folder_title">Transkrybuj ten folder jako…</string>
+    <string name="history_scope_rule_subfolder_title">Transkrybuj ten podfolder jako…</string>
+    <string name="history_scope_rule_long_press_label">Ustaw regułę transkrypcji</string>
 </resources>

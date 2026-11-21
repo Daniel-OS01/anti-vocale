@@ -1477,4 +1477,7 @@
     <string name="scope_rule_summary_model">Model: %1$s</string>
     <string name="scope_rule_summary_both">Taal: %1$s · Model: %2$s</string>
     <string name="scope_rule_next">Volgende</string>
+    <string name="history_scope_rule_folder_title">Deze map transcriberen als…</string>
+    <string name="history_scope_rule_subfolder_title">Deze submap transcriberen als…</string>
+    <string name="history_scope_rule_long_press_label">Transcriptieregel instellen</string>
 </resources>

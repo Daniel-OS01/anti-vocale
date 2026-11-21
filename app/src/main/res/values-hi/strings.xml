@@ -1460,4 +1460,7 @@
     <string name="scope_rule_summary_model">मॉडल: %1$s</string>
     <string name="scope_rule_summary_both">भाषा: %1$s · मॉडल: %2$s</string>
     <string name="scope_rule_next">आगे</string>
+    <string name="history_scope_rule_folder_title">इस फ़ोल्डर को ऐसे ट्रांसक्राइब करें…</string>
+    <string name="history_scope_rule_subfolder_title">इस सबफ़ोल्डर को ऐसे ट्रांसक्राइब करें…</string>
+    <string name="history_scope_rule_long_press_label">ट्रांसक्रिप्शन नियम सेट करें</string>
 </resources>

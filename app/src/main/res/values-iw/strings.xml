@@ -1474,4 +1474,7 @@
     <string name="scope_rule_summary_model">מודל: %1$s</string>
     <string name="scope_rule_summary_both">שפה: %1$s · מודל: %2$s</string>
     <string name="scope_rule_next">הבא</string>
+    <string name="history_scope_rule_folder_title">תמלול התיקייה הזו כ…</string>
+    <string name="history_scope_rule_subfolder_title">תמלול תיקיית המשנה הזו כ…</string>
+    <string name="history_scope_rule_long_press_label">הגדרת כלל תמלול</string>
 </resources>

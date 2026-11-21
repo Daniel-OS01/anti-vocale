@@ -1461,4 +1461,7 @@
     <string name="scope_rule_summary_model">Model: %1$s</string>
     <string name="scope_rule_summary_both">Dil: %1$s · Model: %2$s</string>
     <string name="scope_rule_next">İleri</string>
+    <string name="history_scope_rule_folder_title">Bu klasörü şöyle yazıya dök…</string>
+    <string name="history_scope_rule_subfolder_title">Bu alt klasörü şöyle yazıya dök…</string>
+    <string name="history_scope_rule_long_press_label">Yazıya dökme kuralı belirle</string>
 </resources>

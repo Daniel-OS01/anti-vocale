@@ -1301,4 +1301,7 @@
     <string name="scope_rule_summary_model">Malli: %1$s</string>
     <string name="scope_rule_summary_both">Kieli: %1$s · Malli: %2$s</string>
     <string name="scope_rule_next">Seuraava</string>
+    <string name="history_scope_rule_folder_title">Litteroi tämä kansio näin…</string>
+    <string name="history_scope_rule_subfolder_title">Litteroi tämä alikansio näin…</string>
+    <string name="history_scope_rule_long_press_label">Aseta litterointisääntö</string>
 </resources>

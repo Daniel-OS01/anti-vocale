@@ -1487,4 +1487,7 @@
     <string name="scope_rule_summary_model">Model: %1$s</string>
     <string name="scope_rule_summary_both">Language: %1$s · Model: %2$s</string>
     <string name="scope_rule_next">Next</string>
+    <string name="history_scope_rule_folder_title">Transcribe this folder as…</string>
+    <string name="history_scope_rule_subfolder_title">Transcribe this subfolder as…</string>
+    <string name="history_scope_rule_long_press_label">Set transcription rule</string>
 </resources>

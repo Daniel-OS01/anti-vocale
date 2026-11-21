@@ -1467,4 +1467,7 @@
     <string name="scope_rule_summary_model">Modello: %1$s</string>
     <string name="scope_rule_summary_both">Lingua: %1$s · Modello: %2$s</string>
     <string name="scope_rule_next">Avanti</string>
+    <string name="history_scope_rule_folder_title">Trascrivi questa cartella come…</string>
+    <string name="history_scope_rule_subfolder_title">Trascrivi questa sottocartella come…</string>
+    <string name="history_scope_rule_long_press_label">Imposta regola di trascrizione</string>
 </resources>

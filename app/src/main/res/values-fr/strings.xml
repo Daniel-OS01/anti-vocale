@@ -1329,4 +1329,7 @@
     <string name="scope_rule_summary_model">Modèle : %1$s</string>
     <string name="scope_rule_summary_both">Langue : %1$s · Modèle : %2$s</string>
     <string name="scope_rule_next">Suivant</string>
+    <string name="history_scope_rule_folder_title">Transcrire ce dossier en…</string>
+    <string name="history_scope_rule_subfolder_title">Transcrire ce sous-dossier en…</string>
+    <string name="history_scope_rule_long_press_label">Définir une règle de transcription</string>
 </resources>
