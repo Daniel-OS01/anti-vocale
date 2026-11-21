@@ -396,11 +396,16 @@ class ModelViewModel @Inject constructor(
             val context = ctx
             var total = 0L
             val perEntry = mutableMapOf<String, Long>()
+            // The external-import root lives under files/models, the llm entry's
+            // storage dir: it is never an orphan of any built-in entry.
+            val externalImportsRoot = java.io.File(
+                context.filesDir, com.antivocale.app.data.EXTERNAL_MODELS_DIR_NAME)
             for (entryId in BuiltInBackendIds.ALL) {
                 val manager = SherpaModelManager.of(entryId)
                 val reclaimed = cleanOrphanedModelDirs(
                     manager.getModelStorageDir(context),
-                    manager.validModelDirNames
+                    manager.validModelDirNames,
+                    protectedDirs = setOf(externalImportsRoot),
                 )
                 perEntry[entryId] = reclaimed
                 total += reclaimed
