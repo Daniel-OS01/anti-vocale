@@ -77,8 +77,10 @@ android {
         applicationId = "com.antivocale.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 52
-        versionName = "1.18.0-SNAPSHOT"
+        // Fork CI (publish-apk.yml) injects an auto-incremented version; local and
+        // upstream-shaped builds keep the literals.
+        versionCode = System.getenv("CI_VERSION_CODE")?.toIntOrNull() ?: 52
+        versionName = System.getenv("CI_VERSION_NAME")?.takeIf { it.isNotBlank() } ?: "1.18.0-SNAPSHOT"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -96,7 +98,9 @@ android {
         // SNAPSHOT stripped so dev builds point at the not-yet-published
         // release index and fall back to the bundled asset: an entry cannot
         // reach installed apps earlier than the release that supports it.
-        val catalogIndexVersion = versionName.toString().removeSuffix("-SNAPSHOT")
+        // Any pre-release suffix (-SNAPSHOT, the fork's -fork.N) maps to the base
+        // release index, so a fork build reads the same catalog as its upstream base.
+        val catalogIndexVersion = versionName.toString().substringBefore("-")
         buildConfigField(
             "String",
             "CATALOG_INDEX_URL",
@@ -193,6 +197,17 @@ android {
                 signingConfig = signingConfigs.getByName("release")
             }
         }
+        // Daniel-OS01 fork: a release-grade build (R8, resource shrink) with its OWN
+        // applicationId and label, so it installs next to the store build (whose
+        // signing key only upstream holds). Same pattern as the nightly above.
+        create("fork") {
+            initWith(getByName("release"))
+            applicationIdSuffix = ".fork"
+            manifestPlaceholders["appAuthRedirectScheme"] = APP_ID_BASE + applicationIdSuffix
+            if (keystoreProperties["storeFile"] != null) {
+                signingConfig = signingConfigs.getByName("release")
+            }
+        }
     }
 
     // Per-ABI APK splits: produces separate APKs for each architecture instead of one
@@ -209,7 +224,9 @@ android {
         abi {
             isEnable = !buildingBundle
             reset()
-            include("arm64-v8a", "armeabi-v7a", "x86_64")
+            // CI_ABIS (comma list) narrows the APK set; the fork release builds arm64-v8a only.
+            val abis = System.getenv("CI_ABIS")?.split(",")?.map { it.trim() }?.filter { it.isNotEmpty() }
+            include(*(abis?.toTypedArray() ?: arrayOf("arm64-v8a", "armeabi-v7a", "x86_64")))
             isUniversalApk = false
         }
     }

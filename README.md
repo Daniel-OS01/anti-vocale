@@ -4,9 +4,9 @@
 > All credit for the app goes to the upstream project. This fork adds:
 >
 > - **Imported models are no longer deleted on app start.** Upstream's startup orphan sweep for the built-in Gemma (`llm`) entry treats `files/models/external`, the folder holding every user-imported model, as a stale Gemma variant and deletes it whenever the Models screen opens. The sweep now protects that folder (`OrphanedModelDirCleaner.kt`, `ModelViewModel.kt`, regression test `OrphanedModelDirCleanerTest`).
-> - **GitHub-only releases.** `.github/workflows/android-release.yml` runs the unit tests on every push and pull request and publishes APKs to this repository's [Releases](../../releases) when a `v*` tag is pushed. There is no Play Store or F-Droid publishing.
+> - **Signed GitHub releases, versioned automatically.** `ci.yml` runs the unit tests on every push and pull request; after a green run on `main`, `publish-apk.yml` builds a signed **arm64-v8a** APK and publishes it to this repository's [Releases](../../releases) as `v<upstream version>-fork.<N>`, with N counting up by itself. There is no Play Store or F-Droid publishing.
 >
-> The debug APKs from this fork install next to a store-installed Anti-Vocale (package `com.antivocale.app.debug`, own data). The release APK keeps the store package name `com.antivocale.app` but has a different signature, so it installs only after uninstalling the store version.
+> The fork installs as its own app, **Anti-Vocale Fork** (package `com.antivocale.app.fork`), next to a Play Store or F-Droid Anti-Vocale, with its own data. A store install can't be replaced: only upstream holds that signing key. Fork releases update each other in place.
 
 
 Android app for transcribing voice messages locally on-device, with no internet required.
@@ -220,10 +220,7 @@ Common questions (model limits, chunking, queue behavior, where to find transcri
 
 ### Install
 
-Download the APKs from this fork's [Releases](../../releases):
-
-- `...-debug.apk` (per ABI; most phones need `arm64-v8a`): installs as-is next to any store version, package `com.antivocale.app.debug`.
-- `...-release.apk`: signed only if the repository has release-keystore secrets (see the workflow header). Otherwise it is marked `UNSIGNED` and must be signed before installing.
+Download `anti-vocale-fork-v…-arm64-v8a.apk` from this fork's [Releases](../../releases) and install it. It appears as **Anti-Vocale Fork** next to any store-installed Anti-Vocale.
 
 Or build from source:
 

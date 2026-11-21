@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Fork-only override: the launcher label distinguishes the Daniel-OS01 fork build from the
+     marketplace, nightly and debug installs; the applicationId suffix (.fork,
+     app/build.gradle.kts) makes them coexist. -->
+<resources>
+    <string name="app_name">Anti-Vocale Fork</string>
+</resources>

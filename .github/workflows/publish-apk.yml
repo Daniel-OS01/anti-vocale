@@ -1,0 +1,150 @@
+name: Publish APK
+
+# Builds a SIGNED arm64-v8a APK of the fork build type (package com.antivocale.app.fork,
+# label "Anti-Vocale Fork", installs next to the store app) and publishes it as a GitHub
+# Release with an auto-incremented version: v<upstream base>-fork.<N>
+# (scripts/ci/resolve-fork-version.sh). Runs after CI succeeds on a push to main, or by hand.
+#
+# Required repository secrets (the job fails rather than publish an unsigned APK):
+#   RELEASE_KEYSTORE_BASE64, RELEASE_KEYSTORE_PASSWORD, RELEASE_KEY_ALIAS, RELEASE_KEY_PASSWORD
+on:
+  workflow_run:
+    workflows: [ CI ]
+    types: [ completed ]
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-apk
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Build, verify and publish signed APK
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      RELEASE_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Reject manual runs outside main
+        if: github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main'
+        run: |
+          echo "Publishing is restricted to main; got $GITHUB_REF" >&2
+          exit 1
+
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.RELEASE_SHA }}
+          fetch-depth: 0
+
+      - name: Resolve next version
+        id: version
+        run: |
+          git fetch --tags --force
+          out=$(bash scripts/ci/resolve-fork-version.sh)
+          echo "$out"
+          echo "APK_NAME=anti-vocale-fork-v$(sed -n 's/^VERSION_NAME=//p' <<<"$out")-arm64-v8a.apk" >> "$GITHUB_ENV"
+
+      - name: Skip if this commit is already released
+        id: existing
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          if json=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isDraft,assets 2>/dev/null) \
+             && jq -e --arg n "$APK_NAME" '.isDraft == false and any(.assets[]; .name == $n)' <<<"$json" >/dev/null; then
+            echo "Release $TAG already has $APK_NAME; nothing to do."
+            echo "done=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-java@v6
+        if: steps.existing.outputs.done != 'true'
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+          cache: 'gradle'
+
+      - name: Fetch sherpa-onnx AAR
+        if: steps.existing.outputs.done != 'true'
+        run: chmod +x gradlew && ./scripts/fetch-sherpa-aar.sh
+
+      - name: Install release signing key
+        if: steps.existing.outputs.done != 'true'
+        env:
+          RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+          RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+        run: |
+          for v in RELEASE_KEYSTORE_BASE64 RELEASE_KEYSTORE_PASSWORD RELEASE_KEY_ALIAS RELEASE_KEY_PASSWORD; do
+            [ -n "${!v}" ] || { echo "Missing secret $v: refusing to build an unsigned release." >&2; exit 1; }
+          done
+          printf '%s' "$RELEASE_KEYSTORE_BASE64" | base64 --decode > app/release.keystore
+          chmod 600 app/release.keystore
+          # app/build.gradle.kts reads keystore.properties; storeFile resolves relative to app/.
+          umask 077
+          {
+            echo "storeFile=release.keystore"
+            echo "storePassword=$RELEASE_KEYSTORE_PASSWORD"
+            echo "keyAlias=$RELEASE_KEY_ALIAS"
+            echo "keyPassword=$RELEASE_KEY_PASSWORD"
+          } > keystore.properties
+
+      # fdroid flavor = Firebase-free; -PwhistleEngineDisabled builds the stub whistle bridge.
+      - name: Build signed fork APK (arm64-v8a)
+        if: steps.existing.outputs.done != 'true'
+        env:
+          CI_VERSION_NAME: ${{ steps.version.outputs.version_name }}
+          CI_VERSION_CODE: ${{ steps.version.outputs.version_code }}
+          CI_ABIS: arm64-v8a
+        run: ./gradlew assembleFdroidFork -PwhistleEngineDisabled --console=plain
+
+      - name: Verify signature, package and version
+        if: steps.existing.outputs.done != 'true'
+        env:
+          VERSION_NAME: ${{ steps.version.outputs.version_name }}
+          VERSION_CODE: ${{ steps.version.outputs.version_code }}
+        run: |
+          mapfile -t apks < <(find app/build/outputs/apk/fdroid/fork -maxdepth 1 -name '*.apk')
+          if (( ${#apks[@]} != 1 )); then
+            echo "Expected exactly one APK, found ${#apks[@]}: ${apks[*]}" >&2; exit 1
+          fi
+          mkdir -p dist && cp "${apks[0]}" "dist/$APK_NAME"
+          bt="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)"
+          "$bt/apksigner" verify --verbose --print-certs "dist/$APK_NAME" | tee apksigner.txt
+          grep -q "Verified using v2 scheme (APK Signature Scheme v2): true" apksigner.txt
+          "$bt/aapt2" dump badging "dist/$APK_NAME" | head -1 | tee badging.txt
+          grep -q "name='com.antivocale.app.fork'" badging.txt
+          grep -q "versionCode='$((VERSION_CODE * 10 + 2))'" badging.txt   # *10 + arm64 (=2)
+          grep -q "versionName='$VERSION_NAME'" badging.txt
+          rm -f app/release.keystore keystore.properties
+
+      - name: Publish GitHub Release
+        if: steps.existing.outputs.done != 'true'
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
+          VERSION_NAME: ${{ steps.version.outputs.version_name }}
+          VERSION_CODE: ${{ steps.version.outputs.version_code }}
+        run: |
+          cert=$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' apksigner.txt)
+          notes=$(cat <<EOF
+          Anti-Vocale Fork $VERSION_NAME (versionCode $((VERSION_CODE * 10 + 2)), arm64-v8a), built from $RELEASE_SHA.
+
+          - Package \`com.antivocale.app.fork\`, launcher name **Anti-Vocale Fork**: installs next to the Play Store / F-Droid Anti-Vocale, with its own data.
+          - Signed with the fork release key (certificate SHA-256 \`$cert\`); later fork releases update in place.
+          - Fork changes: imported models are no longer deleted on app start (see README).
+          EOF
+          )
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$TAG" "dist/$APK_NAME" --repo "$GITHUB_REPOSITORY" --clobber
+            gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false --latest
+          else
+            gh release create "$TAG" "dist/$APK_NAME" --repo "$GITHUB_REPOSITORY" \
+              --target "$RELEASE_SHA" --title "Anti-Vocale Fork $VERSION_NAME" --notes "$notes" --latest
+          fi
