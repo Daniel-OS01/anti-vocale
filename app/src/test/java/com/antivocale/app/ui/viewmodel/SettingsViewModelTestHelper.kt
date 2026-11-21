@@ -53,6 +53,7 @@ internal class SettingsViewModelTestHelper(
         MutableStateFlow(emptyList()),
     val application: Application = mockk(relaxed = true),
     repositoryContext: Context = mockk(relaxed = true),
+    val scheduledFolderStore: ScheduledFolderStore = ScheduledFolderStore(FakePreferencesManager()),
 ) {
 
     private val speakerIdsDir = java.nio.file.Files
@@ -82,8 +83,7 @@ internal class SettingsViewModelTestHelper(
         huggingFaceAuthManager = mockk(relaxed = true),
         huggingFaceApiClient = mockk(relaxed = true),
         perAppPreferencesManager = mockk(relaxed = true),
-        // TASK-741: the folder-watch store; these tests never watch.
-        scheduledFolderStore = ScheduledFolderStore(FakePreferencesManager()),
+        scheduledFolderStore = scheduledFolderStore,
         transcriptionCalibrator = mockk(relaxed = true),
         backendManager = mockk(relaxed = true),
         llmManager = mockk(relaxed = true),

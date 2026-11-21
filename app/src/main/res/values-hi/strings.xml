@@ -1305,8 +1305,15 @@
     <string name="external_section_subtitle">अतिरिक्त वॉयस-ट्रांसक्रिप्शन मॉडल जो आप खुद जोड़ते हैं। ये बिल्ट-इन मॉडलों के साथ चलते हैं और इंपोर्ट होने पर नीचे की सूची में दिखते हैं।</string>
 
     <!-- TASK-741 (GH #125): the scheduled folder watch -->
-    <string name="folder_watch_title">शेड्यूल्ड फ़ोल्डर निगरानी</string>
-    <string name="folder_watch_description">आपके चुने फ़ोल्डरों पर नज़र रखता है और नई ऑडियो फ़ाइलों को स्वतः ट्रांसक्रिप्ट करता है। स्कैन तब चलते हैं जब सिस्टम अनुमति देता है; आक्रामक बैटरी सेवर उन्हें टाल सकते हैं, और मैनुअल स्कैन हमेशा काम करता है।</string>
+    <string name="folder_watch_title">फ़ोल्डर की निगरानी</string>
+    <string name="folder_watch_description">आपके चुने हुए फ़ोल्डरों और उनके सबफ़ोल्डरों की निगरानी करता है। अगर Android का मीडिया इंडेक्स नई ऑडियो फ़ाइल को देख पाता है, तो आमतौर पर सहेजने के कुछ सेकंड के भीतर उसका लिप्यंतरण हो जाता है; अन्यथा तय समय पर होने वाला स्कैन उसे खोज लेता है। पहले से ऑडियो वाली फ़ोल्डर जोड़ते समय आप चुनते हैं कि उन फ़ाइलों का भी लिप्यंतरण करना है या नहीं। मैन्युअल स्कैन हमेशा काम करता है।</string>
+    <string name="folder_watch_existing_title">मौजूदा ऑडियो फ़ाइलें</string>
+    <string name="folder_watch_existing_description">चुनें कि %1$s में किन ऑडियो फ़ाइलों का लिप्यंतरण करना है।</string>
+    <string name="folder_watch_only_new">सिर्फ़ नई फ़ाइलें</string>
+    <plurals name="folder_watch_transcribe_existing">
+        <item quantity="one">%1$d मौजूदा फ़ाइल का भी लिप्यंतरण करें</item>
+        <item quantity="other">%1$d मौजूदा फ़ाइलों का भी लिप्यंतरण करें</item>
+    </plurals>
     <string name="folder_watch_add">फ़ोल्डर निगरानी शुरू करें</string>
     <string name="folder_watch_empty">अभी कोई फ़ोल्डर निगरानी में नहीं है।</string>
     <string name="folder_watch_scan_now">अभी स्कैन करें</string>

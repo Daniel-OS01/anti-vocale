@@ -16,6 +16,8 @@ import com.antivocale.app.data.BackupArchiveCodec
 import com.antivocale.app.data.BackupHistoryCodec
 import com.antivocale.app.data.DiscoveredModel
 import com.antivocale.app.data.ExternalModelRecord
+import com.antivocale.app.data.FileSnapshot
+import com.antivocale.app.data.FolderScanPlanner
 import com.antivocale.app.data.HuggingFaceApiClient
 import com.antivocale.app.data.HuggingFaceAuthManager
 import com.antivocale.app.data.HuggingFaceOAuthConfig
@@ -35,6 +37,7 @@ import com.antivocale.app.data.voiceNoteTreeUri
 import com.antivocale.app.data.ShareShortcutManager
 import com.antivocale.app.data.ShareTargetManager
 import com.antivocale.app.data.TranscriptionCalibrator
+import com.antivocale.app.data.WatchedFolder
 import com.antivocale.app.data.catalog.BundledCatalog
 import com.antivocale.app.transcription.BuiltInBackendIds
 import com.antivocale.app.transcription.InferenceProvider
@@ -56,10 +59,15 @@ import com.antivocale.app.ui.theme.fromName
 import com.antivocale.app.ui.theme.ThemeType
 import com.antivocale.app.util.LanguageNames
 import com.antivocale.app.util.LocaleManager
+import com.antivocale.app.util.TreeUris
+import com.antivocale.app.work.FolderListing
+import com.antivocale.app.work.ScheduledFolderScheduler
+import com.antivocale.app.work.ScheduledFolderWorker
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.io.File
 import java.util.zip.ZipOutputStream
 import javax.inject.Inject
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -75,6 +83,8 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 /**
  * ViewModel for the Settings screen.
@@ -1283,34 +1293,162 @@ class SettingsViewModel @Inject constructor(
     // review demanded); a missed pairing self-heals at the next app start.
     // ------------------------------------------------------------------
 
-    val scheduledFolders: StateFlow<List<com.antivocale.app.data.WatchedFolder>> =
+    val scheduledFolders: StateFlow<List<WatchedFolder>> =
         scheduledFolderStore.foldersFlow.stateIn(
             viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList(),
         )
 
-    /** The one launch prologue every folder-watch mutation shares. */
-    private fun launchFolderWatch(block: suspend (android.app.Application) -> Unit) {
-        viewModelScope.launch(Dispatchers.IO) { block(getApplication()) }
-    }
+    data class PendingFolderAdd(
+        val uri: Uri,
+        val displayName: String,
+        val existingCount: Int,
+        val baseline: List<FileSnapshot>,
+        /** The listing hit the walk's depth/entry cap (see FolderWalk). */
+        val truncated: Boolean,
+        /** When the listing was taken: the backlog cutoff a capped "only new" add persists. */
+        val listedAt: Long,
+    )
+
+    private val _pendingFolderAdd = MutableStateFlow<PendingFolderAdd?>(null)
+    val pendingFolderAdd: StateFlow<PendingFolderAdd?> = _pendingFolderAdd.asStateFlow()
+    private val folderWatchMutex = Mutex()
+
+    /** Serialize the settings actions so a scan cannot start before its baseline is saved. */
+    private fun launchFolderWatch(block: suspend (android.app.Application) -> Unit) =
+        viewModelScope.launch(Dispatchers.IO) { folderWatchMutex.withLock { block(getApplication()) } }
 
     fun addWatchedFolder(uri: Uri) = launchFolderWatch { app ->
-        val name = com.antivocale.app.util.TreeUris.displayName(app, uri)
-        // The targeted reconcile: enqueue the changed folder, not the full sync.
-        com.antivocale.app.work.ScheduledFolderScheduler.enqueueFolder(
-            app, scheduledFolderStore.add(
-                com.antivocale.app.data.WatchedFolder(treeUri = uri.toString(), displayName = name),
-            ).first { it.treeUri == uri.toString() },
+        _pendingFolderAdd.value?.let { previous ->
+            if (previous.uri == uri) return@launchFolderWatch
+            _pendingFolderAdd.value = null
+            releaseUnusedFolderGrant(app, previous.uri)
+        }
+        val name = TreeUris.displayName(app, uri)
+        if (scheduledFolderStore.byUri(uri.toString()) == null) {
+            // Taken BEFORE the listing: a file saved while the walk runs is
+            // newer than the cutoff, so a capped add treats it as a new save.
+            val listedAt = System.currentTimeMillis()
+            val listing = try {
+                FolderListing.listWithStatus(app, uri)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.w(TAG, "Could not list folder before adding watch", e)
+                null
+            }
+            if (listing != null) {
+                val baseline = FolderScanPlanner.baseline(listing.children.map { it.first }, listedAt)
+                if (baseline.isNotEmpty()) {
+                    _pendingFolderAdd.value =
+                        PendingFolderAdd(uri, name, baseline.size, baseline, listing.truncated, listedAt)
+                    return@launchFolderWatch
+                }
+                if (listing.truncated) {
+                    // Nothing visible to ask about, but audio may sit beyond
+                    // the cap: no dialog, and the unseen part is backlog up to
+                    // the listing time (it must not transcribe as new saves
+                    // once a later scan reaches it).
+                    saveWatchedFolder(
+                        app, uri, name,
+                        recursiveBaselined = false, recursiveBaselineCutoff = listedAt,
+                    )
+                    return@launchFolderWatch
+                }
+            }
+        }
+        saveWatchedFolder(app, uri, name)
+    }
+
+    /**
+     * Applies the dialog's answer for [uri] only: a no-op when the pending
+     * add is a DIFFERENT folder (a second pick replaced it while this tap's
+     * job was queued), so one folder's answer never lands on another's
+     * backlog.
+     */
+    fun confirmPendingFolderAdd(uri: Uri, onlyNewFiles: Boolean) = launchFolderWatch { app ->
+        val pending = _pendingFolderAdd.value?.takeIf { it.uri == uri } ?: return@launchFolderWatch
+        _pendingFolderAdd.value = null
+        saveWatchedFolder(
+            app, pending.uri, pending.displayName, pending.baseline.takeIf { onlyNewFiles },
+            // A capped listing baselined only part of the tree: the folder
+            // keeps baselining newly visible subfolder files saved up to the
+            // listing time (the upgrade rule), so files beyond the cap are
+            // never read as new while later saves still transcribe.
+            recursiveBaselined = !(onlyNewFiles && pending.truncated),
+            recursiveBaselineCutoff = pending.listedAt.takeIf { onlyNewFiles && pending.truncated },
         )
     }
 
+    /** Same identity rule as [confirmPendingFolderAdd]. */
+    fun cancelPendingFolderAdd(uri: Uri) = launchFolderWatch { app ->
+        val pending = _pendingFolderAdd.value?.takeIf { it.uri == uri } ?: return@launchFolderWatch
+        _pendingFolderAdd.value = null
+        releaseUnusedFolderGrant(app, pending.uri)
+    }
+
+    private suspend fun releaseUnusedFolderGrant(app: android.app.Application, uri: Uri) {
+        val key = uri.toString()
+        if (scheduledFolderStore.byUri(key) == null && !grantHeldByAnotherFeature(key)) {
+            TreeUris.releasePersistableReadGrant(app, uri)
+        }
+    }
+
+    /**
+     * Persisted SAF grants are per tree, not per feature: the export folder
+     * and every voice-note detection source hold one too. Releasing a tree
+     * one of them also picked would silently kill that feature.
+     */
+    private suspend fun grantHeldByAnotherFeature(treeUri: String): Boolean {
+        val holders = buildList {
+            add(preferencesManager.outputFolderUri.firstOrNull())
+            add(preferencesManager.voiceNoteWatchedTreeUri.firstOrNull())
+            for (source in com.antivocale.app.data.VoiceNoteSource.entries) {
+                add(preferencesManager.voiceNoteTreeUri(source).firstOrNull())
+            }
+        }
+        return treeUri in holders
+    }
+
+    private suspend fun saveWatchedFolder(
+        app: android.app.Application,
+        uri: Uri,
+        name: String,
+        baseline: List<FileSnapshot>? = null,
+        recursiveBaselined: Boolean = true,
+        recursiveBaselineCutoff: Long? = null,
+    ) {
+        val key = uri.toString()
+        // The baseline rides the SAME store write as the record: a media-
+        // trigger scan iterating the store between a bare add and a later
+        // snapshot write would plan the backlog as first sights and its
+        // snapshot save could overwrite the baseline (backlog re-transcribed).
+        // Under the folder's scan lock: a stale scan of an earlier record of
+        // this tree must not overwrite the fresh baseline after this write.
+        val folder = ScheduledFolderWorker.withFolderScanLock(key) {
+            scheduledFolderStore.add(
+                WatchedFolder(
+                    treeUri = key, displayName = name, snapshot = baseline.orEmpty(),
+                    recursiveBaselined = recursiveBaselined,
+                    recursiveBaselineCutoff = recursiveBaselineCutoff,
+                ),
+            )
+        }.first { it.treeUri == key }
+        ScheduledFolderScheduler.enqueueFolder(app, folder)
+    }
+
     fun removeWatchedFolder(treeUri: String) = launchFolderWatch { app ->
-        val remaining = scheduledFolderStore.remove(treeUri)
-        com.antivocale.app.work.ScheduledFolderScheduler.cancel(app, treeUri)
+        // Under the scan lock: an in-flight scan that read the record
+        // finishes before the remove lands (see withFolderScanLock).
+        val remaining = ScheduledFolderWorker.withFolderScanLock(treeUri) {
+            scheduledFolderStore.remove(treeUri)
+        }
+        ScheduledFolderScheduler.cancel(app, treeUri)
+        if (remaining.isEmpty()) ScheduledFolderScheduler.disarmMediaTrigger(app)
         // Give the grant slot back (the platform caps persisted grants):
-        // only when no OTHER record still watches the same tree.
+        // only when no OTHER record, and no other feature, holds the tree.
         runCatching { android.net.Uri.parse(treeUri) }.getOrNull()?.let { uri ->
-            if (remaining.none { it.treeUri == treeUri }) {
-                com.antivocale.app.util.TreeUris.releasePersistableReadGrant(app, uri)
+            if (remaining.none { it.treeUri == treeUri } && !grantHeldByAnotherFeature(treeUri)) {
+                TreeUris.releasePersistableReadGrant(app, uri)
             }
         }
     }
@@ -1320,11 +1458,11 @@ class SettingsViewModel @Inject constructor(
             .onFailure { Log.w(TAG, "Bad folder-watch period: $periodHours", it) }
             .getOrNull()
             ?.firstOrNull { it.treeUri == treeUri }
-            ?.let { com.antivocale.app.work.ScheduledFolderScheduler.enqueueFolder(app, it) }
+            ?.let { ScheduledFolderScheduler.enqueueFolder(app, it) }
     }
 
     fun scanWatchedFolderNow(treeUri: String) = launchFolderWatch { app ->
-        com.antivocale.app.work.ScheduledFolderScheduler.scanNow(app, treeUri)
+        ScheduledFolderScheduler.scanNow(app, treeUri)
     }
 
 

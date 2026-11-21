@@ -2,6 +2,7 @@ package com.antivocale.app.data
 
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -101,6 +102,93 @@ class ScheduledFolderStoreTest {
         val decoded = ScheduledFoldersJson.decode(encoded).single().snapshot.single()
         assertEquals(null, decoded.enqueuedAt)
         assertEquals("rec.m4a", decoded.name)
+    }
+
+    @Test
+    fun `a legacy record without the recursive flag decodes as not baselined`() = runTest {
+        val legacy = JSONObject()
+            .put("treeUri", "content://tree/legacy")
+            .put("displayName", "Legacy")
+            .put("periodHours", 6)
+            .put("snapshot", JSONArray(listOf(JSONObject().put("name", "rec.m4a").put("size", 42).put("enqueuedAt", 1000))))
+        fake._scheduledFoldersJson.value = JSONArray(listOf(legacy)).toString()
+        val decoded = store.byUri("content://tree/legacy")!!
+        assertFalse(decoded.recursiveBaselined)
+        // the bare-name snapshot stays valid with no migration
+        assertEquals(listOf(FileSnapshot("rec.m4a", 42, 1000)), decoded.snapshot)
+    }
+
+    @Test
+    fun `a new folder defaults to recursively baselined`() {
+        assertTrue(WatchedFolder(treeUri = "u", displayName = "n").recursiveBaselined)
+    }
+
+    @Test
+    fun `the recursive flag round-trips both ways`() {
+        for (flag in listOf(true, false)) {
+            val encoded = ScheduledFoldersJson.encode(listOf(folder(uri = "u").copy(recursiveBaselined = flag)))
+            assertEquals(flag, ScheduledFoldersJson.decode(encoded).single().recursiveBaselined)
+        }
+    }
+
+    @Test
+    fun `the upgrade save sets snapshot and flag together and leaves other folders alone`() = runTest {
+        store.add(folder(uri = "content://tree/a").copy(recursiveBaselined = false))
+        store.add(folder(uri = "content://tree/b").copy(recursiveBaselined = false))
+        val snaps = listOf(FileSnapshot("Calls/old.m4a", 13, 500))
+        store.saveSnapshot("content://tree/a", snaps, recursiveBaselined = true)
+        // one write: a fresh decode of the preference sees both
+        val a = ScheduledFolderStore(fake).byUri("content://tree/a")!!
+        assertEquals(snaps, a.snapshot)
+        assertTrue(a.recursiveBaselined)
+        val b = store.byUri("content://tree/b")!!
+        assertFalse(b.recursiveBaselined)
+        assertEquals(emptyList<FileSnapshot>(), b.snapshot)
+        // a plain snapshot write keeps the flag as it is
+        store.saveSnapshot("content://tree/a", emptyList())
+        assertTrue(store.byUri("content://tree/a")!!.recursiveBaselined)
+        store.saveSnapshot("content://tree/b", emptyList())
+        assertFalse(store.byUri("content://tree/b")!!.recursiveBaselined)
+    }
+
+    @Test
+    fun `the backlog cutoff round-trips and is written only when set`() {
+        val withCutoff = folder(uri = "u").copy(recursiveBaselined = false, recursiveBaselineCutoff = 12345L)
+        val encoded = ScheduledFoldersJson.encode(listOf(withCutoff))
+        assertEquals(withCutoff, ScheduledFoldersJson.decode(encoded).single())
+
+        val plain = ScheduledFoldersJson.encode(listOf(folder(uri = "u")))
+        assertFalse(JSONArray(plain).getJSONObject(0).has("recursiveBaselineCutoff"))
+        assertNull(ScheduledFoldersJson.decode(plain).single().recursiveBaselineCutoff)
+    }
+
+    @Test
+    fun `a legacy record without the cutoff decodes it as null`() = runTest {
+        val legacy = JSONObject()
+            .put("treeUri", "content://tree/legacy")
+            .put("displayName", "Legacy")
+            .put("periodHours", 6)
+            .put("snapshot", JSONArray())
+        fake._scheduledFoldersJson.value = JSONArray(listOf(legacy)).toString()
+        assertNull(store.byUri("content://tree/legacy")!!.recursiveBaselineCutoff)
+    }
+
+    @Test
+    fun `the upgrade save sets the cutoff with the snapshot, keeps it, and clears it on the flag flip`() = runTest {
+        store.add(folder(uri = "content://tree/a").copy(recursiveBaselined = false))
+        val snaps = listOf(FileSnapshot("Calls/old.m4a", 13, 500))
+        store.saveSnapshot("content://tree/a", snaps, recursiveBaselined = false, recursiveBaselineCutoff = 500L)
+        val a = ScheduledFolderStore(fake).byUri("content://tree/a")!!
+        assertEquals(snaps, a.snapshot)
+        assertEquals(500L, a.recursiveBaselineCutoff)
+        // a plain snapshot write keeps the cutoff (it never moves forward)
+        store.saveSnapshot("content://tree/a", emptyList())
+        assertEquals(500L, store.byUri("content://tree/a")!!.recursiveBaselineCutoff)
+        // the complete walk flips the flag and drops the cutoff
+        store.saveSnapshot("content://tree/a", snaps, recursiveBaselined = true, recursiveBaselineCutoff = 500L)
+        val flipped = store.byUri("content://tree/a")!!
+        assertTrue(flipped.recursiveBaselined)
+        assertNull(flipped.recursiveBaselineCutoff)
     }
 
     @Test

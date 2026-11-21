@@ -1311,8 +1311,15 @@
     <string name="external_section_subtitle">مدل‌های اضافی تبدیل گفتار که خودتان اضافه می‌کنید. در کنار مدل‌های داخلی اجرا می‌شوند و پس از وارد کردن در فهرست پایین ظاهر می‌شوند.</string>
 
     <!-- TASK-741 (GH #125): the scheduled folder watch -->
-    <string name="folder_watch_title">پایش زمان‌بندی‌شده پوشه</string>
-    <string name="folder_watch_description">پوشه‌هایی را که انتخاب می‌کنید زیر نظر دارد و فایل‌های صوتی جدید را خودکار پیاده‌سازی می‌کند. اسکن‌ها زمانی اجرا می‌شوند که سیستم اجازه دهد؛ ذخیره‌سازهای تهاجمی باتری ممکن است آن‌ها را به تأخیر بیندازند، و اسکن دستی همیشه کار می‌کند.</string>
+    <string name="folder_watch_title">پایش پوشه‌ها</string>
+    <string name="folder_watch_description">پوشه‌های انتخابی و زیرپوشه‌های آن‌ها را پایش می‌کند. اگر نمایهٔ رسانهٔ Android فایل صوتی جدید را ببیند، معمولاً ظرف چند ثانیه پس از ذخیره به متن تبدیل می‌شود؛ در غیر این صورت اسکن زمان‌بندی‌شده آن را پیدا می‌کند. هنگام افزودن پوشه‌ای که از قبل فایل صوتی دارد، انتخاب می‌کنید که آن فایل‌ها هم به متن تبدیل شوند یا نه. اسکن دستی همیشه کار می‌کند.</string>
+    <string name="folder_watch_existing_title">فایل‌های صوتی موجود</string>
+    <string name="folder_watch_existing_description">انتخاب کنید کدام فایل‌های صوتی در %1$s به متن تبدیل شوند.</string>
+    <string name="folder_watch_only_new">فقط فایل‌های جدید</string>
+    <plurals name="folder_watch_transcribe_existing">
+        <item quantity="one">تبدیل %1$d فایل موجود به متن نیز</item>
+        <item quantity="other">تبدیل %1$d فایل موجود به متن نیز</item>
+    </plurals>
     <string name="folder_watch_add">پایش یک پوشه</string>
     <string name="folder_watch_empty">هنوز پوشه‌ای زیر نظر نیست.</string>
     <string name="folder_watch_scan_now">همین حالا اسکن کن</string>

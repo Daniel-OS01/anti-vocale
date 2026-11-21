@@ -1115,8 +1115,14 @@
     <string name="model_switched_message">当前模型：%1$s</string>
     <string name="model_switch_failed">无法切换：该模型不在设备上</string>
     <string name="model_shortcut_switch_label">切换到 %1$s</string>
-    <string name="folder_watch_title">定时文件夹监视</string>
-    <string name="folder_watch_description">监视你选择的文件夹，并自动转写新的音频文件。扫描按系统允许的计划执行；激进的省电模式可能会延迟扫描，而手动扫描始终可用。</string>
+    <string name="folder_watch_title">文件夹监控</string>
+    <string name="folder_watch_description">监控你选择的文件夹及其子文件夹。如果 Android 的媒体索引能看到新音频文件，通常会在保存后几秒内将其转写；否则定时扫描会找到它。添加已有音频的文件夹时，你可以选择是否也转写这些文件。手动扫描始终有效。</string>
+    <string name="folder_watch_existing_title">现有音频文件</string>
+    <string name="folder_watch_existing_description">选择要转写 %1$s 中的哪些音频文件。</string>
+    <string name="folder_watch_only_new">仅转写新文件</string>
+    <plurals name="folder_watch_transcribe_existing">
+        <item quantity="other">同时转写 %1$d 个现有文件</item>
+    </plurals>
     <string name="folder_watch_add">监视文件夹</string>
     <string name="folder_watch_empty">尚未监视任何文件夹。</string>
     <string name="folder_watch_scan_now">立即扫描</string>

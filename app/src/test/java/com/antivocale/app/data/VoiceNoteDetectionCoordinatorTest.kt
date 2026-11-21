@@ -99,8 +99,17 @@ class VoiceNoteDetectionCoordinatorTest {
         /**
          * One emission, then a grace delay: the collector either enqueues
          * or skips the entry; both settle within the delay.
+         *
+         * The flow has replay=0, so an emission made BEFORE the collector
+         * subscribed is buffered for nobody and lost - tryEmit still returns
+         * true. On a loaded CI runner that race eats the first note and the
+         * caller's wait loop runs into its timeout. Hence: wait for the
+         * subscription, then emit.
          */
         suspend fun emitAndSettle(e: VoiceNoteEntry) {
+            withTimeout(10_000) {
+                while (detections.subscriptionCount.value == 0) delay(10)
+            }
             detections.tryEmit(e)
             delay(100)
         }

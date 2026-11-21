@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.Api
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Lan
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.material3.Icon
@@ -35,6 +36,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import com.antivocale.app.util.TreeUris
 import androidx.compose.ui.semantics.Role
@@ -193,6 +195,7 @@ private fun rememberFolderLabel(folder: com.antivocale.app.data.WatchedFolder): 
 private fun ScheduledFolderWatchCard(viewModel: SettingsViewModel) {
     val context = LocalContext.current
     val folders by viewModel.scheduledFolders.collectAsStateWithLifecycle(initialValue = emptyList())
+    val pendingFolderAdd by viewModel.pendingFolderAdd.collectAsStateWithLifecycle()
     val picker = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocumentTree(),
     ) { uri ->
@@ -207,6 +210,32 @@ private fun ScheduledFolderWatchCard(viewModel: SettingsViewModel) {
             return@rememberLauncherForActivityResult
         }
         viewModel.addWatchedFolder(uri)
+    }
+
+    pendingFolderAdd?.let { pending ->
+        AlertDialog(
+            onDismissRequest = { viewModel.cancelPendingFolderAdd(pending.uri) },
+            title = { Text(stringResource(R.string.folder_watch_existing_title)) },
+            text = {
+                Text(stringResource(R.string.folder_watch_existing_description, pending.displayName))
+            },
+            confirmButton = {
+                TextButton(onClick = { viewModel.confirmPendingFolderAdd(pending.uri, onlyNewFiles = true) }) {
+                    Text(stringResource(R.string.folder_watch_only_new))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { viewModel.confirmPendingFolderAdd(pending.uri, onlyNewFiles = false) }) {
+                    Text(
+                        pluralStringResource(
+                            R.plurals.folder_watch_transcribe_existing,
+                            pending.existingCount,
+                            pending.existingCount,
+                        ),
+                    )
+                }
+            },
+        )
     }
 
     SectionCard(

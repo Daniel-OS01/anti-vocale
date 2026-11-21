@@ -1105,8 +1105,19 @@
     <string name="model_switched_message">النموذج النشط: %1$s</string>
     <string name="model_switch_failed">تعذّر التبديل: النموذج غير موجود على الجهاز</string>
     <string name="model_shortcut_switch_label">التبديل إلى %1$s</string>
-    <string name="folder_watch_title">المراقبة المجدولة للمجلدات</string>
-    <string name="folder_watch_description">يراقب المجلدات التي تختارها وينسخ ملفات الصوت الجديدة تلقائيًا. تُجرى عمليات الفحص وفق جدول يسمح به النظام؛ وقد تؤخرها أدوات توفير البطارية المتشددة، بينما يعمل الفحص اليدوي دائمًا.</string>
+    <string name="folder_watch_title">مراقبة المجلدات</string>
+    <string name="folder_watch_description">يراقب المجلدات التي تختارها بما فيها المجلدات الفرعية. يُفرّغ ملف الصوت الجديد عادةً خلال ثوانٍ من حفظه إذا كان فهرس الوسائط في Android يراه؛ وإلا يلتقطه الفحص المجدول. عند إضافة مجلد يحتوي على ملفات صوتية، تختار ما إذا كنت تريد تفريغها أيضًا. الفحص اليدوي يعمل دائمًا.</string>
+    <string name="folder_watch_existing_title">ملفات صوتية موجودة</string>
+    <string name="folder_watch_existing_description">اختر الملفات الصوتية التي تريد تفريغها في %1$s.</string>
+    <string name="folder_watch_only_new">الملفات الجديدة فقط</string>
+    <plurals name="folder_watch_transcribe_existing">
+        <item quantity="zero">تفريغ %1$d من الملفات الموجودة أيضًا</item>
+        <item quantity="one">تفريغ الملف الموجود (%1$d) أيضًا</item>
+        <item quantity="two">تفريغ الملفين الموجودين (%1$d) أيضًا</item>
+        <item quantity="few">تفريغ %1$d ملفات موجودة أيضًا</item>
+        <item quantity="many">تفريغ %1$d ملفًا موجودًا أيضًا</item>
+        <item quantity="other">تفريغ %1$d ملف موجود أيضًا</item>
+    </plurals>
     <string name="folder_watch_add">مراقبة مجلد</string>
     <string name="folder_watch_empty">لا توجد مجلدات مراقَبة بعد.</string>
     <string name="folder_watch_scan_now">الفحص الآن</string>

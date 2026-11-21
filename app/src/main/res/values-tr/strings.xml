@@ -1306,8 +1306,15 @@
     <string name="external_section_subtitle">Kendinin eklediği ek ses transkripsiyon modelleri. Yerleşik olanların yanında çalışır ve içe aktarıldığında aşağıdaki listede görünür.</string>
 
     <!-- TASK-741 (GH #125): the scheduled folder watch -->
-    <string name="folder_watch_title">Zamanlanmış klasör izleme</string>
-    <string name="folder_watch_description">Seçtiğiniz klasörleri izler ve yeni ses dosyalarını otomatik olarak yazıya döker. Taramalar sistem izin verdiğinde çalışır; agresif pil tasarrufu onları geciktirebilir, manuel tarama her zaman işe yarar.</string>
+    <string name="folder_watch_title">Klasör izleme</string>
+    <string name="folder_watch_description">Seçtiğiniz klasörleri alt klasörleriyle birlikte izler. Android medya dizini yeni bir ses dosyasını görüyorsa dosya genellikle kaydedildikten birkaç saniye sonra yazıya dökülür; aksi halde zamanlanmış tarama dosyayı bulur. Zaten ses dosyaları içeren bir klasör eklediğinizde bunların da yazıya dökülüp dökülmeyeceğini seçersiniz. Elle tarama her zaman çalışır.</string>
+    <string name="folder_watch_existing_title">Mevcut ses dosyaları</string>
+    <string name="folder_watch_existing_description">%1$s klasöründe hangi ses dosyalarının yazıya döküleceğini seçin.</string>
+    <string name="folder_watch_only_new">Yalnızca yeni dosyalar</string>
+    <plurals name="folder_watch_transcribe_existing">
+        <item quantity="one">Mevcut %1$d dosyayı da yazıya dök</item>
+        <item quantity="other">Mevcut %1$d dosyayı da yazıya dök</item>
+    </plurals>
     <string name="folder_watch_add">Bir klasörü izle</string>
     <string name="folder_watch_empty">Henüz izlenen klasör yok.</string>
     <string name="folder_watch_scan_now">Şimdi tara</string>
