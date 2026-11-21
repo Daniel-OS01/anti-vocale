@@ -109,7 +109,9 @@ class SubtitleChoiceTimeoutWorker @AssistedInject constructor(
             requestType = com.antivocale.app.receiver.TaskerRequestReceiver.REQUEST_TYPE_AUDIO,
             filePath = filePath,
             sourcePackageName = sourcePackage,
-            contentHash = contentHash
+            contentHash = contentHash,
+            sourceKind = inputData.getString(KEY_SOURCE_KIND),
+            sourceFolderName = inputData.getString(KEY_SOURCE_FOLDER_NAME),
         )
         return try {
             val cacheDir = applicationContext.cacheDir
@@ -202,6 +204,8 @@ class SubtitleChoiceTimeoutWorker @AssistedInject constructor(
         const val KEY_FILE_PATH = "file_path"
         const val KEY_TASK_ID = "task_id"
         const val KEY_SOURCE_PACKAGE = "source_package"
+        const val KEY_SOURCE_KIND = "source_kind"
+        const val KEY_SOURCE_FOLDER_NAME = "source_folder_name"
         const val KEY_SOURCE = "source"
         /** TASK-842: the intake content hash, re-emitted on the fallback. */
         const val KEY_CONTENT_HASH = "content_hash"

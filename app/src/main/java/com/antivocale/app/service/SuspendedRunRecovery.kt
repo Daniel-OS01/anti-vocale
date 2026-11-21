@@ -255,6 +255,10 @@ object SuspendedRunRecovery {
                 prompt = row.prompt,
                 sourcePackage = row.sourcePackageName,
                 senderName = row.senderName,
+                sourceKind = row.sourceKind,
+                sourceFolderKey = row.sourceFolderKey,
+                sourceFolderName = row.sourceFolderName,
+                sourceSubPath = row.sourceSubPath,
                 retryFileAlive = retryFileAlive,
             )
         }

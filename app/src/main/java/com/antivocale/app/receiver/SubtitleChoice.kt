@@ -32,9 +32,8 @@ object SubtitleChoice {
 
     /**
      * Offers the choice for a video carrying readable text tracks. The
-     * notification's actions and the timeout worker both carry [source] and
-     * [sourcePackage] verbatim, so the eventual transcription records the
-     * real origin (share vs browse).
+     * notification's actions and the timeout worker both carry [source] for
+     * request behavior and [sourceKind] and [sourceFolderName] for History.
      */
     fun offer(
         context: Context,
@@ -45,13 +44,21 @@ object SubtitleChoice {
         sourcePackage: String?,
         backendOverride: String?,
         contentHash: String? = null,
+        sourceKind: String,
+        sourceFolderName: String? = null,
     ) {
         // TASK-515: one read feeds both the disclosure text and the worker
         // delay, so the notification can never promise a different timeout
         // than the one scheduled (the old constant could drift from the text).
         val timeout = timeoutMinutes(context)
-        postChoiceNotification(context, taskId, localPath, track, source, sourcePackage, backendOverride, timeout, contentHash)
-        enqueueTimeoutWorker(context, taskId, localPath, source, sourcePackage, backendOverride, timeout, contentHash)
+        postChoiceNotification(
+            context, taskId, localPath, track, source, sourcePackage, backendOverride, timeout,
+            contentHash, sourceKind, sourceFolderName,
+        )
+        enqueueTimeoutWorker(
+            context, taskId, localPath, source, sourcePackage, backendOverride, timeout,
+            contentHash, sourceKind, sourceFolderName,
+        )
     }
 
     /** The user preference, falling back to the default on any read failure
@@ -96,6 +103,8 @@ object SubtitleChoice {
         /** TASK-842: the intake content hash, onto both arms' requests so
          *  their rows stay matchable by the duplicate guard. */
         contentHash: String? = null,
+        sourceKind: String,
+        sourceFolderName: String? = null,
     ): Boolean {
         if (!com.antivocale.app.util.SharedAudioHandler.isVideoFile(localPath)) return false
         val tracks = try {
@@ -114,6 +123,8 @@ object SubtitleChoice {
             sourcePackage,
             backendOverride,
             contentHash,
+            sourceKind,
+            sourceFolderName,
         )
         return true
     }
@@ -164,6 +175,8 @@ object SubtitleChoice {
         backendOverride: String?,
         timeoutMinutes: Int,
         contentHash: String? = null,
+        sourceKind: String,
+        sourceFolderName: String? = null,
     ) {
         AppNotificationChannel.TRANSCRIPTION_RESULT.create(context)
 
@@ -177,6 +190,8 @@ object SubtitleChoice {
             putExtra(TaskerRequestReceiver.EXTRA_SUBTITLE_TRACK_INDEX, track.trackIndex)
             sourcePackage?.let { putExtra(ShareReceiverActivity.EXTRA_SOURCE_PACKAGE, it) }
             putExtra(InferenceService.EXTRA_SOURCE, source)
+            putExtra(InferenceService.EXTRA_SOURCE_KIND, sourceKind)
+            sourceFolderName?.let { putExtra(InferenceService.EXTRA_SOURCE_FOLDER_NAME, it) }
             backendOverride?.let { putExtra(InferenceService.EXTRA_BACKEND_OVERRIDE, it) }
             contentHash?.let { putExtra(InferenceService.EXTRA_CONTENT_HASH, it) }
         }
@@ -267,6 +282,8 @@ object SubtitleChoice {
         backendOverride: String?,
         timeoutMinutes: Int,
         contentHash: String? = null,
+        sourceKind: String,
+        sourceFolderName: String? = null,
     ) {
         val request = OneTimeWorkRequestBuilder<SubtitleChoiceTimeoutWorker>()
             .setInitialDelay(timeoutMinutes.toLong(), TimeUnit.MINUTES)
@@ -277,6 +294,8 @@ object SubtitleChoice {
                     SubtitleChoiceTimeoutWorker.KEY_SOURCE_PACKAGE to sourcePackage,
                     SubtitleChoiceTimeoutWorker.KEY_BACKEND_OVERRIDE to backendOverride,
                     SubtitleChoiceTimeoutWorker.KEY_SOURCE to source,
+                    SubtitleChoiceTimeoutWorker.KEY_SOURCE_KIND to sourceKind,
+                    SubtitleChoiceTimeoutWorker.KEY_SOURCE_FOLDER_NAME to sourceFolderName,
                     SubtitleChoiceTimeoutWorker.KEY_CONTENT_HASH to contentHash,
                 )
             )

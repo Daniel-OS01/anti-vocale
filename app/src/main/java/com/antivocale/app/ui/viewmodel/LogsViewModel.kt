@@ -8,6 +8,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.distinctUntilChanged
 import android.content.Intent
 import android.net.Uri
+import android.provider.DocumentsContract
 import android.widget.Toast
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -24,6 +25,7 @@ import com.antivocale.app.data.local.toEntity
 import com.antivocale.app.data.local.toLogEntry
 import com.antivocale.app.data.ActiveModelRepository
 import com.antivocale.app.data.PreferencesManager
+import com.antivocale.app.data.SourceKind
 import com.antivocale.app.data.VoiceNoteDuplicateGuard
 import com.antivocale.app.data.TranscriptionCalibrator
 import com.antivocale.app.data.catalog.BundledCatalog
@@ -33,6 +35,7 @@ import com.antivocale.app.service.InferenceEnqueue
 import com.antivocale.app.service.InferenceService
 import com.antivocale.app.util.LocaleManager
 import com.antivocale.app.util.SharedAudioHandler
+import com.antivocale.app.util.parentFolderNameFromDocumentId
 import com.antivocale.app.transcription.BackendRegistry
 import com.antivocale.app.transcription.BuiltInBackendIds
 import com.antivocale.app.transcription.TranscriptionBackendManager
@@ -478,6 +481,8 @@ class LogsViewModel @Inject constructor(
             // the hit's row (the transcript text must not linger in the
             // pending state).
             val contentHash = duplicateGuard.hashOnIo(localPath)
+            val documentId = runCatching { DocumentsContract.getDocumentId(uri) }.getOrNull()
+            val sourceFolderName = parentFolderNameFromDocumentId(documentId)
             if (contentHash != null) {
                 val hit = duplicateGuard.lookup(appContext, orchestrator, contentHash)
                 if (hit != null) {
@@ -494,7 +499,7 @@ class LogsViewModel @Inject constructor(
                             localPath = localPath,
                             continueRequest = {
                                 continueBrowseIntake(
-                                    appContext, localPath, localizedContext, contentHash)
+                                    appContext, localPath, localizedContext, contentHash, sourceFolderName)
                             },
                             resolved = dialogResolved,
                         )
@@ -516,7 +521,7 @@ class LogsViewModel @Inject constructor(
                 }
             }
 
-            continueBrowseIntake(appContext, localPath, localizedContext, contentHash)
+            continueBrowseIntake(appContext, localPath, localizedContext, contentHash, sourceFolderName)
         }
     }
 
@@ -584,6 +589,7 @@ class LogsViewModel @Inject constructor(
         localPath: String,
         localizedContext: Context,
         contentHash: String?,
+        sourceFolderName: String?,
     ) {
         viewModelScope.launch(Dispatchers.IO) {
             // F5: the shared probe+offer; when a choice prompt is posted it
@@ -593,7 +599,10 @@ class LogsViewModel @Inject constructor(
                     source = InferenceService.SOURCE_BROWSE,
                     sourcePackage = null,
                     backendOverride = null,
-                    contentHash = contentHash)) {
+                    contentHash = contentHash,
+                    sourceKind = SourceKind.BROWSE,
+                    sourceFolderName = sourceFolderName,
+                )) {
                 return@launch
             }
 
@@ -609,7 +618,9 @@ class LogsViewModel @Inject constructor(
                     ?: preferencesManager.transcriptionBackend.first(),
                 localPath,
                 localizedContext,
-                proceed = { enqueueBrowse(appContext, localPath, localizedContext, contentHash) },
+                proceed = {
+                    enqueueBrowse(appContext, localPath, localizedContext, contentHash, sourceFolderName)
+                },
                 // TASK-934: declining the advisory orphans the staged copy
                 // (nothing enqueues), so the browse arm reclaims it. A
                 // displaced earlier advisory chains its own reclaim (its
@@ -697,12 +708,16 @@ class LogsViewModel @Inject constructor(
         appContext: Context,
         localPath: String,
         localizedContext: Context,
-        contentHash: String? = null,
+        contentHash: String?,
+        sourceFolderName: String?,
     ) {
         val intent = AudioRequestIntent.make(
             appContext, InferenceService.SOURCE_BROWSE,
             UUID.randomUUID().toString(), localPath,
-            contentHash = contentHash)
+            contentHash = contentHash,
+            sourceKind = SourceKind.BROWSE,
+            sourceFolderName = sourceFolderName,
+        )
         // F2: the unified enqueue owns the API 31+ restriction handling;
         // a restricted start posts the trampoline notification that
         // preserves the request instead of dropping it.
@@ -1127,6 +1142,10 @@ class LogsViewModel @Inject constructor(
             originalEntry.senderName?.let {
                 putExtra(InferenceService.EXTRA_SENDER_NAME, it)
             }
+            originalEntry.sourceKind?.let { putExtra(InferenceService.EXTRA_SOURCE_KIND, it) }
+            originalEntry.sourceFolderKey?.let { putExtra(InferenceService.EXTRA_SOURCE_FOLDER_KEY, it) }
+            originalEntry.sourceFolderName?.let { putExtra(InferenceService.EXTRA_SOURCE_FOLDER_NAME, it) }
+            originalEntry.sourceSubPath?.let { putExtra(InferenceService.EXTRA_SOURCE_SUB_PATH, it) }
         }
         // F2: unified enqueue; a restricted start rides the fallback
         // notification (the request survives), a real failure surfaces on

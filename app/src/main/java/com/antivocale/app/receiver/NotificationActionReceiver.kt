@@ -160,6 +160,18 @@ class NotificationActionReceiver : BroadcastReceiver() {
             intent.getStringExtra(InferenceService.EXTRA_SENDER_NAME)?.let {
                 putExtra(InferenceService.EXTRA_SENDER_NAME, it)
             }
+            intent.getStringExtra(InferenceService.EXTRA_SOURCE_KIND)?.let {
+                putExtra(InferenceService.EXTRA_SOURCE_KIND, it)
+            }
+            intent.getStringExtra(InferenceService.EXTRA_SOURCE_FOLDER_KEY)?.let {
+                putExtra(InferenceService.EXTRA_SOURCE_FOLDER_KEY, it)
+            }
+            intent.getStringExtra(InferenceService.EXTRA_SOURCE_FOLDER_NAME)?.let {
+                putExtra(InferenceService.EXTRA_SOURCE_FOLDER_NAME, it)
+            }
+            intent.getStringExtra(InferenceService.EXTRA_SOURCE_SUB_PATH)?.let {
+                putExtra(InferenceService.EXTRA_SOURCE_SUB_PATH, it)
+            }
         }
         when (com.antivocale.app.service.InferenceEnqueue.start(context, serviceIntent)) {
             com.antivocale.app.service.InferenceEnqueue.Outcome.Started,

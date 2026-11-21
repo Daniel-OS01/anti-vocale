@@ -134,7 +134,9 @@ class VoiceNoteAutoTranscriber @Inject constructor(
             sourcePackage = source.packageName,
             senderName = senderName,
             contentHash = contentHash,
-            catchup = catchup)
+            catchup = catchup,
+            sourceKind = SourceKind.VOICE_NOTE,
+        )
 
     /**
      * TASK-776 review F2: ONE derivation (the enqueue-side dedup check and

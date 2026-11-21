@@ -98,7 +98,7 @@ class LogsViewModelBatchIntakeTest : ViewModelTeardownTest() {
     private fun stubSubtitleProbe() {
         mockkObject(SubtitleChoice)
         every {
-            SubtitleChoice.offerIfTracks(any(), any(), any(), any(), any(), any(), any())
+            SubtitleChoice.offerIfTracks(any(), any(), any(), any(), any(), any(), any(), any(), any())
         } returns true
     }
 
@@ -203,7 +203,7 @@ class LogsViewModelBatchIntakeTest : ViewModelTeardownTest() {
         withTimeout(30_000) {
             verify(timeout = 10_000) {
                 SubtitleChoice.offerIfTracks(
-                    any(), any(), eq("/tmp/browse-copy"), any(), any(), any(), any())
+                    any(), any(), eq("/tmp/browse-copy"), any(), any(), any(), any(), any(), any())
             }
         }
         // ...and the pending dialog was not displaced.
@@ -256,7 +256,7 @@ class LogsViewModelBatchIntakeTest : ViewModelTeardownTest() {
         withTimeout(30_000) {
             verify(timeout = 10_000) {
                 SubtitleChoice.offerIfTracks(
-                    any(), any(), eq(staged.absolutePath), any(), any(), any(), any())
+                    any(), any(), eq(staged.absolutePath), any(), any(), any(), any(), any(), any())
             }
         }
         // The probe owns the request (stubbed true) and the file survives
