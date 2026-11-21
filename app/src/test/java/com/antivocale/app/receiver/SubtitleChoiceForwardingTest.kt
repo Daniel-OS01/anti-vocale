@@ -1,6 +1,7 @@
 package com.antivocale.app.receiver
 
 import android.content.Intent
+import com.antivocale.app.data.SourceKind
 import com.antivocale.app.service.InferenceEnqueue
 import com.antivocale.app.service.InferenceService
 import io.mockk.every
@@ -89,6 +90,29 @@ class SubtitleChoiceForwardingTest {
         // subtitles branch), exactly as baseExtras always carries it.
         assertEquals(
             99, service.getIntExtra(TaskerRequestReceiver.EXTRA_SUBTITLE_TRACK_INDEX, -1))
+        // R3: this prompt predates the kind extra; the share source implies it.
+        assertEquals(SourceKind.SHARE, service.getStringExtra(InferenceService.EXTRA_SOURCE_KIND))
+    }
+
+    @Test
+    fun `audio arm forwards the prompt's recorded origin unchanged`() {
+        val slot = slot<Intent>()
+        every { InferenceEnqueue.start(any(), capture(slot)) } returns
+            InferenceEnqueue.Outcome.Started
+
+        val prompt = Intent(NotificationActionReceiver.ACTION_TRANSCRIBE_AUDIO).apply {
+            putExtra(TaskerRequestReceiver.EXTRA_FILE_PATH, "/tmp/clip.mp4")
+            // A browse-source prompt whose recorded kind must win over the implied one.
+            putExtra(InferenceService.EXTRA_SOURCE, InferenceService.SOURCE_BROWSE)
+            putExtra(InferenceService.EXTRA_SOURCE_KIND, SourceKind.SHARE)
+            putExtra(InferenceService.EXTRA_SOURCE_FOLDER_NAME, "Download")
+        }
+
+        NotificationActionReceiver().onReceive(RuntimeEnvironment.getApplication(), prompt)
+
+        val service = slot.captured
+        assertEquals(SourceKind.SHARE, service.getStringExtra(InferenceService.EXTRA_SOURCE_KIND))
+        assertEquals("Download", service.getStringExtra(InferenceService.EXTRA_SOURCE_FOLDER_NAME))
     }
 
     @Test

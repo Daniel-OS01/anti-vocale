@@ -11,6 +11,7 @@ import androidx.work.WorkManager
 import androidx.work.workDataOf
 import com.antivocale.app.R
 import com.antivocale.app.data.PreferencesManager
+import com.antivocale.app.data.SourceKind
 import com.antivocale.app.service.InferenceService
 import com.antivocale.app.transcription.SubtitleTrack
 import com.antivocale.app.transcription.TranscriptionLanguagePolicy
@@ -29,6 +30,18 @@ import java.util.concurrent.TimeUnit
  * exactly like the same file shared.
  */
 object SubtitleChoice {
+
+    /**
+     * R3: the origin kind a choice prompt's request records. A prompt queued
+     * by a pre-R3 build carries [source] but no kind; its two producers (the
+     * share receiver and the History browse FAB) imply one. Any other source
+     * implies nothing.
+     */
+    fun sourceKindOrImplied(sourceKind: String?, source: String?): String? = sourceKind ?: when (source) {
+        InferenceService.SOURCE_BROWSE -> SourceKind.BROWSE
+        InferenceService.SOURCE_SHARE -> SourceKind.SHARE
+        else -> null
+    }
 
     /**
      * Offers the choice for a video carrying readable text tracks. The

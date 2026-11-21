@@ -27,6 +27,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
 import androidx.lifecycle.lifecycleScope
@@ -790,7 +791,10 @@ fun HistoryTab(
     val showVadAdvisory by viewModel.showVadAdvisory.collectAsState()
     val groupByConversation by viewModel.groupLogsByConversation.collectAsState()
     // R3: names folder sections and classifies legacy folder-watch rows.
-    val watchedFolders by viewModel.watchedFolders.collectAsState()
+    // Null until the store loads; rendering treats that as no folders (the
+    // highlight effect below waits for the loaded list instead).
+    val loadedWatchedFolders by viewModel.watchedFolders.collectAsState()
+    val watchedFolders = loadedWatchedFolders.orEmpty()
 
     // Lifted expanded state — tracks which taskIds are expanded
     var expandedTaskIds by remember { mutableStateOf<Set<String>>(emptySet()) }
@@ -1352,6 +1356,15 @@ fun HistoryTab(
                         }
                     }
                     expandedTaskIds = expandedTaskIds + taskId
+                    // R3: the auto-expand keys depend on the folder list (a
+                    // legacy folder-watch row moves from Folder sync into its
+                    // named section once the store loads). Bounded wait for
+                    // the loaded list, then proceed with what there is; the
+                    // keys and the index below use this ONE snapshot, which
+                    // is also the value the render collects.
+                    val folders = withTimeoutOrNull(2_000) {
+                        viewModel.watchedFolders.filterNotNull().first()
+                    } ?: viewModel.watchedFolders.value.orEmpty()
                     val allLogs = viewModel.logs.value
                     // TASK-750: the index comes from the SAME builder the
                     // render loop uses, over the fresh (post-search-clear)
@@ -1368,7 +1381,7 @@ fun HistoryTab(
                         val entry = allLogs.find { it.taskId == taskId }
                         // R3: both keys come from the resolver the grouping
                         // uses, never from row fields re-read here.
-                        val placement = entry?.let { resolveHistoryGroup(it, watchedFolders) }
+                        val placement = entry?.let { resolveHistoryGroup(it, folders) }
                         // setOfNotNull(null) is empty: the addition is the identity
                         val updatedSections = expandedConversationGroups + setOfNotNull(placement?.groupKey)
                         expandedConversationGroups = updatedSections
@@ -1378,14 +1391,14 @@ fun HistoryTab(
                         val updatedSenders = expandedSenderGroups + setOfNotNull(subGroupKey)
                         expandedSenderGroups = updatedSenders
                         indexOfTaskIdInGroups(
-                            historyGroupsFor(allLogs, groupByConversation, watchedFolders, context),
+                            historyGroupsFor(allLogs, groupByConversation, folders, context),
                             taskId,
                             isSectionExpanded = { it in updatedSections },
                             isSenderExpanded = { it in updatedSenders },
                         )
                     } else {
                         indexOfTaskIdInGroups(
-                            historyGroupsFor(allLogs, groupByConversation, watchedFolders, context),
+                            historyGroupsFor(allLogs, groupByConversation, folders, context),
                             taskId,
                         )
                     }

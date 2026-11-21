@@ -104,6 +104,11 @@ class NotificationActionReceiver : BroadcastReceiver() {
             // follow the copy: the chosen request type and, for the
             // subtitles arm, the derived track index.
             intent.extras?.let { putExtras(it) }
+            // R3: a prompt posted before this version carries no kind.
+            SubtitleChoice.sourceKindOrImplied(
+                intent.getStringExtra(InferenceService.EXTRA_SOURCE_KIND),
+                intent.getStringExtra(InferenceService.EXTRA_SOURCE),
+            )?.let { putExtra(InferenceService.EXTRA_SOURCE_KIND, it) }
             putExtra(TaskerRequestReceiver.EXTRA_REQUEST_TYPE, requestType)
             if (requestType == TaskerRequestReceiver.REQUEST_TYPE_SUBTITLES) {
                 putExtra(TaskerRequestReceiver.EXTRA_SUBTITLE_TRACK_INDEX, trackIndexFromIntent(intent))

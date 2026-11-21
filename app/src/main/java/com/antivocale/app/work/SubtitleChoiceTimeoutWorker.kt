@@ -110,7 +110,8 @@ class SubtitleChoiceTimeoutWorker @AssistedInject constructor(
             filePath = filePath,
             sourcePackageName = sourcePackage,
             contentHash = contentHash,
-            sourceKind = inputData.getString(KEY_SOURCE_KIND),
+            // R3: a prompt queued before this version carries no kind.
+            sourceKind = SubtitleChoice.sourceKindOrImplied(inputData.getString(KEY_SOURCE_KIND), source),
             sourceFolderName = inputData.getString(KEY_SOURCE_FOLDER_NAME),
         )
         return try {

@@ -26,8 +26,10 @@ import com.antivocale.app.data.local.toLogEntry
 import com.antivocale.app.data.ActiveModelRepository
 import com.antivocale.app.data.PreferencesManager
 import com.antivocale.app.data.ScheduledFolderStore
+import com.antivocale.app.data.SourceOrigin
 import com.antivocale.app.data.SourceKind
 import com.antivocale.app.data.WatchedFolder
+import com.antivocale.app.data.effectiveSourceOrigin
 import com.antivocale.app.data.VoiceNoteDuplicateGuard
 import com.antivocale.app.data.TranscriptionCalibrator
 import com.antivocale.app.data.catalog.BundledCatalog
@@ -855,9 +857,12 @@ class LogsViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), PreferencesManager.DEFAULT_GROUP_LOGS_BY_CONVERSATION)
 
     /** R3: the History origin grouping's folder lookup (section titles and
-     *  legacy folder-watch row classification). */
-    val watchedFolders: StateFlow<List<WatchedFolder>> = scheduledFolderStore.foldersFlow
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+     *  legacy folder-watch row classification). Null until the store's first
+     *  emission: rendering treats it as empty, but the highlight auto-expand
+     *  waits for the loaded list, or a legacy row would open under Folder
+     *  sync and then move into its (collapsed) named folder section. */
+    val watchedFolders: StateFlow<List<WatchedFolder>?> = scheduledFolderStore.foldersFlow
+        .stateIn<List<WatchedFolder>?>(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
     /** TASK-616: the technical processing-context line renders only when
      *  this is on (off by default); the data stays persisted either way. */
@@ -1118,13 +1123,27 @@ class LogsViewModel @Inject constructor(
             return
         }
         val appContext = context.applicationContext
+        // R3: the re-run mints a fresh task id, so a legacy folder-watch row's
+        // task-id evidence would not survive it; copy the recovered origin.
+        val origin = effectiveSourceOrigin(
+            originalEntry.taskId,
+            SourceOrigin(
+                originalEntry.sourceKind,
+                originalEntry.sourceFolderKey,
+                originalEntry.sourceFolderName,
+                originalEntry.sourceSubPath,
+            ),
+            watchedFolders.value ?: scheduledFolderStore.folders(),
+        )
         longAudioGate(backendId, filePath, appContext, proceed = {
-            dispatchTranscription(originalEntry, backendId, filePath, appContext, languageOverride)
+            dispatchTranscription(originalEntry, origin, backendId, filePath, appContext, languageOverride)
         })
     }
 
     private fun dispatchTranscription(
         originalEntry: LogEntry,
+        /** R3: the row's effective origin (effectiveSourceOrigin), copied to the new row. */
+        origin: SourceOrigin,
         backendId: String,
         filePath: String,
         context: android.content.Context,
@@ -1151,10 +1170,10 @@ class LogsViewModel @Inject constructor(
             originalEntry.senderName?.let {
                 putExtra(InferenceService.EXTRA_SENDER_NAME, it)
             }
-            originalEntry.sourceKind?.let { putExtra(InferenceService.EXTRA_SOURCE_KIND, it) }
-            originalEntry.sourceFolderKey?.let { putExtra(InferenceService.EXTRA_SOURCE_FOLDER_KEY, it) }
-            originalEntry.sourceFolderName?.let { putExtra(InferenceService.EXTRA_SOURCE_FOLDER_NAME, it) }
-            originalEntry.sourceSubPath?.let { putExtra(InferenceService.EXTRA_SOURCE_SUB_PATH, it) }
+            origin.kind?.let { putExtra(InferenceService.EXTRA_SOURCE_KIND, it) }
+            origin.folderKey?.let { putExtra(InferenceService.EXTRA_SOURCE_FOLDER_KEY, it) }
+            origin.folderName?.let { putExtra(InferenceService.EXTRA_SOURCE_FOLDER_NAME, it) }
+            origin.subPath?.let { putExtra(InferenceService.EXTRA_SOURCE_SUB_PATH, it) }
         }
         // F2: unified enqueue; a restricted start rides the fallback
         // notification (the request survives), a real failure surfaces on

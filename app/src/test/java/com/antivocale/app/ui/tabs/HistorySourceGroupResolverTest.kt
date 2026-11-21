@@ -48,7 +48,7 @@ class HistorySourceGroupResolverTest {
         val p = resolveHistoryGroup(row(pkg = "com.whatsapp", kind = SourceKind.SHARE, sender = "Anna"), emptyList())
         assertEquals("com.whatsapp", p.groupKey)
         assertEquals(HistoryGroupTitle.App("com.whatsapp"), p.title)
-        assertEquals(HistorySubGroupRef("Anna", "Anna"), p.subGroup)
+        assertEquals(HistorySubGroupRef("who:Anna", "Anna"), p.subGroup)
     }
 
     @Test
@@ -77,7 +77,7 @@ class HistorySourceGroupResolverTest {
             row(kind = SourceKind.FOLDER_WATCH, folderKey = callsUri, folderName = "Calls", sender = "Bob"),
             listOf(calls),
         )
-        assertEquals(HistorySubGroupRef("Bob", "Bob"), p.subGroup)
+        assertEquals(HistorySubGroupRef("who:Bob", "Bob"), p.subGroup)
     }
 
     @Test
@@ -89,6 +89,15 @@ class HistorySourceGroupResolverTest {
             row(kind = SourceKind.FOLDER_WATCH, folderKey = callsUri, folderName = "Calls", sender = "Bob"), folders)
         assertEquals(bySub.groupKey, bySender.groupKey)
         assertNotEquals(bySub.subGroup?.key, bySender.subGroup?.key)
+    }
+
+    @Test
+    fun `a caller named like the subfolder key prefix still gets its own subgroup`() {
+        val bySub = row(taskId = "s", kind = SourceKind.FOLDER_WATCH, folderKey = callsUri, folderName = "Calls", subPath = "Calls")
+        val bySender = row(taskId = "c", kind = SourceKind.FOLDER_WATCH, folderKey = callsUri, folderName = "Calls", sender = "dir:Calls")
+        val group = groupLogsByConversation(listOf(bySub, bySender), listOf(calls)).single()
+        assertEquals(2, group.subGroups.size)
+        assertEquals(setOf("Calls", "dir:Calls"), group.subGroups.map { it.label }.toSet())
     }
 
     @Test
@@ -111,7 +120,7 @@ class HistorySourceGroupResolverTest {
         val p = resolveHistoryGroup(row(kind = SourceKind.SHARE, sender = "Anna"), emptyList())
         assertEquals("__shared__", p.groupKey)
         assertEquals(HistoryGroupTitle.Shared, p.title)
-        assertEquals(HistorySubGroupRef("Anna", "Anna"), p.subGroup)
+        assertEquals(HistorySubGroupRef("who:Anna", "Anna"), p.subGroup)
     }
 
     @Test
@@ -138,7 +147,7 @@ class HistorySourceGroupResolverTest {
         // Same key as the folder's new rows, so old and new share a section.
         assertEquals("folder:$callsUri", p.groupKey)
         assertEquals(HistoryGroupTitle.Folder("Calls"), p.title)
-        assertEquals(HistorySubGroupRef("Bob", "Bob"), p.subGroup)
+        assertEquals(HistorySubGroupRef("who:Bob", "Bob"), p.subGroup)
     }
 
     @Test
