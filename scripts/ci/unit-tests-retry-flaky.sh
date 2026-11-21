@@ -6,8 +6,9 @@
 # (e.g. VoiceNoteBusinessCoordinatorTest's withTimeout(5_000) polling, upstream's
 # LogsViewModelBatchIntakeTest) and fail intermittently on busy CI runners while the
 # same tree passes on the next run. Tests are not modified or skipped: a class that
-# fails twice, a build/compile failure (no failing test reports), or more than
-# MAX_RETRY_CLASSES failing classes (a real breakage) still fails the job.
+# fails twice, a build/compile failure (no failing test reports), an unparseable report,
+# a crashed test worker ("Gradle Test Executor N"), or more than MAX_RETRY_CLASSES
+# failing classes (a real breakage) still fails the job.
 # Classes that pass on the retry are listed as flaky in the job summary.
 #
 # Env: GRADLEW (default ./gradlew), TEST_TASK (default :app:testFdroidDebugUnitTest),
@@ -31,6 +32,8 @@ for path in glob.glob(os.path.join(sys.argv[1], "*.xml")):
     try:
         root = ET.parse(path).getroot()
     except ET.ParseError:
+        # A truncated report may hide failures: refuse to select a retry set.
+        print("__MALFORMED_REPORT__ " + os.path.basename(path))
         continue
     for case in root.iter("testcase"):
         if case.find("failure") is not None or case.find("error") is not None:
@@ -53,6 +56,20 @@ if [ "${#classes[@]}" -gt "$MAX_RETRY_CLASSES" ]; then
     printf '  %s\n' "${classes[@]}"
     exit "$status"
 fi
+
+for c in "${classes[@]}"; do
+    case "$c" in
+        __MALFORMED_REPORT__*)
+            echo "Unparseable test report (${c#__MALFORMED_REPORT__ }): failures may be hidden, not retrying."
+            exit "$status"
+            ;;
+        "Gradle Test Executor"*)
+            # A crashed test worker: its tests never ran, a class-filtered retry would not run them.
+            echo "Test executor failed, not a test class ($c): not retrying."
+            exit "$status"
+            ;;
+    esac
+done
 
 echo "::warning::Re-running ${#classes[@]} failed test class(es) once: ${classes[*]}"
 args=()
