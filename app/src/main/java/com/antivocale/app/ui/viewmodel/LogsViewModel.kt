@@ -41,7 +41,6 @@ import com.antivocale.app.service.InferenceEnqueue
 import com.antivocale.app.service.InferenceService
 import com.antivocale.app.service.LongAudioDecider
 import com.antivocale.app.service.RetranscribeIntent
-import com.antivocale.app.data.TranscriptionProfile
 import com.antivocale.app.util.LocaleManager
 import com.antivocale.app.util.SharedAudioHandler
 import com.antivocale.app.util.parentFolderNameFromDocumentId
