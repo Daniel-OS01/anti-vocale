@@ -2684,6 +2684,7 @@ private fun VoiceNoteModelPicker(
         else viewModel.voiceNoteBackendId
         ).collectAsState()
     val installed by viewModel.installedBackends.collectAsState()
+    val activeBackend = viewModel.uiState.collectAsState().value.transcriptionBackend
     val defaultLabel = stringResource(R.string.voice_note_model_default)
     val options = listOf("") + installed.map { it.backendId }
     val staleTitle = remember(pinned) {
@@ -2707,7 +2708,10 @@ private fun VoiceNoteModelPicker(
             },
             label = stringResource(R.string.voice_note_model_title),
         )
-        if (pinned.isNotBlank()) {
+        // The resolver collapses a pin equal to the active model to no
+        // override, so two-pass still runs: the hint is only true when
+        // the pin names a different model.
+        if (pinned.isNotBlank() && pinned.trim() != activeBackend) {
             Text(
                 text = stringResource(R.string.voice_note_model_single_pass_hint),
                 style = MaterialTheme.typography.bodySmall,
