@@ -32,4 +32,38 @@ class ScheduledFolderWorkerScanNowTest {
         assertEquals(true, request.workSpec.input.getBoolean(ScheduledFolderWorker.KEY_SCAN_NOW, false))
         assertTrue(request.workSpec.isPeriodic.not())
     }
+
+    @Test
+    fun `the media trigger wakes on audio saves only, coalesced within seconds`() {
+        val c = ScheduledFolderScheduler.mediaTriggerRequest().workSpec.constraints
+        val uris = c.contentUriTriggers.map { it.uri }
+        assertTrue(android.provider.MediaStore.Audio.Media.EXTERNAL_CONTENT_URI in uris)
+        assertTrue(android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI in uris)
+        assertFalse(android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI in uris)
+        assertTrue(c.contentUriTriggers.all { it.isTriggeredForDescendants })
+        assertTrue(c.contentTriggerMaxDelayMillis <= 5_000)
+    }
+
+    @Test
+    fun `a follow-up scan carries its backoff step and delay`() {
+        val uri = "content://tree/primary%3AMusic"
+        val request = ScheduledFolderScheduler.followUpRequest(uri, attempt = 2, delaySeconds = 10)
+        assertEquals(uri, request.workSpec.input.getString(ScheduledFolderWorker.KEY_TREE_URI))
+        assertEquals(2, request.workSpec.input.getInt(ScheduledFolderWorker.KEY_RECHECK_ATTEMPT, -1))
+        assertEquals(10_000L, request.workSpec.initialDelay)
+        assertFalse(request.workSpec.expedited)
+    }
+
+    @Test
+    fun `removing one folder never cancels a sibling folder's work`() {
+        val calls = "content://com.android.externalstorage.documents/tree/primary%3ACalls"
+        val sibling = calls + "_now"
+        val callsNames = ScheduledFolderScheduler.uniqueNamesOf(calls).toSet()
+        val siblingNames = ScheduledFolderScheduler.uniqueNamesOf(sibling).toSet()
+        assertTrue("names overlap: ${callsNames intersect siblingNames}", (callsNames intersect siblingNames).isEmpty())
+        for (kind in listOf("_trigger", "_recheck")) {
+            val other = ScheduledFolderScheduler.uniqueNamesOf(calls + kind).toSet()
+            assertTrue((callsNames intersect other).isEmpty())
+        }
+    }
 }
