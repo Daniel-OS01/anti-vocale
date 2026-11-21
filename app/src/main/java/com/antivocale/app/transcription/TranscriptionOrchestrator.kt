@@ -316,7 +316,8 @@ class TranscriptionOrchestrator @Inject constructor(
                 processRequestInner(
                     taskId, requestType, prompt, filePath, source, sourcePackage,
                     backendOverride, languageOverride, trackIndex, queuePosition,
-                    queueTotal, context, cacheDir, listener, coroutineScope)
+                    queueTotal, context, cacheDir, listener, coroutineScope,
+                    keepBackendLoaded)
             }
         }
     }
@@ -336,7 +337,8 @@ class TranscriptionOrchestrator @Inject constructor(
         context: Context,
         cacheDir: File,
         listener: TranscriptionListener,
-        coroutineScope: CoroutineScope
+        coroutineScope: CoroutineScope,
+        keepBackendLoaded: Boolean,
     ): Result<String> {
         val isShareRequest = source == InferenceService.SOURCE_SHARE
 
