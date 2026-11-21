@@ -129,6 +129,20 @@ private fun OfflineModelConfig.withCommonTail(
 )
 
 /**
+ * Per-stream sherpa options to set on a fresh OFFLINE stream, right after
+ * `createStream()`, for [family] (null = a built-in catalog entry with no
+ * external-family equivalent). One definition shared by [ExternalSherpaBackend]
+ * (user imports) and [SherpaBackend] (built-in catalog entries).
+ */
+fun offlineStreamOptions(family: ModelFamily?): Map<String, String> = when (family) {
+    // sherpa's default per-stream token budget truncates Whisper output
+    // mid-utterance (logcat "token limit"); 30/s matches the desktop eval and
+    // cut ivrit Whisper Turbo HE WER from 12.5% to 8.7% on device.
+    ModelFamily.WHISPER -> mapOf("max_tokens_per_second" to "30")
+    else -> emptyMap()
+}
+
+/**
  * The family support table (spec: multi-family external models): per-family copy
  * planning, metadata routing, and sherpa config construction behind one interface,
  * so the importer (import-time) and [ExternalSherpaBackend] (load-time) share a

@@ -20,6 +20,7 @@ import com.k2fsa.sherpa.onnx.OnlineRecognizer
 import com.k2fsa.sherpa.onnx.OnlineRecognizerConfig
 import com.k2fsa.sherpa.onnx.OnlineStream
 import com.k2fsa.sherpa.onnx.OnlineTransducerModelConfig
+import com.antivocale.app.data.ModelFamily
 import com.antivocale.app.data.PreferencesManager
 import com.antivocale.app.util.CrashReporter
 import com.antivocale.app.util.NativeKeepAlive
@@ -916,6 +917,8 @@ class SherpaBackend(
                 Log.d(TAG, "Transcribing audio: ${samples.size} samples at ${sampleRate}Hz")
 
                 stream = rec.createStream()
+                val family = ModelFamily.WHISPER.takeIf { entry.modelType == "whisper" }
+                for ((key, value) in offlineStreamOptions(family)) stream.setOption(key, value)
                 // TASK-994: Qwen3 biasing is per-stream (hotwords ride the
                 // chat-template system prompt; the impl reads the stream
                 // option at decode, overriding the construct-time config).

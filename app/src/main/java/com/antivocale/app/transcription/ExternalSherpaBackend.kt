@@ -441,6 +441,10 @@ class ExternalSherpaBackend @Inject constructor(
             val lower = lowercaseOutput
             val trimLoops = trimsDegenerateRepetition
             val biasingArmed = streamingBiasingArmed
+            // The per-family stream options capture with the recognizer too:
+            // an unload mid-bracket must not strip a Whisper decode's token
+            // cap (nor a reconfigure hand Whisper's options to the old one).
+            val streamOptions = offlineStreamOptions(configuredFamily)
             onlineRecognizer?.let { rec ->
                 return@withWork withContext(Dispatchers.IO) {
                     // TASK-1007: per-request hotwords gated on the
@@ -468,6 +472,7 @@ class ExternalSherpaBackend @Inject constructor(
                 val padded = samples + silencePad
 
                 stream = rec.createStream()
+                for ((key, value) in streamOptions) stream.setOption(key, value)
                 stream.acceptWaveform(padded, sampleRate)
                 rec.decode(stream)
 
@@ -575,11 +580,17 @@ class ExternalSherpaBackend @Inject constructor(
         // bracket drains (requestDrainRelease). Capturing matters because
         // ALL external models share this instance and a re-initialize can
         // land before the drain; its fresh recognizer must not be released.
-        releaseBackendState()
+        // The recognizer fields null BEFORE the state flip: transcribe reads
+        // the per-family captures (case, loop trim, stream options) first and
+        // the recognizer after, so a decode that observes the cleared state
+        // also observes no recognizer and fails NotInitialized, instead of
+        // decoding the stale model with reset options (e.g. a Whisper decode
+        // without its token cap).
         val staleRecognizer = recognizer
         val staleOnline = onlineRecognizer
         recognizer = null
         onlineRecognizer = null
+        releaseBackendState()
         keepAlive.requestDrainRelease {
             staleRecognizer?.release()
             staleOnline?.release()
