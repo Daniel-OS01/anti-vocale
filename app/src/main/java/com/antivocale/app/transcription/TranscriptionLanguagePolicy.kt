@@ -81,6 +81,24 @@ object TranscriptionLanguagePolicy {
     }
 
     /**
+     * Whether a catalog entry's decode reads the language at all: the same
+     * flag axis [resolveForEntry] dispatches on. An entry with neither flag
+     * (Parakeet, Qwen3-ASR, GigaAM, Gemma) always resolves "", so a pin
+     * recorded against it would claim a conditioning that never happened.
+     */
+    fun conditionsOnLanguage(entry: CatalogEntry): Boolean =
+        entry.flags.languageOption || entry.flags.passLanguage
+
+    /**
+     * Whether an EXTERNAL record's decode reads the language: its family's
+     * capability (Whisper, SenseVoice, Canary do; Transducer, including
+     * streaming zipformer, and CTC do not). The one rule [externalOverride]
+     * and [offeredLanguagesForExternal] gate on.
+     */
+    fun conditionsOnLanguage(record: com.antivocale.app.data.ExternalModelRecord): Boolean =
+        ModelFamilySupport.forFamily(record.family).languageCapable
+
+    /**
      * TASK-458: the language codes the ACTIVE backend conditions on, driving
      * the Settings picker (GH #78). Dispatch mirrors [resolveForEntry]'s axis
      * (the catalog flags), not backend ids, so a future entry carrying either
@@ -117,7 +135,7 @@ object TranscriptionLanguagePolicy {
         phoneLanguage: String? = null,
     ): String =
         when {
-            !ModelFamilySupport.forFamily(record.family).languageCapable -> ""
+            !conditionsOnLanguage(record) -> ""
             // Review: ALL sentinels mean detection (the untouched default is
             // "system", and PREF_PHONE resolves through the device locale
             // like the built-in arms; an unreadable locale detects too).
@@ -132,7 +150,7 @@ object TranscriptionLanguagePolicy {
      * SenseVoice, Canary), else the empty set (the disabled card, truthful).
      */
     fun offeredLanguagesForExternal(record: com.antivocale.app.data.ExternalModelRecord): Set<String> =
-        if (ModelFamilySupport.forFamily(record.family).languageCapable) record.languages.toSet()
+        if (conditionsOnLanguage(record)) record.languages.toSet()
         else emptySet()
 
     /**
