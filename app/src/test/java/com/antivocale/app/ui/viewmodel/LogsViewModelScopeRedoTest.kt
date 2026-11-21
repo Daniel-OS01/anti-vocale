@@ -147,7 +147,10 @@ class LogsViewModelScopeRedoTest : ViewModelTeardownTest() {
     fun `confirm redoes exactly the offered rows with the resolved profile`() = runBlocking {
         coEvery { bulkRedo.prepare(any(), any(), any()) } returns PreparedBatch(
             items = emptyList(), skipped = emptyMap(), longCount = 0, longestSeconds = 0.0,
-            restagedPaths = emptyList(), backendId = "gigaam",
+            // The batch is the mocked prepare's RESULT; its backendId only feeds the
+            // summary's display-name lookup (a catalog id would read the stubbed
+            // prefs and throw). What this test pins is prepare's INPUT below.
+            restagedPaths = emptyList(), backendId = "test-backend",
         )
         viewModel.saveFolderRule(HistoryGroupScope.Subfolder(tree, "Russian"), TranscriptionProfile(language = "ru"))
         val offer = awaitOffer()
