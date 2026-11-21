@@ -18,11 +18,17 @@ import com.antivocale.app.receiver.TaskerRequestReceiver
  * the folder-watch id folds the tree uri; the share and browse ids are
  * fresh per request).
  *
+ * R6: the resolved scope profile rides here too: [make] carries both the
+ * backend override and the language override
+ * ([InferenceService.EXTRA_LANGUAGE_OVERRIDE]; null or blank sets no
+ * extra), resolved by each origin through
+ * [com.antivocale.app.data.ScopeProfileSource] before the enqueue.
+ *
  * Deliberately NOT composed through this factory, each for a stated
  * reason: the retranscribe class (LogsViewModel.dispatchTranscription,
  * NotificationActionReceiver's rerun-suspended arm) re-runs with a PROMPT
- * and, for the History arm, a language override, beyond this factory's
- * surface; NotificationActionReceiver's subtitle-CHOICE arm forwards the
+ * beyond this factory's surface (the rerun arm still applies the
+ * re-resolved profile's two overrides itself); NotificationActionReceiver's subtitle-CHOICE arm forwards the
  * fixed extra list of the choice prompt it answers AND builds the real
  * SUBTITLES request with its track index (the only site allowed to: the
  * index is the user's tap, not a composed value); BenchmarkActivity is
@@ -53,6 +59,8 @@ object AudioRequestIntent {
         sourceFolderKey: String? = null,
         sourceFolderName: String? = null,
         sourceSubPath: String? = null,
+        /** R6: the resolved profile's language (null or blank = no extra). */
+        languageOverride: String? = null,
     ): Intent = make(
         context, source, taskId, filePath,
         requestType = TaskerRequestReceiver.REQUEST_TYPE_AUDIO,
@@ -64,7 +72,8 @@ object AudioRequestIntent {
         sourceKind = sourceKind,
         sourceFolderKey = sourceFolderKey,
         sourceFolderName = sourceFolderName,
-        sourceSubPath = sourceSubPath)
+        sourceSubPath = sourceSubPath,
+        languageOverride = languageOverride)
 
     /**
      * Review F1: the subtitle-import arm as its OWN entry point. An open
@@ -100,6 +109,7 @@ object AudioRequestIntent {
         sourceFolderKey: String? = null,
         sourceFolderName: String? = null,
         sourceSubPath: String? = null,
+        languageOverride: String? = null,
     ): Intent = Intent(context, InferenceService::class.java).apply {
         putExtra(TaskerRequestReceiver.EXTRA_REQUEST_TYPE, requestType)
         putExtra(TaskerRequestReceiver.EXTRA_FILE_PATH, filePath)
@@ -116,5 +126,8 @@ object AudioRequestIntent {
         sourceFolderKey?.let { putExtra(InferenceService.EXTRA_SOURCE_FOLDER_KEY, it) }
         sourceFolderName?.let { putExtra(InferenceService.EXTRA_SOURCE_FOLDER_NAME, it) }
         sourceSubPath?.let { putExtra(InferenceService.EXTRA_SOURCE_SUB_PATH, it) }
+        languageOverride?.takeIf { it.isNotBlank() }?.let {
+            putExtra(InferenceService.EXTRA_LANGUAGE_OVERRIDE, it)
+        }
     }
 }
