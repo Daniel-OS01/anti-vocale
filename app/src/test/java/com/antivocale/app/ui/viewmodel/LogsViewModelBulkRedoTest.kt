@@ -2,6 +2,7 @@ package com.antivocale.app.ui.viewmodel
 
 import android.app.Application
 import androidx.test.core.app.ApplicationProvider
+import com.antivocale.app.data.PreferencesManager
 import com.antivocale.app.data.TranscriptionProfile
 import com.antivocale.app.data.local.LogDao
 import com.antivocale.app.data.local.LogEntity
@@ -9,6 +10,7 @@ import com.antivocale.app.service.BulkRedoReport
 import com.antivocale.app.service.HistoryBulkRedo
 import com.antivocale.app.service.PreparedBatch
 import com.antivocale.app.service.SkipReason
+import com.antivocale.app.transcription.BuiltInBackendIds
 import com.antivocale.app.transcription.staticRegistry
 import com.antivocale.app.ui.viewmodel.LogsViewModel.BulkRedoUiState
 import io.mockk.coEvery
@@ -24,6 +26,7 @@ import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.setMain
@@ -51,6 +54,7 @@ class LogsViewModelBulkRedoTest : ViewModelTeardownTest() {
     private lateinit var viewModel: LogsViewModel
     private lateinit var bulkRedo: HistoryBulkRedo
     private lateinit var logDao: LogDao
+    private lateinit var prefs: PreferencesManager
     private val rows = MutableStateFlow<List<LogEntity>>(emptyList())
 
     // A field (not the constructor default) so the harness cancels it.
@@ -75,9 +79,10 @@ class LogsViewModelBulkRedoTest : ViewModelTeardownTest() {
         logDao = mockk(relaxed = true)
         every { logDao.getAll() } returns rows
         bulkRedo = mockk(relaxed = true)
+        prefs = stubPreferencesManager()
         every { bulkRedo.enqueue(any(), any(), any()) } returns BulkRedoReport(queued = 3, failedToStart = 1, deferred = 0, notStarted = 0)
         viewModel = register(LogsViewModel(
-            mockk(relaxed = true), logDao, stubPreferencesManager(), staticRegistry(),
+            mockk(relaxed = true), logDao, prefs, staticRegistry(),
             mockk(relaxed = true), mockk(relaxed = true), mockk(relaxed = true),
             appContext = ApplicationProvider.getApplicationContext(),
             orchestrator = mockk(relaxed = true),
@@ -272,5 +277,68 @@ class LogsViewModelBulkRedoTest : ViewModelTeardownTest() {
         awaitState { it is BulkRedoUiState.Summary }
         coVerify(exactly = 1) { bulkRedo.prepare(listOf("old"), profile, any()) }
         collector.cancel()
+    }
+
+    @Test
+    fun `a cancel while the display name resolves discards the prepared batch`() = runBlocking {
+        // A known backend, so displayNameFor reads its saved path and suspends there.
+        val parakeetBatch = batch.copy(backendId = BuiltInBackendIds.PARAKEET)
+        val resolving = CompletableDeferred<Unit>()
+        val never = CompletableDeferred<Unit>()
+        every { prefs.sherpaModelPath(any()) } returns flow {
+            resolving.complete(Unit)
+            never.await()
+            emit(null)
+        }
+        coEvery { bulkRedo.prepare(any(), any(), any()) } returns parakeetBatch
+
+        viewModel.redoRows(listOf("a"), profile)
+        withTimeout(30_000) { resolving.await() }
+        // prepare returned, Summary not yet published: neither cleanup path owns the batch.
+        assertTrue(viewModel.bulkRedoState.value is BulkRedoUiState.Preparing)
+
+        viewModel.cancelBulkRedo()
+
+        assertEquals(BulkRedoUiState.Idle, viewModel.bulkRedoState.value)
+        verify(timeout = 10_000) { bulkRedo.discard(parakeetBatch) }
+        verify(exactly = 0) { bulkRedo.enqueue(any(), any(), any()) }
+    }
+
+    @Test
+    fun `a cancelled prepare that fails late cannot write into the next batch's state`() = runBlocking {
+        val releaseA = CountDownLatch(1)
+        val enteredA = CompletableDeferred<Unit>()
+        val calledBackA = CompletableDeferred<Unit>()
+        val gateB = CompletableDeferred<Unit>()
+        coEvery { bulkRedo.prepare(listOf("a"), any(), any()) } coAnswers {
+            enteredA.complete(Unit)
+            // Blocking IO the cancel cannot interrupt; bounded so a failing
+            // test cannot park an IO thread forever.
+            releaseA.await(30, TimeUnit.SECONDS)
+            thirdArg<(Int, Int) -> Unit>().invoke(5, 9)
+            calledBackA.complete(Unit)
+            throw IllegalStateException("prepare A failed after its cancel")
+        }
+        coEvery { bulkRedo.prepare(listOf("b"), any(), any()) } coAnswers {
+            gateB.await()
+            batch
+        }
+        assertTrue(viewModel.redoRows(listOf("a"), profile))
+        withTimeout(30_000) { enteredA.await() }
+        viewModel.cancelBulkRedo()
+        assertTrue(viewModel.redoRows(listOf("b"), profile))
+        val preparingB = viewModel.bulkRedoState.value as BulkRedoUiState.Preparing
+        assertEquals(0, preparingB.done)
+        assertEquals(1, preparingB.total)
+
+        releaseA.countDown()
+        withTimeout(30_000) { calledBackA.await() }
+        // Give A's failure path the chance to write Idle over B.
+        delay(200)
+
+        assertEquals(preparingB, viewModel.bulkRedoState.value)
+        gateB.complete(Unit)
+        val summary = awaitState { it is BulkRedoUiState.Summary } as BulkRedoUiState.Summary
+        assertEquals(batch, summary.batch)
     }
 }

@@ -855,14 +855,19 @@ class LogsViewModel @Inject constructor(
     // Independent of the selection mode: the multi-select bar calls
     // redoSelected, other History flows call redoRows with their own ids.
 
-    /** The bulk redo dialog flow; [Idle] when no dialog shows. */
+    /**
+     * The bulk redo dialog flow; [Idle] when no dialog shows. [Preparing] and
+     * [Summary] carry the [redoRows] call's generation, so a prepare job only
+     * ever writes over its own batch's state, never a newer batch's.
+     */
     sealed interface BulkRedoUiState {
         data object Idle : BulkRedoUiState
-        data class Preparing(val done: Int, val total: Int) : BulkRedoUiState
+        data class Preparing(val done: Int, val total: Int, val generation: Long) : BulkRedoUiState
         data class Summary(
             val batch: PreparedBatch,
             val profile: TranscriptionProfile,
             val modelDisplayName: String,
+            val generation: Long,
         ) : BulkRedoUiState
         /** Confirmed; the enqueue of [batch] is running. Not cancellable. */
         data class Enqueuing(val batch: PreparedBatch) : BulkRedoUiState
@@ -873,6 +878,9 @@ class LogsViewModel @Inject constructor(
     val bulkRedoState: StateFlow<BulkRedoUiState> = _bulkRedoState.asStateFlow()
 
     private var bulkPrepareJob: Job? = null
+
+    // Main thread only (redoRows); a failed claim just leaves a gap.
+    private var bulkRedoGeneration = 0L
 
     /**
      * Prepares a redo of [rowIds] with [profile] (Preparing, then Summary).
@@ -889,30 +897,58 @@ class LogsViewModel @Inject constructor(
         val ids = rowIds.toList()
         val current = _bulkRedoState.value
         val free = current is BulkRedoUiState.Idle || current is BulkRedoUiState.Done
+        val generation = ++bulkRedoGeneration
         // compareAndSet: the enqueue's completion writes Done from another thread.
-        if (!free || !_bulkRedoState.compareAndSet(current, BulkRedoUiState.Preparing(0, ids.size))) {
+        if (!free || !_bulkRedoState.compareAndSet(current, BulkRedoUiState.Preparing(0, ids.size, generation))) {
             Log.w(TAG, "event=bulk_redo_ignored reason=busy")
             return false
         }
         bulkPrepareJob = viewModelScope.launch {
-            val batch = try {
-                withContext(Dispatchers.IO) {
-                    historyBulkRedo.prepare(ids, profile) { done, total ->
-                        // A late callback must not resurrect a cancelled flow.
-                        _bulkRedoState.update {
-                            if (it is BulkRedoUiState.Preparing) BulkRedoUiState.Preparing(done, total) else it
-                        }
+            // From the moment prepare returns until Summary holds it, the
+            // batch is owned here: a cancel landing while the IO result waits
+            // for main dispatch, or while displayNameFor suspends, reaches
+            // neither cancelBulkRedo's Summary branch nor onCleared, so the
+            // finally discards it (appScope: launching works after cancel).
+            var prepared: PreparedBatch? = null
+            var owned = false
+            try {
+                val batch = try {
+                    withContext(Dispatchers.IO) {
+                        historyBulkRedo.prepare(ids, profile) { done, total ->
+                            // Only this batch's own Preparing: a late callback
+                            // from a cancelled prepare must not move a newer
+                            // batch's counts or resurrect a cancelled flow.
+                            _bulkRedoState.update {
+                                if (it is BulkRedoUiState.Preparing && it.generation == generation) {
+                                    it.copy(done = done, total = total)
+                                } else {
+                                    it
+                                }
+                            }
+                        }.also { prepared = it }
+                    }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Log.e(TAG, "event=bulk_redo_prepare_failed rows=${ids.size}", e)
+                    _bulkRedoState.update {
+                        if (it is BulkRedoUiState.Preparing && it.generation == generation) BulkRedoUiState.Idle else it
+                    }
+                    return@launch
+                }
+                val modelName = displayNameFor(batch.backendId, appContext)
+                val summary = BulkRedoUiState.Summary(batch, profile, modelName, generation)
+                while (true) {
+                    val state = _bulkRedoState.value
+                    if (state !is BulkRedoUiState.Preparing || state.generation != generation) break
+                    if (_bulkRedoState.compareAndSet(state, summary)) {
+                        owned = true
+                        break
                     }
                 }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                Log.e(TAG, "event=bulk_redo_prepare_failed rows=${ids.size}", e)
-                _bulkRedoState.value = BulkRedoUiState.Idle
-                return@launch
+            } finally {
+                if (!owned) prepared?.let { discardBatch(it) }
             }
-            val modelName = displayNameFor(batch.backendId, appContext)
-            _bulkRedoState.value = BulkRedoUiState.Summary(batch, profile, modelName)
         }
         return true
     }
