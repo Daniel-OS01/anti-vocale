@@ -81,7 +81,14 @@ class TranscriptionBackendManager @Inject constructor(
         val backend: TranscriptionBackend
         val effectiveConfig: BackendConfig
         if (backendId.startsWith(ExternalModelRecord.BACKEND_ID_PREFIX)) {
-            if (!isKnownExternal(backendId)) {
+            // The orchestrator builds ExternalConfig from the PERSISTED record
+            // (ExternalModelStore.byId), so a config whose record names this id
+            // is known even before the provider's first emission: a cold-start
+            // request (e.g. a voice note right after process start) must not
+            // fail on the async snapshot alone.
+            val configRecordMatches =
+                (config as? BackendConfig.ExternalConfig)?.record?.backendId == backendId
+            if (!isKnownExternal(backendId) && !configRecordMatches) {
                 return Result.failure(IllegalArgumentException("Unknown backend: $backendId"))
             }
             // Threads/provider are resolved by the orchestrator; inventing defaults here
