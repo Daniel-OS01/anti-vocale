@@ -3,6 +3,7 @@ package com.antivocale.app.ui.viewmodel
 import com.antivocale.app.data.FileSnapshot
 import com.antivocale.app.data.FolderScanPlanner
 import com.antivocale.app.data.SubfolderPaths
+import com.antivocale.app.data.TranscriptionProfile
 
 /**
  * R6: the subfolders a watched folder's last scan saw, for the "Add
@@ -30,4 +31,22 @@ object FolderRulePaths {
     /** True when [rulePath] names a subfolder the last scan saw. */
     fun seenInLastScan(rulePath: String, discovered: Collection<String>): Boolean =
         SubfolderPaths.normalize(rulePath)?.let { it in discovered } ?: false
+
+    /**
+     * The subfolder profile a scan of [path] would apply while its rule is
+     * being edited: [edited] when it sets anything, else the deepest
+     * ANCESTOR rule among [rules] (the scan's [SubfolderPaths.longestMatch]
+     * with the edited path's own rule left out, since clearing it is what
+     * the editor is previewing). A parent rule on `Calls` therefore shows
+     * for `Calls/2024`.
+     */
+    fun effectiveSubfolderProfile(
+        rules: Map<String, TranscriptionProfile>,
+        path: String,
+        edited: TranscriptionProfile?,
+    ): TranscriptionProfile? {
+        edited?.takeUnless { it.isEmpty }?.let { return it }
+        val own = SubfolderPaths.normalize(path)
+        return SubfolderPaths.longestMatch(rules.filterKeys { SubfolderPaths.normalize(it) != own }, path)
+    }
 }

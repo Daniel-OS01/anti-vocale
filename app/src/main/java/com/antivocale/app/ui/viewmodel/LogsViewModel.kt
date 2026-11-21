@@ -923,9 +923,16 @@ class LogsViewModel @Inject constructor(
         _folderRulePreview.value = when (scope) {
             is HistoryGroupScope.Folder -> ProfilePreview(EditedScope.FOLDER, ScopeChain(), profile)
             is HistoryGroupScope.Subfolder -> {
-                // A subfolder rule sits over the folder default.
+                // A subfolder rule sits over the folder default; a cleared
+                // rule falls back to the deepest ancestor rule, as a scan does.
                 val folder = scope.watchedFolderIn(watchedFolders.value.orEmpty())
-                ProfilePreview(EditedScope.SUBFOLDER, ScopeChain(folder = folder?.profile), profile)
+                ProfilePreview(
+                    EditedScope.SUBFOLDER,
+                    ScopeChain(folder = folder?.profile),
+                    FolderRulePaths.effectiveSubfolderProfile(
+                        folder?.subfolderRules.orEmpty(), scope.subPath, profile,
+                    ),
+                )
             }
             HistoryGroupScope.None -> null
         }

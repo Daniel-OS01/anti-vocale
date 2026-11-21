@@ -159,8 +159,13 @@ fun FolderTranscriptionRulesScreen(
                 if (isFolder) {
                     viewModel.previewProfile(EditedScope.FOLDER, ScopeChain(), edited)
                 } else {
-                    // A subfolder rule sits over the folder default.
-                    viewModel.previewProfile(EditedScope.SUBFOLDER, ScopeChain(folder = folder.profile), edited)
+                    // A subfolder rule sits over the folder default; a cleared
+                    // rule falls back to the deepest ancestor rule, as a scan does.
+                    viewModel.previewProfile(
+                        EditedScope.SUBFOLDER,
+                        ScopeChain(folder = folder.profile),
+                        FolderRulePaths.effectiveSubfolderProfile(folder.subfolderRules, path, edited),
+                    )
                 }
             },
             onSave = { edited ->
