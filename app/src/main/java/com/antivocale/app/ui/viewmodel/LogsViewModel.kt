@@ -1290,18 +1290,18 @@ class LogsViewModel @Inject constructor(
         }
         val folder = folders.firstOrNull { it.treeUri == treeUri } ?: return
         val rows = withContext(Dispatchers.IO) { logDao.getByIds(logDao.getIdsByFolderKey(treeUri)) }
-        // The History row menu's own sender key; the country is read only
-        // when a row has a sender name to key.
-        val countryIso by lazy { DeviceCountry.iso(appContext) }
-        val senderIds = rows.associate { row ->
-            row.id to row.senderName?.takeIf { it.isNotBlank() }?.let {
-                senderKeyForRow(row.toLogEntry(), folders, countryIso)?.storageId()
-            }
-        }
-        val ruledSenders = senderIds.values.filterNotNull().toSet()
-            .filterTo(HashSet()) { scopeProfileStore.senderProfile(it) != null }
-        val ids = ScopeRedoPlanner.plan(rows, folder.subfolderRules.keys, scopeSubPath) { row ->
-            senderIds[row.id]?.let { it in ruledSenders } == true
+        // One read of the sender rules' key set, then the per-row matching off
+        // the main thread (decoding the whole map per sender was the cost).
+        val ruledSenderIds = scopeProfileStore.senderProfiles.first().keys
+        val ids = withContext(Dispatchers.Default) {
+            // The History row menu's own sender key; the country is read only
+            // when a row has a sender name to key.
+            val countryIso by lazy { DeviceCountry.iso(appContext) }
+            val senderRuled = rows.filterTo(HashSet()) { row ->
+                row.senderName?.isNotBlank() == true &&
+                    senderKeyForRow(row.toLogEntry(), folders, countryIso)?.storageId()?.let { it in ruledSenderIds } == true
+            }.mapTo(HashSet()) { it.id }
+            ScopeRedoPlanner.plan(rows, folder.subfolderRules.keys, scopeSubPath) { it.id in senderRuled }
         }
         Log.i(TAG, "event=scope_redo_planned rows=${ids.size}")
         if (ids.isEmpty()) return
