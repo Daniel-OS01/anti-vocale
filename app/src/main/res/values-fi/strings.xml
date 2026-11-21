@@ -1261,4 +1261,7 @@
     <string name="models_fit_summary_off">Puhelimellesi sopivat mallit: %1$d/%2$d</string>
     <string name="models_fit_badge_heavy">Raskas</string>
     <string name="models_header_toggle_title">Suodattimet ja yhteensopivuus</string>
+    <string name="voice_note_model_title">Malli</string>
+    <string name="voice_note_model_default">Aktiivinen malli (oletus)</string>
+    <string name="voice_note_model_single_pass_hint">Kaksivaiheinen tila on pois päältä tälle lähteelle</string>
 </resources>

@@ -125,6 +125,11 @@ internal class FakePreferencesManager : PreferencesManager {
     override val wipedRepairCapturedPin: Flow<String> get() = _wipedRepairCapturedPin
     val _wipedRepairCapturedPreviewPin = MutableStateFlow("")
     override val wipedRepairCapturedPreviewPin: Flow<String> get() = _wipedRepairCapturedPreviewPin
+    val _wipedRepairCapturedVoiceNotePin = MutableStateFlow("")
+    override val wipedRepairCapturedVoiceNotePin: Flow<String> get() = _wipedRepairCapturedVoiceNotePin
+    val _wipedRepairCapturedVoiceNoteBusinessPin = MutableStateFlow("")
+    override val wipedRepairCapturedVoiceNoteBusinessPin: Flow<String>
+        get() = _wipedRepairCapturedVoiceNoteBusinessPin
     override val wipedRepairDeadSources: Flow<Set<String>> = _wipedRepairDeadSources
     override fun sherpaModelPath(entryId: String): Flow<String?> = _sherpaModelPath(entryId)
     override val externalCatalogUrl: Flow<String> get() = _externalCatalogUrl
@@ -227,6 +232,12 @@ internal class FakePreferencesManager : PreferencesManager {
     override suspend fun saveWipedRepairCapturedActive(backendId: String) { _wipedRepairCapturedActive.value = backendId }
     override suspend fun saveWipedRepairCapturedPin(backendId: String) { _wipedRepairCapturedPin.value = backendId }
     override suspend fun saveWipedRepairCapturedPreviewPin(backendId: String) { _wipedRepairCapturedPreviewPin.value = backendId }
+    override suspend fun saveWipedRepairCapturedVoiceNotePin(backendId: String) {
+        _wipedRepairCapturedVoiceNotePin.value = backendId
+    }
+    override suspend fun saveWipedRepairCapturedVoiceNoteBusinessPin(backendId: String) {
+        _wipedRepairCapturedVoiceNoteBusinessPin.value = backendId
+    }
 
     override suspend fun saveWipedRepairDeadSources(ids: Set<String>) { _wipedRepairDeadSources.value = ids }
     override suspend fun saveSherpaModelPath(entryId: String, path: String) { _sherpaModelPath(entryId).value = path }
@@ -315,6 +326,18 @@ internal class FakePreferencesManager : PreferencesManager {
     override val previewModelBackendId: Flow<String> = _previewModelBackendId
     override suspend fun savePreviewModelBackendId(backendId: String) {
         _previewModelBackendId.value = backendId
+    }
+
+    // The per-source voice-note model pins (empty = the active model).
+    val _voiceNoteBackendId = MutableStateFlow("")
+    override val voiceNoteBackendId: Flow<String> = _voiceNoteBackendId
+    override suspend fun saveVoiceNoteBackendId(backendId: String) {
+        _voiceNoteBackendId.value = backendId
+    }
+    val _voiceNoteBusinessBackendId = MutableStateFlow("")
+    override val voiceNoteBusinessBackendId: Flow<String> = _voiceNoteBusinessBackendId
+    override suspend fun saveVoiceNoteBusinessBackendId(backendId: String) {
+        _voiceNoteBusinessBackendId.value = backendId
     }
 
     // TASK-588.1: the advanced-reveal state (default collapsed, like prod).

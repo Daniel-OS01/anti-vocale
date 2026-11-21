@@ -382,6 +382,28 @@ class ExternalImportRepairerTest {
     }
 
     @Test
+    fun `voice-note pins of a wiped record are captured and restored after repair`() = runTest {
+        store.add(record("voice-one", dirPresent = false))
+        prefs._voiceNoteBackendId.value = "external:voice-one"
+        prefs._voiceNoteBusinessBackendId.value = "external:voice-one"
+
+        val repairer = ExternalImportRepairer(store, prefs, ExternalModelDeleter(store, prefs), reimport = reimport)
+        repairer.captureSelections()
+        assertEquals("external:voice-one", prefs._wipedRepairCapturedVoiceNotePin.value)
+        assertEquals("external:voice-one", prefs._wipedRepairCapturedVoiceNoteBusinessPin.value)
+        // The startup cleaner's reset, between capture and repair.
+        prefs._voiceNoteBackendId.value = ""
+        prefs._voiceNoteBusinessBackendId.value = ""
+        val repaired = repairer.repairAll()
+
+        assertEquals(listOf("voice-one"), repaired.repairedIds)
+        assertEquals("external:voice-one", prefs._voiceNoteBackendId.value)
+        assertEquals("external:voice-one", prefs._voiceNoteBusinessBackendId.value)
+        assertEquals("", prefs._wipedRepairCapturedVoiceNotePin.value)
+        assertEquals("", prefs._wipedRepairCapturedVoiceNoteBusinessPin.value)
+    }
+
+    @Test
     fun `selection of a record that still failed repair is not restored`() = runTest {
         store.add(record("still-gone", dirPresent = false))
         prefs._transcriptionBackend.value = "external:still-gone"

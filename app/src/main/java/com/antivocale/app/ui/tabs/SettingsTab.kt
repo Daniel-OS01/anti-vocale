@@ -2582,6 +2582,9 @@ private fun VoiceNoteDetectionSection(
                 }
             }
         )
+        if (source != com.antivocale.app.data.VoiceNoteSource.WATCHED_FOLDER) {
+            VoiceNoteModelPicker(viewModel, source)
+        }
         if (voiceNoteDetectionEnabled && !voiceNoteAudioPermissionGranted) {
             TextButton(onClick = {
                 // The reliable grant path, not the runtime ask: this
@@ -2660,6 +2663,59 @@ private fun VoiceNoteDetectionSection(
                             }
                     }
                 },
+            )
+        }
+    }
+}
+
+/**
+ * The per-source model pin for a WhatsApp client's voice notes: blank = the
+ * active model, any installed backend pins a single pass for this source.
+ * Same stale-pin label fallback as the refinement and preview pickers.
+ */
+@Composable
+private fun VoiceNoteModelPicker(
+    viewModel: SettingsViewModel,
+    source: com.antivocale.app.data.VoiceNoteSource,
+) {
+    val pinned by (
+        if (source == com.antivocale.app.data.VoiceNoteSource.WHATSAPP_BUSINESS)
+            viewModel.voiceNoteBusinessBackendId
+        else viewModel.voiceNoteBackendId
+        ).collectAsState()
+    val installed by viewModel.installedBackends.collectAsState()
+    val activeBackend = viewModel.uiState.collectAsState().value.transcriptionBackend
+    val defaultLabel = stringResource(R.string.voice_note_model_default)
+    val options = listOf("") + installed.map { it.backendId }
+    val staleTitle = remember(pinned) {
+        runCatching { com.antivocale.app.transcription.CatalogVariantUi.of(pinned) }.getOrNull()
+    }?.titleRes() ?: defaultLabel
+    fun labelFor(id: String) =
+        if (id.isBlank()) defaultLabel
+        else installed.firstOrNull { it.backendId == id }?.displayName ?: staleTitle
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        SettingsDropdown(
+            currentValue = pinned,
+            options = options,
+            currentValueDisplay = labelFor(pinned),
+            optionDisplay = { id -> labelFor(id) },
+            onOptionSelected = { id ->
+                if (source == com.antivocale.app.data.VoiceNoteSource.WHATSAPP_BUSINESS) {
+                    viewModel.saveVoiceNoteBusinessBackendId(id)
+                } else {
+                    viewModel.saveVoiceNoteBackendId(id)
+                }
+            },
+            label = stringResource(R.string.voice_note_model_title),
+        )
+        // The resolver collapses a pin equal to the active model to no
+        // override, so two-pass still runs: the hint is only true when
+        // the pin names a different model.
+        if (pinned.isNotBlank() && pinned.trim() != activeBackend) {
+            Text(
+                text = stringResource(R.string.voice_note_model_single_pass_hint),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }
@@ -4503,7 +4559,9 @@ internal val SETTINGS_SEARCH_CARDS: List<SettingsSearchCard> = listOf(
             R.string.voice_note_business_folder_card_desc,
             R.string.voice_note_source_watched_folder,
             R.string.voice_note_watched_detection_description,
-            R.string.voice_note_watched_folder_card_desc),
+            R.string.voice_note_watched_folder_card_desc,
+            R.string.voice_note_model_title, R.string.voice_note_model_default,
+            R.string.voice_note_model_single_pass_hint),
         group = SettingsSearchGroup.INTEGRATIONS,
     ),
     SettingsSearchCard(

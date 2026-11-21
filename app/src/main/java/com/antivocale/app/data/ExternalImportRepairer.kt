@@ -132,6 +132,12 @@ class ExternalImportRepairer(
         preferencesManager.previewModelBackendId.first()
             .takeIf { it.startsWith(ExternalModelRecord.BACKEND_ID_PREFIX) }
             ?.let { preferencesManager.saveWipedRepairCapturedPreviewPin(it) }
+        preferencesManager.voiceNoteBackendId.first()
+            .takeIf { it.startsWith(ExternalModelRecord.BACKEND_ID_PREFIX) }
+            ?.let { preferencesManager.saveWipedRepairCapturedVoiceNotePin(it) }
+        preferencesManager.voiceNoteBusinessBackendId.first()
+            .takeIf { it.startsWith(ExternalModelRecord.BACKEND_ID_PREFIX) }
+            ?.let { preferencesManager.saveWipedRepairCapturedVoiceNoteBusinessPin(it) }
     }
 
     /** The dangling-but-repairable records right now. Startup calls this to
@@ -182,6 +188,8 @@ class ExternalImportRepairer(
         preferencesManager.saveWipedRepairCapturedActive("")
         preferencesManager.saveWipedRepairCapturedPin("")
         preferencesManager.saveWipedRepairCapturedPreviewPin("")
+        preferencesManager.saveWipedRepairCapturedVoiceNotePin("")
+        preferencesManager.saveWipedRepairCapturedVoiceNoteBusinessPin("")
     }
 
     /** Phase 2, launched by the notification's Recover action on the
@@ -389,6 +397,33 @@ class ExternalImportRepairer(
                     if (restored != null) {
                         preferencesManager.savePreviewModelBackendId(restored)
                         preferencesManager.saveWipedRepairCapturedPreviewPin("")
+                    }
+                }
+            }
+        // The voice-note pins, restore-if-still-blank like the preview pin.
+        preferencesManager.wipedRepairCapturedVoiceNotePin.first()
+            .takeIf { it.isNotBlank() }
+            ?.let { captured ->
+                if (preferencesManager.voiceNoteBackendId.first().isBlank()) {
+                    val restored = restoreId(
+                        captured.removePrefix(ExternalModelRecord.BACKEND_ID_PREFIX),
+                        driftReplacements)
+                    if (restored != null) {
+                        preferencesManager.saveVoiceNoteBackendId(restored)
+                        preferencesManager.saveWipedRepairCapturedVoiceNotePin("")
+                    }
+                }
+            }
+        preferencesManager.wipedRepairCapturedVoiceNoteBusinessPin.first()
+            .takeIf { it.isNotBlank() }
+            ?.let { captured ->
+                if (preferencesManager.voiceNoteBusinessBackendId.first().isBlank()) {
+                    val restored = restoreId(
+                        captured.removePrefix(ExternalModelRecord.BACKEND_ID_PREFIX),
+                        driftReplacements)
+                    if (restored != null) {
+                        preferencesManager.saveVoiceNoteBusinessBackendId(restored)
+                        preferencesManager.saveWipedRepairCapturedVoiceNoteBusinessPin("")
                     }
                 }
             }

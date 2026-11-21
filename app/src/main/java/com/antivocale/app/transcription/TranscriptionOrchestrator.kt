@@ -2511,7 +2511,7 @@ class TranscriptionOrchestrator @Inject constructor(
             maybeWarnTightMargin(context, label, backendId, modelDir, resolvedProviderPref, threadCountPref, availBeforeLoad)
         }
         Log.i(TAG, "Auto-loading $label model from: ${modelDir.absolutePath}")
-        Log.i(TAG, "Inference provider: resolved=$resolvedProviderPref")
+        Log.i(TAG, "Inference provider: requested_provider=$resolvedProviderPref")
         // TASK-640: arm the crash marker around backendManager.setActiveBackend,
         // whose window includes both the PREVIOUS backend's native unload and the
         // new model's native init (an unload crash would over-quarantine the new
@@ -3053,7 +3053,7 @@ class TranscriptionOrchestrator @Inject constructor(
                 }
             }
             val inferMs = System.currentTimeMillis() - t0
-            Log.i(TAG, "Inference timing: ${inferMs}ms for ${audioDurationSeconds}s audio (backend=${backend.id}, provider=$resolvedProvider, threads=${threadCount}, chunks=$chunkCount)")
+            Log.i(TAG, "Inference timing: ${inferMs}ms for ${audioDurationSeconds}s audio (backend=${backend.id}, requested_provider=$resolvedProvider, threads=${threadCount}, chunks=$chunkCount)")
             fireCollector()
             // TASK-664 (GH #119): the single-chunk arm. A one-chunk clip has
             // no neighbors, so the ladder re-feeds with silence padding; a

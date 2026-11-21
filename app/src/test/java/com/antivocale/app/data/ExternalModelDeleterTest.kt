@@ -71,4 +71,35 @@ class ExternalModelDeleterTest {
         assertFalse(outcome.clearedPreviewPin)
         assertEquals("external:other-id", prefs._previewModelBackendId.value)
     }
+
+    @Test
+    fun `deleting a pinned voice-note model clears both voice-note pins`() = runTest {
+        val saved = record("voice-id")
+        store.add(saved)
+        prefs._voiceNoteBackendId.value = saved.backendId
+        prefs._voiceNoteBusinessBackendId.value = saved.backendId
+
+        val outcome = ExternalModelDeleter(store, prefs).delete(saved)
+
+        assertTrue(outcome.clearedVoiceNotePin)
+        assertTrue(outcome.clearedVoiceNoteBusinessPin)
+        assertFalse(outcome.clearedPreviewPin)
+        assertEquals("", prefs._voiceNoteBackendId.value)
+        assertEquals("", prefs._voiceNoteBusinessBackendId.value)
+    }
+
+    @Test
+    fun `voice-note pins on another model survive the delete`() = runTest {
+        val saved = record("deleted-id")
+        store.add(saved)
+        prefs._voiceNoteBackendId.value = "external:other-id"
+        prefs._voiceNoteBusinessBackendId.value = "whisper"
+
+        val outcome = ExternalModelDeleter(store, prefs).delete(saved)
+
+        assertFalse(outcome.clearedVoiceNotePin)
+        assertFalse(outcome.clearedVoiceNoteBusinessPin)
+        assertEquals("external:other-id", prefs._voiceNoteBackendId.value)
+        assertEquals("whisper", prefs._voiceNoteBusinessBackendId.value)
+    }
 }

@@ -1421,4 +1421,7 @@
     <string name="models_fit_summary_off">Telefonunuza uygun modeller: %2$d modelden %1$d</string>
     <string name="models_fit_badge_heavy">Ağır</string>
     <string name="models_header_toggle_title">Filtreler ve uyumluluk</string>
+    <string name="voice_note_model_title">Model</string>
+    <string name="voice_note_model_default">Etkin model (varsayılan)</string>
+    <string name="voice_note_model_single_pass_hint">Bu kaynak için iki geçişli mod kapalı</string>
 </resources>

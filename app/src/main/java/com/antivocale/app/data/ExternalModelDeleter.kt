@@ -31,6 +31,8 @@ class ExternalModelDeleter(
         val resetActiveBackend: Boolean,
         val clearedRefinementPin: Boolean,
         val clearedPreviewPin: Boolean = false,
+        val clearedVoiceNotePin: Boolean = false,
+        val clearedVoiceNoteBusinessPin: Boolean = false,
     )
 
     suspend fun delete(record: ExternalModelRecord): Outcome {
@@ -41,22 +43,15 @@ class ExternalModelDeleter(
         if (resetActiveBackend) {
             preferencesManager.saveTranscriptionBackend(PreferencesManager.DEFAULT_TRANSCRIPTION_BACKEND)
         }
-        val clearedRefinementPin =
-            preferencesManager.refinementModelBackendId.first() == record.backendId
-        if (clearedRefinementPin) {
-            preferencesManager.saveRefinementModelBackendId("")
-        }
-        // The preview pin on the deleted model falls back to automatic.
-        val clearedPreviewPin =
-            preferencesManager.previewModelBackendId.first() == record.backendId
-        if (clearedPreviewPin) {
-            preferencesManager.savePreviewModelBackendId("")
-        }
+        // Every model pin on the deleted model falls back to its default.
+        val cleared = TranscriptionPinScrubber.scrub(preferencesManager, record.backendId)
         return Outcome(
             existed = removed != null,
             resetActiveBackend = resetActiveBackend,
-            clearedRefinementPin = clearedRefinementPin,
-            clearedPreviewPin = clearedPreviewPin,
+            clearedRefinementPin = TranscriptionPinScrubber.Pin.REFINEMENT in cleared,
+            clearedPreviewPin = TranscriptionPinScrubber.Pin.PREVIEW in cleared,
+            clearedVoiceNotePin = TranscriptionPinScrubber.Pin.VOICE_NOTE in cleared,
+            clearedVoiceNoteBusinessPin = TranscriptionPinScrubber.Pin.VOICE_NOTE_BUSINESS in cleared,
         )
     }
 }

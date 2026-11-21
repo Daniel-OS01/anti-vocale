@@ -4,7 +4,7 @@ These are ideas deferred from the Daniel-OS01 fork's improvement plan. They are 
 
 ## Live partial text for imported streaming models
 
-The built-in Nemotron model streams live text. Imported streaming zipformers do not show partials yet. Deferred past the current plan.
+Parked. It is low value on clips (the zipformer runs at RTF ~0.02) and is folded into the dictation work's streaming slice.
 
 ## Two-pass gate: a stale built-in saved path counts as installed
 
@@ -16,19 +16,19 @@ If a built-in model's folder is deleted but its saved path remains, the two-pass
 
 ## Per-source model choice
 
-Pick a model by input source, for example WhatsApp voice notes to a zipformer and files to Whisper. Deferred past the current plan.
+Shipped in R5. WhatsApp and WhatsApp Business each get an optional model pin, resolved through `TranscriptionProfileResolver`; a pin means a single pass. Per-folder/subfolder/sender rules and a model-per-language map follow in R6.
 
 ## Phrase-by-phrase dictation from com-master/anti-vocale-rt
 
-Candidate commits: `6e77b076`, `037a6ca0`, `18169024`, `b41139d9`. Deferred past the current plan.
+Parked by the user. If revived: 4 slices; notification id 1007 collides with `MemoryKillStartupCheck`; the remote backend is barred; a Play foreground-service (microphone) declaration is needed.
 
 ## Tasker `file_path` input and scoped-storage automation
 
-An idea from pikatchu2k3. Deferred over permission concerns.
+Dropped. It widens an exported receiver to any shared-storage path, and its "newest signal-*.aac" fallback can transcribe the wrong note. Folder watch covers the need.
 
 ## Report the effective NNAPI/CPU provider (plan item 5.5)
 
-The app has no runtime fallback signal. `InferenceProvider.resolve` only resolves the preference. Reporting the real provider needs native work. Deferred: low value.
+Only the requested-provider label shipped (R5): logs and failure context say `requested_provider`, and serialized keys are unchanged. Detecting the effective provider needs native work.
 
 ## Upstream fixes to RisorseArtificiali/anti-vocale
 

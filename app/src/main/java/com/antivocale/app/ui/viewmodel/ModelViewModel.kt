@@ -18,6 +18,7 @@ import com.antivocale.app.data.PreferencesManager
 import com.antivocale.app.di.ApplicationScope
 import com.antivocale.app.data.ShareShortcutManager
 import com.antivocale.app.data.ShareTargetManager
+import com.antivocale.app.data.TranscriptionPinScrubber
 import com.antivocale.app.data.ExternalModelDeleter
 import com.antivocale.app.data.ExternalImportRepairer
 import com.antivocale.app.data.ExternalModelImportOperations
@@ -1368,14 +1369,9 @@ class ModelViewModel @Inject constructor(
                         shareTargetManager.onModelDeletedNow(entryId)
                         shareShortcutManager.refresh()
                         // TASK-761: the entry has no loadable variant left;
-                        // a pin on it would silently skip every fast pass.
-                        if (preferencesManager.refinementModelBackendId.first() == entryId) {
-                            preferencesManager.saveRefinementModelBackendId("")
-                        }
-                        // The preview pin falls back to automatic the same way.
-                        if (preferencesManager.previewModelBackendId.first() == entryId) {
-                            preferencesManager.savePreviewModelBackendId("")
-                        }
+                        // a pin on it would silently skip every fast pass
+                        // (every model pin falls back to its default).
+                        TranscriptionPinScrubber.scrub(preferencesManager, entryId)
                     }
                 }
                 updateEntry(entryId) { it.copy(modelPath = activePath) }
@@ -1446,12 +1442,7 @@ class ModelViewModel @Inject constructor(
                 _uiState.update { it.copy(modelPath = "", modelName = "") }
                 shareTargetManager.onModelDeletedNow(entryId)
                 shareShortcutManager.refresh()
-                if (preferencesManager.refinementModelBackendId.first() == entryId) {
-                    preferencesManager.saveRefinementModelBackendId("")
-                }
-                if (preferencesManager.previewModelBackendId.first() == entryId) {
-                    preferencesManager.savePreviewModelBackendId("")
-                }
+                TranscriptionPinScrubber.scrub(preferencesManager, entryId)
             }
         }
         if (deletedAny) {

@@ -124,4 +124,28 @@ class DanglingBackendCleanerTest {
         DanglingBackendCleaner(prefs, store).cleanIfNeeded()
         assertEquals(PreferencesManager.DEFAULT_TRANSCRIPTION_BACKEND, prefs._transcriptionBackend.value)
     }
+
+    @Test
+    fun `dangling voice-note pins are cleared to the active model`() = runTest {
+        prefs._voiceNoteBackendId.value = "external:gone-voice"
+        prefs._voiceNoteBusinessBackendId.value = "external:gone-business"
+        DanglingBackendCleaner(prefs, store).cleanIfNeeded()
+        assertEquals("", prefs._voiceNoteBackendId.value)
+        assertEquals("", prefs._voiceNoteBusinessBackendId.value)
+    }
+
+    @Test
+    fun `valid and built-in voice-note pins are left in place`() = runTest {
+        val dir = java.io.File(filesRoot, "voice").apply { mkdirs() }
+        val saved = record("voice-id", dir.absolutePath)
+        store.add(saved)
+        prefs._voiceNoteBackendId.value = saved.backendId
+        // Built-in pins dangle through deletion (scrubbed at delete time),
+        // not record rot: the startup net leaves them alone.
+        prefs._voiceNoteBusinessBackendId.value = "whisper"
+
+        DanglingBackendCleaner(prefs, store).cleanIfNeeded()
+        assertEquals(saved.backendId, prefs._voiceNoteBackendId.value)
+        assertEquals("whisper", prefs._voiceNoteBusinessBackendId.value)
+    }
 }

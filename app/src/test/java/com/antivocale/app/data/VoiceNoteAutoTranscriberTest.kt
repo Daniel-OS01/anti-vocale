@@ -7,6 +7,7 @@ import com.antivocale.app.receiver.TaskerRequestReceiver
 import com.antivocale.app.receiver.VoiceNoteIdentityCache
 import com.antivocale.app.service.InferenceService
 import io.mockk.coEvery
+import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -36,9 +37,30 @@ class VoiceNoteAutoTranscriberTest {
     private val resolvedSources = mutableListOf<VoiceNoteSource>()
     private val checkedTaskIds = mutableListOf<String>()
 
+    private val prefs = FakePreferencesManager()
+
+    private val modelsRoot: java.io.File =
+        java.nio.file.Files.createTempDirectory("voicenote-loadability").toFile()
+
+    /** The external store the loadability check reads (persisted records). */
+    private val store = ExternalModelStore(prefs)
+
+    /**
+     * A real [BackendLoadability] over [prefs] and [store], with each
+     * built-in id's saved model path pointing at an existing dir.
+     */
+    private fun installed(vararg backendIds: String): BackendLoadability {
+        backendIds.forEach { id ->
+            val dir = java.io.File(modelsRoot, id.replace(':', '_')).apply { mkdirs() }
+            prefs._sherpaModelPath(id).value = dir.absolutePath
+        }
+        return BackendLoadability(prefs, store)
+    }
+
     private fun impl(
         resolveResult: String?,
         alreadyTranscribed: Boolean = false,
+        activeModels: BackendLoadability = installed(),
     ) = VoiceNoteAutoTranscriber(
         context,
         mockk<VoiceNoteTreeGrant> {
@@ -56,6 +78,8 @@ class VoiceNoteAutoTranscriberTest {
                 alreadyTranscribed
             }
         },
+        prefs,
+        activeModels,
     )
 
     @Test
@@ -152,6 +176,8 @@ class VoiceNoteAutoTranscriberTest {
             mockk<AudioPreprocessor>(),
             cache,
             mockk { coEvery { alreadyTranscribed(any()) } returns false },
+            prefs,
+            installed(),
         )
         val outcome = transcriber.enqueue(
             "/storage/emulated/0/Music/Signal/note.m4a", 1_000L,
@@ -214,4 +240,119 @@ class VoiceNoteAutoTranscriberTest {
             null,
             shadowOf(context.applicationContext as android.app.Application).nextStartedService)
     }
+
+    // R5 item A: the per-source model pin, resolved through the shared
+    // profile resolver as the source's sourceDefault scope.
+
+    /** Enqueues one resolvable note and returns the started service intent. */
+    private suspend fun enqueuedIntent(
+        source: VoiceNoteSource,
+        activeModels: BackendLoadability,
+    ): android.content.Intent {
+        val transcriber = VoiceNoteAutoTranscriber(
+            context,
+            mockk { coEvery { resolve(any(), any(), any()) } returns "/local/n.opus" },
+            mockk<AudioPreprocessor>(),
+            // Not accepting: the sender matcher returns at once (no probe,
+            // no race-window wait).
+            mockk<VoiceNoteIdentityCache> { every { accepting } returns false },
+            mockk { coEvery { alreadyTranscribed(any()) } returns false },
+            prefs,
+            activeModels,
+        )
+        val outcome = transcriber.enqueue("/w/PTT-1.opus", 1_000L, treeUri = "content://tree/t", source = source)
+        assertEquals(VoiceNoteAutoTranscriber.EnqueueOutcome.ENQUEUED, outcome)
+        return requireNotNull(
+            shadowOf(context.applicationContext as android.app.Application).nextStartedService) {
+            "an enqueued note must start the service"
+        }
+    }
+
+    @Test
+    fun `a WhatsApp pin rides the intent as the backend override`() = runBlocking {
+        prefs._voiceNoteBackendId.value = "whisper"
+        val intent = enqueuedIntent(VoiceNoteSource.WHATSAPP, installed("whisper", "sherpa-onnx"))
+        assertEquals("whisper", intent.getStringExtra(InferenceService.EXTRA_BACKEND_OVERRIDE))
+    }
+
+    @Test
+    fun `a Business pin applies to Business notes only`() = runBlocking {
+        prefs._voiceNoteBusinessBackendId.value = "whisper"
+        val models = installed("whisper", "sherpa-onnx")
+        assertEquals(
+            "whisper",
+            enqueuedIntent(VoiceNoteSource.WHATSAPP_BUSINESS, models)
+                .getStringExtra(InferenceService.EXTRA_BACKEND_OVERRIDE))
+        assertNull(
+            "the Business pin must not reach WhatsApp notes",
+            enqueuedIntent(VoiceNoteSource.WHATSAPP, models)
+                .getStringExtra(InferenceService.EXTRA_BACKEND_OVERRIDE))
+        assertNull(
+            "the watched folder has no source pin",
+            enqueuedIntent(VoiceNoteSource.WATCHED_FOLDER, models)
+                .getStringExtra(InferenceService.EXTRA_BACKEND_OVERRIDE))
+    }
+
+    @Test
+    fun `a blank pin gives no override extra`() = runBlocking {
+        prefs._voiceNoteBackendId.value = "   "
+        val intent = enqueuedIntent(VoiceNoteSource.WHATSAPP, installed("whisper", "sherpa-onnx"))
+        assertEquals(false, intent.hasExtra(InferenceService.EXTRA_BACKEND_OVERRIDE))
+    }
+
+    @Test
+    fun `a dangling pin degrades to the active model`() = runBlocking {
+        prefs._voiceNoteBackendId.value = "external:deleted-model"
+        val intent = enqueuedIntent(VoiceNoteSource.WHATSAPP, installed("whisper", "sherpa-onnx"))
+        assertEquals(false, intent.hasExtra(InferenceService.EXTRA_BACKEND_OVERRIDE))
+    }
+
+    @Test
+    fun `a pin equal to the active backend gives no override extra`() = runBlocking {
+        prefs._transcriptionBackend.value = "whisper"
+        prefs._voiceNoteBackendId.value = "whisper"
+        val intent = enqueuedIntent(VoiceNoteSource.WHATSAPP, installed("whisper", "sherpa-onnx"))
+        assertEquals(false, intent.hasExtra(InferenceService.EXTRA_BACKEND_OVERRIDE))
+    }
+
+    /**
+     * Review fix 1(b): the provider StateFlow the old check read starts
+     * empty on a cold start; the persisted record alone must make the
+     * pin loadable. Nothing here feeds an ExternalModelRecordsProvider,
+     * which is exactly the cold-start state the old check saw.
+     */
+    @Test
+    fun `an external pin with a persisted record counts as loadable on a cold start`() = runBlocking {
+        val dir = java.io.File(modelsRoot, "ext-ok").apply { mkdirs() }
+        store.add(externalRecord("ok-id", dir.absolutePath))
+        prefs._voiceNoteBackendId.value = "external:ok-id"
+        val intent = enqueuedIntent(VoiceNoteSource.WHATSAPP, installed("sherpa-onnx"))
+        assertEquals("external:ok-id", intent.getStringExtra(InferenceService.EXTRA_BACKEND_OVERRIDE))
+    }
+
+    /**
+     * Review fix 1(a): a non-blank saved path is not enough; a built-in
+     * pin whose model dir was deleted degrades to the active model.
+     */
+    @Test
+    fun `a built-in pin whose model files are gone degrades to the active model`() = runBlocking {
+        prefs._sherpaModelPath("whisper").value = java.io.File(modelsRoot, "deleted-whisper").absolutePath
+        prefs._voiceNoteBackendId.value = "whisper"
+        val intent = enqueuedIntent(VoiceNoteSource.WHATSAPP, BackendLoadability(prefs, store))
+        assertEquals(false, intent.hasExtra(InferenceService.EXTRA_BACKEND_OVERRIDE))
+    }
+
+    private fun externalRecord(id: String, dir: String) = ExternalModelRecord(
+        id = id,
+        displayName = "Model $id",
+        dir = dir,
+        family = ModelFamily.TRANSDUCER,
+        modelType = "nemo_transducer",
+        languages = emptyList(),
+        source = ExternalModelSource.URL,
+        sourceUrl = null,
+        files = emptyMap(),
+        sizeBytes = 1L,
+        importedAt = 0L,
+    )
 }

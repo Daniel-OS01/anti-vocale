@@ -180,6 +180,9 @@ internal class TestSpiOps(
             .put("refinementModelBackendId", preferences.refinementModelBackendId.first())
             // The two-pass preview (first-pass) model pin (empty = automatic).
             .put("previewModelBackendId", preferences.previewModelBackendId.first())
+            // The per-source voice-note model pins (empty = active model).
+            .put("voiceNoteBackendId", preferences.voiceNoteBackendId.first())
+            .put("voiceNoteBusinessBackendId", preferences.voiceNoteBusinessBackendId.first())
             // TASK-588.1: the advanced-reveal state (the conformance test
             // pins every flow exposed, keyed by its flow name).
             .put("settingsTranscriptionAdvancedExpanded", preferences.settingsTranscriptionAdvancedExpanded.first())
@@ -522,6 +525,23 @@ internal class TestSpiOps(
                 } else {
                     "unknown backend '$value' (blank, a catalog id, '${LlmTranscriptionBackend.BACKEND_ID}', " +
                         "'${RemoteOmnivoiceBackend.BACKEND_ID}' or '${ExternalModelRecord.BACKEND_ID_PREFIX}<record id>')"
+                }
+            }
+            // The per-source voice-note model pins. Blank = the active model.
+            putUnique("voice_note_model") { value, _ ->
+                if (value.isBlank() || isKnownBackend(value)) {
+                    preferences.saveVoiceNoteBackendId(value)
+                    null
+                } else {
+                    "unknown backend '$value' (blank, a catalog id or '${ExternalModelRecord.BACKEND_ID_PREFIX}<record id>')"
+                }
+            }
+            putUnique("voice_note_business_model") { value, _ ->
+                if (value.isBlank() || isKnownBackend(value)) {
+                    preferences.saveVoiceNoteBusinessBackendId(value)
+                    null
+                } else {
+                    "unknown backend '$value' (blank, a catalog id or '${ExternalModelRecord.BACKEND_ID_PREFIX}<record id>')"
                 }
             }
             putUnique("sherpa_path") { value, entry ->

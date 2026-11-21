@@ -103,6 +103,7 @@ class TestSpiConformanceTest {
             // state (op=records shows the dangling set it names).
             "wipedRepairCapturedActive", "wipedRepairCapturedPin",
             "wipedRepairCapturedPreviewPin", "wipedRepairDeadSources",
+            "wipedRepairCapturedVoiceNotePin", "wipedRepairCapturedVoiceNoteBusinessPin",
             "modelPath", // rendered as activeModelPath/paths.llm
             "externalModelsJson", // op=records covers it
         )

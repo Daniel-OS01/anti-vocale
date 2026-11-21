@@ -14,7 +14,9 @@ data class FailureContext(
     val errorClass: String,
     /** Active backend id at failure ("whisper", "external:<id>"). */
     val backendId: String? = null,
-    /** Resolved inference provider ("cpu"/"nnapi"). */
+    /** REQUESTED inference provider ("cpu"/"nnapi"): what was asked of sherpa-onnx,
+     *  not what ran. sherpa can silently fall back to CPU for graphs NNAPI cannot
+     *  delegate, and exposes no runtime signal for it. */
     val provider: String? = null,
     /** App version at failure time. */
     val appVersion: String? = null,
@@ -96,7 +98,7 @@ object FailureContextJson {
             // heal from a re-download heal in the report line.
             if (c.siblingHealed) add("sibling")
             c.backendId?.let { add("backend=$it") }
-            c.provider?.let { add("provider=$it") }
+            c.provider?.let { add("requested_provider=$it") }
             c.appVersion?.let { add("v$it") }
             if (c.processedChunks != null) {
                 add("chunks=${c.processedChunks}")

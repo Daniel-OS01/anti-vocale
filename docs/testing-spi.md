@@ -85,6 +85,8 @@ Set keys and value formats:
 | `voice_note_business_detection_enabled` | `saveVoiceNoteBusinessDetectionEnabled` | `true` or `false` (the same gate for WhatsApp Business, independent of the WhatsApp one; default off) |
 | `refinement_model` | `saveRefinementModelBackendId` | a known backend id or blank (TASK-740; blank = inherit the active backend for the two-pass refine phase) |
 | `preview_model` | `savePreviewModelBackendId` | a known backend id or blank (blank = automatic: the two-pass preview/first-pass model is resolved by `TwoPassArms`) |
+| `voice_note_model` | `saveVoiceNoteBackendId` | a known backend id or blank (R5; the WhatsApp voice-note model pin, blank = the active model; a pin means a single pass) |
+| `voice_note_business_model` | `saveVoiceNoteBusinessBackendId` | the same for WhatsApp Business voice notes |
 | `punctuation` | `savePunctuationMode` | `off`, `auto`, `always`, `conservative` (TASK-666; the dropdown offers off/always/conservative, SPI also accepts the legacy auto; anything else is rejected) |
 | `punctuation_prompt` | `savePunctuationPrompt` | free text, 500-char cap; blank = the localized built-in prompt |
 | `keep_alive` | `saveKeepAliveTimeout` | positive integer (minutes); 0/negative rejected (would silently fall back to the default) |

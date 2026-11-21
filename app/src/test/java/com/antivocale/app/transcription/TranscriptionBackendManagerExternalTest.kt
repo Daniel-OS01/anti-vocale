@@ -95,6 +95,28 @@ class TranscriptionBackendManagerExternalTest {
     }
 
     @Test
+    fun `cold start - an external config carrying the persisted record activates before the provider emits`() = runTest {
+        // Provider snapshot still empty (its first emission has not landed).
+        val record = record()
+        val config = BackendConfig.ExternalConfig(record, numThreads = 4, provider = "cpu")
+
+        val result = manager.setActiveBackend(record.backendId, context, config)
+
+        assertTrue(result.isSuccess)
+        coVerify(exactly = 1) { engine.initialize(context, config) }
+    }
+
+    @Test
+    fun `an external config whose record names another id is still unknown`() = runTest {
+        val config = BackendConfig.ExternalConfig(record(), numThreads = 4, provider = "cpu")
+
+        val result = manager.setActiveBackend("external:someone-else", context, config)
+
+        assertTrue(result.isFailure)
+        coVerify(exactly = 0) { engine.initialize(any(), any()) }
+    }
+
+    @Test
     fun `unknown external id fails with Unknown backend`() = runTest {
         val result = manager.setActiveBackend("external:nosuch", context, sherpaConfig())
         assertTrue(result.isFailure)
