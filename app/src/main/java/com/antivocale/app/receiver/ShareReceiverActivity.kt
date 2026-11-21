@@ -21,7 +21,11 @@ import com.antivocale.app.R
 import com.antivocale.app.data.SourceKind
 import com.antivocale.app.MainActivity
 import com.antivocale.app.data.ExternalModelRecord
+import com.antivocale.app.data.OriginFacts
 import com.antivocale.app.data.PreferencesManager
+import com.antivocale.app.data.ScopeProfileSource
+import com.antivocale.app.data.SenderKeys
+import com.antivocale.app.data.TranscriptionProfile
 import com.antivocale.app.data.VoiceNoteDuplicateGuard
 import com.antivocale.app.receiver.ChooserBroadcastReceiver
 import com.antivocale.app.service.AudioRequestIntent
@@ -98,6 +102,7 @@ class ShareReceiverActivity : ComponentActivity() {
     @javax.inject.Inject lateinit var transcriptionOrchestrator: com.antivocale.app.transcription.TranscriptionOrchestrator
     @javax.inject.Inject lateinit var duplicateGuard: com.antivocale.app.data.VoiceNoteDuplicateGuard
     @javax.inject.Inject lateinit var preferencesManager: PreferencesManager
+    @javax.inject.Inject lateinit var scopeProfileSource: ScopeProfileSource
 
     @com.antivocale.app.di.ApplicationScope
     @javax.inject.Inject lateinit var injectedAppScope: CoroutineScope
@@ -116,6 +121,25 @@ class ShareReceiverActivity : ComponentActivity() {
          * keeps the legacy error behavior.
          */
         const val EXTRA_FROM_SHORTCUT = "com.antivocale.app.FROM_SHORTCUT"
+
+        /**
+         * The share's sender-profile facts, or null when the share has no
+         * sender key (not a WhatsApp client, or no matched label): null means
+         * the caller makes no resolve call. [backendOverride] (the alias's or
+         * the chooser's pick) rides as the explicit profile, so it still
+         * wins over the sender's backend while the sender fills the language.
+         */
+        internal fun shareSenderOriginFacts(
+            sourcePackage: String?,
+            senderName: String?,
+            backendOverride: String?,
+        ): OriginFacts? =
+            SenderKeys.forShare(sourcePackage, senderName)?.let { key ->
+                OriginFacts(
+                    senderStorageId = key.storageId(),
+                    explicit = backendOverride?.let { TranscriptionProfile.of(it, null) },
+                )
+            }
 
         // The choice prompt auto-resolves to ASR after this delay if the user does nothing.
         // Keeps a shared video from silently hanging when the notification is ignored.
@@ -727,13 +751,19 @@ class ShareReceiverActivity : ComponentActivity() {
                 sourcePackage,
                 localPath)
         }
+        // A labeled WhatsApp share applies that sender's profile; the
+        // alias's (or the chooser's) backend stays the explicit pick. No
+        // sender key: no resolve, the request is the alias's as before.
+        val senderProfile = shareSenderOriginFacts(sourcePackage, senderName, backendOverride)
+            ?.let { facts -> withContext(Dispatchers.IO) { scopeProfileSource.resolve(facts) } }
         val serviceIntent = AudioRequestIntent.make(
             this, InferenceService.SOURCE_SHARE, taskId, localPath,
             sourcePackage = sourcePackage,
-            backendOverride = backendOverride,
+            backendOverride = if (senderProfile != null) senderProfile.backendOverride else backendOverride,
             senderName = senderName,
             contentHash = contentHash,
             sourceKind = SourceKind.SHARE,
+            languageOverride = senderProfile?.languageOverride,
         )
 
         // F6: unified enqueue (trampoline fallback on the API 31+

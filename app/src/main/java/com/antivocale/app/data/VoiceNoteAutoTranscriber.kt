@@ -91,9 +91,14 @@ class VoiceNoteAutoTranscriber @Inject constructor(
         // null hashes never match by construction). The file is local and
         // small; hashing here on the coordinator's IO dispatcher is safe.
         val contentHash = VoiceNoteDuplicateGuard.hashOf(localPath)
-        // R6: the source's scopes through the one origin-facts boundary
-        // (R6 fills the source default only; no sender id yet).
-        val profile = scopeProfileSource.resolve(OriginFacts(voiceNoteSource = source))
+        // R6: the source's scopes through the one origin-facts boundary:
+        // the source default, and the matched sender's profile when the
+        // note was labeled (no label = no sender scope).
+        val profile = scopeProfileSource.resolve(
+            OriginFacts(
+                voiceNoteSource = source,
+                senderStorageId = SenderKeys.forVoiceNote(source, senderName)?.storageId(),
+            ))
         return when (val outcome = InferenceEnqueue.start(
             context,
             serviceIntent(

@@ -1,10 +1,14 @@
 package com.antivocale.app.work
 
+import com.antivocale.app.data.PhoneNormalizer
+import com.antivocale.app.data.SenderKey
 import com.antivocale.app.data.SourceKind
 import com.antivocale.app.receiver.TaskerRequestReceiver
 import com.antivocale.app.service.InferenceService
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -132,5 +136,37 @@ class ScheduledFolderWorkerScanNowTest {
         )
         val ordered = ScheduledFolderWorker.orderByBackend(files) { it.second }.map { it.first }
         assertEquals(listOf("b", "e", "c", "f", "a", "d"), ordered)
+    }
+
+    /** A fake E.164 normalizer: prefixes the country's test code to the digits. */
+    private val fakePhone = PhoneNormalizer { raw, countryIso ->
+        if (countryIso == "it") "+39" + raw.filter { it.isDigit() } else null
+    }
+
+    @Test
+    fun `two callers in one subfolder resolve to different sender ids`() {
+        val first = ScheduledFolderWorker.fileOriginKey(
+            "Calls/Call from Test Contact_20240101_123456.m4a", "it", fakePhone)
+        val second = ScheduledFolderWorker.fileOriginKey(
+            "Calls/Call from Other Contact_20240101_123456.m4a", "it", fakePhone)
+        assertEquals("Calls", first.subPath)
+        assertEquals("Calls", second.subPath)
+        assertEquals(SenderKey.Call("Test Contact").storageId(), first.senderStorageId)
+        assertEquals(SenderKey.Call("Other Contact").storageId(), second.senderStorageId)
+        assertNotEquals(first, second)
+    }
+
+    @Test
+    fun `a phone-number caller is keyed through the normalizer`() {
+        val key = ScheduledFolderWorker.fileOriginKey("chiamata_06123456_20240101.amr", "it", fakePhone)
+        assertNull(key.subPath)
+        assertEquals(SenderKey.Call("+3906123456").storageId(), key.senderStorageId)
+    }
+
+    @Test
+    fun `a non-call file name gives no sender id`() {
+        val key = ScheduledFolderWorker.fileOriginKey("Memos/groceries.m4a", "it", fakePhone)
+        assertEquals("Memos", key.subPath)
+        assertNull(key.senderStorageId)
     }
 }

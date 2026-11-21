@@ -59,12 +59,16 @@ class VoiceNoteAutoTranscriberTest {
 
     /** R6: the pins now resolve through ScopeProfileSource (real stores
      *  over [prefs]; no scope here asks the language lookup). */
-    private fun scopeSource(activeModels: BackendLoadability) = ScopeProfileSource(
+    private fun scopeSource(
+        activeModels: BackendLoadability,
+        support: com.antivocale.app.transcription.LanguageSupportLookup =
+            mockk<com.antivocale.app.transcription.LanguageSupportLookup>(),
+    ) = ScopeProfileSource(
         prefs,
         ScheduledFolderStore(prefs),
         ScopeProfileStore(prefs),
         activeModels,
-        mockk<com.antivocale.app.transcription.LanguageSupportLookup>(),
+        support,
     )
 
     private fun impl(
@@ -362,4 +366,67 @@ class VoiceNoteAutoTranscriberTest {
         sizeBytes = 1L,
         importedAt = 0L,
     )
+
+    // Per-sender profiles: the matched sender's storage id reaches the
+    // resolver, so a stored sender profile applies to the note.
+
+    /** Every backend honors every language (the sender tests pin "ru"). */
+    private val honorsAll = mockk<com.antivocale.app.transcription.LanguageSupportLookup> {
+        coEvery { support(any(), any()) } returns com.antivocale.app.transcription.LanguageSupport.HONORS
+    }
+
+    private suspend fun storeRussianProfileForTestContact() {
+        ScopeProfileStore(prefs).setSenderProfile(
+            requireNotNull(SenderKeys.forVoiceNote(VoiceNoteSource.WHATSAPP, "Test Contact")).storageId(),
+            TranscriptionProfile(language = "ru"),
+        )
+    }
+
+    /** Enqueues one WhatsApp note, labeled "Test Contact" when [labeled], and returns the started intent. */
+    private suspend fun senderEnqueuedIntent(labeled: Boolean): android.content.Intent {
+        val cache = VoiceNoteIdentityCache().apply {
+            accepting = true
+            remember(
+                com.antivocale.app.receiver.VoiceNoteIdentityExtractor.VoiceNote(
+                    packageName = PerAppPreferencesManager.WHATSAPP,
+                    sender = "Test Contact",
+                    durationSeconds = 42L,
+                    postedAtMs = System.currentTimeMillis(),
+                ))
+            // Not accepting: the matcher returns at once with no label.
+            accepting = labeled
+        }
+        val transcriber = VoiceNoteAutoTranscriber(
+            context,
+            mockk { coEvery { resolve(any(), any(), any()) } returns "/local/n.opus" },
+            mockk<AudioPreprocessor> { every { getAudioDuration(any()) } returns 42.4 },
+            cache,
+            mockk { coEvery { alreadyTranscribed(any()) } returns false },
+            scopeSource(installed("whisper", "sherpa-onnx"), honorsAll),
+        )
+        val outcome = transcriber.enqueue(
+            "/w/PTT-1.opus", System.currentTimeMillis(), treeUri = "content://tree/t",
+            source = VoiceNoteSource.WHATSAPP)
+        assertEquals(VoiceNoteAutoTranscriber.EnqueueOutcome.ENQUEUED, outcome)
+        return requireNotNull(
+            shadowOf(context.applicationContext as android.app.Application).nextStartedService) {
+            "an enqueued note must start the service"
+        }
+    }
+
+    @Test
+    fun `a matched sender's stored profile language rides the intent`() = runBlocking {
+        storeRussianProfileForTestContact()
+        val intent = senderEnqueuedIntent(labeled = true)
+        assertEquals("Test Contact", intent.getStringExtra(InferenceService.EXTRA_SENDER_NAME))
+        assertEquals("ru", intent.getStringExtra(InferenceService.EXTRA_LANGUAGE_OVERRIDE))
+    }
+
+    @Test
+    fun `an unlabeled note gets no sender profile contribution`() = runBlocking {
+        storeRussianProfileForTestContact()
+        val intent = senderEnqueuedIntent(labeled = false)
+        assertNull(intent.getStringExtra(InferenceService.EXTRA_SENDER_NAME))
+        assertEquals(false, intent.hasExtra(InferenceService.EXTRA_LANGUAGE_OVERRIDE))
+    }
 }

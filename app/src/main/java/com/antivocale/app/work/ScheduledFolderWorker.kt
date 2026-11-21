@@ -20,13 +20,17 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.antivocale.app.data.CallRecordingFilenames
+import com.antivocale.app.data.DeviceCountry
 import com.antivocale.app.data.SourceKind
 import com.antivocale.app.data.FileSnapshot
 import com.antivocale.app.data.FolderScanPlanner
 import com.antivocale.app.data.FolderWalk
+import com.antivocale.app.data.FrameworkPhoneNormalizer
 import com.antivocale.app.data.OriginFacts
+import com.antivocale.app.data.PhoneNormalizer
 import com.antivocale.app.data.ScheduledFolderStore
 import com.antivocale.app.data.ScopeProfileSource
+import com.antivocale.app.data.SenderKeys
 import com.antivocale.app.service.AudioRequestIntent
 import com.antivocale.app.service.InferenceEnqueue
 import com.antivocale.app.service.InferenceService
@@ -191,18 +195,26 @@ class ScheduledFolderWorker @AssistedInject constructor(
             val working = plan.nextSnapshot.toMutableList()
             var enqueued = 0
             var failed = 0
-            // R6: each file's scope profile (folder profile, deepest
-            // subfolder rule, the language map), resolved before the
-            // enqueue. The inputs are the tree and the subfolder only, so one
-            // resolution per distinct subfolder covers every file in it.
-            val profiles: Map<String?, ResolvedProfile> = plan.toEnqueue
-                .map { FolderScanPlanner.subPathOf(it.name) }
+            // R6: each file's scope profile (caller's sender profile, folder
+            // profile, deepest subfolder rule, the language map), resolved
+            // before the enqueue. The inputs are the tree, the subfolder and
+            // the caller, so one resolution per distinct (subfolder, caller)
+            // pair covers every file sharing it.
+            val countryIso = DeviceCountry.iso(applicationContext)
+            val originKeys: Map<String, FileOriginKey> =
+                plan.toEnqueue.associate { it.name to fileOriginKey(it.name, countryIso) }
+            val profiles: Map<FileOriginKey, ResolvedProfile> = originKeys.values
                 .distinct()
-                .associateWith { subPath ->
-                    scopeProfileSource.resolve(OriginFacts(folderTreeUri = treeUriString, subPath = subPath))
+                .associateWith { key ->
+                    scopeProfileSource.resolve(
+                        OriginFacts(
+                            folderTreeUri = treeUriString,
+                            subPath = key.subPath,
+                            senderStorageId = key.senderStorageId,
+                        ))
                 }
             fun profileOf(child: FolderScanPlanner.Child): ResolvedProfile? =
-                profiles[FolderScanPlanner.subPathOf(child.name)]
+                originKeys[child.name]?.let { profiles[it] }
             // Same-model files run back to back (fewer model swaps in the
             // service queue); the global model's group goes first.
             val ordered = orderByBackend(plan.toEnqueue) { profileOf(it)?.backendOverride }
@@ -310,6 +322,32 @@ class ScheduledFolderWorker @AssistedInject constructor(
                 sourceSubPath = FolderScanPlanner.subPathOf(relativePath),
                 backendOverride = profile?.backendOverride,
                 languageOverride = profile?.languageOverride,
+            )
+
+        /**
+         * One planned file's resolve inputs: its subfolder and its caller's
+         * sender storage id. Never logged (the id carries the caller).
+         */
+        internal data class FileOriginKey(val subPath: String?, val senderStorageId: String?)
+
+        /**
+         * [relativePath]'s [FileOriginKey]: the caller label is the same
+         * [CallRecordingFilenames.callerFromFileName] read [buildServiceIntent]
+         * stamps as the sender name, keyed like any call recording (a file
+         * name with no caller gives a null sender id).
+         */
+        internal fun fileOriginKey(
+            relativePath: String,
+            countryIso: String?,
+            phone: PhoneNormalizer = FrameworkPhoneNormalizer,
+        ): FileOriginKey =
+            FileOriginKey(
+                subPath = FolderScanPlanner.subPathOf(relativePath),
+                senderStorageId = SenderKeys.forCallRecording(
+                    CallRecordingFilenames.callerFromFileName(FolderScanPlanner.baseNameOf(relativePath)),
+                    countryIso,
+                    phone,
+                )?.storageId(),
             )
 
         /**
