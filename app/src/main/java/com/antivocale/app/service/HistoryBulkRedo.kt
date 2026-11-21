@@ -1,6 +1,7 @@
 package com.antivocale.app.service
 
 import android.content.Context
+import android.content.Intent
 import android.util.Log
 import com.antivocale.app.data.PreferencesManager
 import com.antivocale.app.data.ScheduledFolderStore
@@ -46,7 +47,18 @@ data class PreparedBatch(
     val backendId: String,
 )
 
-data class BulkRedoReport(val queued: Int, val failedToStart: Int)
+/**
+ * [queued] started; [failedToStart] could not start; [deferred] is the one
+ * request a background-start restriction turned into a tap-to-start
+ * notification (the loop stops there, see [HistoryBulkRedo.enqueue]); and
+ * [notStarted] counts the items after it, never attempted.
+ */
+data class BulkRedoReport(
+    val queued: Int,
+    val failedToStart: Int,
+    val deferred: Int = 0,
+    val notStarted: Int = 0,
+)
 
 /**
  * The History bulk "redo with model X / language Y": load the selected rows,
@@ -64,8 +76,16 @@ class HistoryBulkRedo internal constructor(
     private val scheduledFolderStore: ScheduledFolderStore,
     private val preferencesManager: PreferencesManager,
     private val longAudioDecider: LongAudioDecider,
-    /** [FolderRestage.restage] in production; a seam for tests. */
-    private val restage: suspend (List<BulkRedoItem.NeedsRestage>) -> Map<BulkRedoItem.NeedsRestage, FolderRestage.RestageResult>,
+    /**
+     * [FolderRestage.restage] in production; a seam for tests. The second
+     * argument receives each copy's path as soon as it exists.
+     */
+    private val restage: suspend (
+        List<BulkRedoItem.NeedsRestage>,
+        (String) -> Unit,
+    ) -> Map<BulkRedoItem.NeedsRestage, FolderRestage.RestageResult>,
+    /** [InferenceEnqueue.start] in production; a seam for tests. */
+    private val start: (Intent) -> InferenceEnqueue.Outcome = { InferenceEnqueue.start(context, it) },
 ) {
 
     @Inject constructor(
@@ -76,12 +96,15 @@ class HistoryBulkRedo internal constructor(
         longAudioDecider: LongAudioDecider,
     ) : this(
         context, logDao, scheduledFolderStore, preferencesManager, longAudioDecider,
-        { targets -> FolderRestage.restage(context, targets) },
+        { targets, onStaged -> FolderRestage.restage(context, targets, onStaged) },
     )
 
     /**
      * Loads, plans, re-stages and probes [rowIds]. [onProgress] reports rows
-     * handled out of rows found (skips count as handled).
+     * handled out of rows found (skips count as handled). If anything throws
+     * once re-staging has begun, cancellation included, every copy re-staged
+     * so far is deleted before the exception propagates: no batch exists yet
+     * to hand to [discard].
      */
     suspend fun prepare(
         rowIds: Collection<String>,
@@ -102,61 +125,78 @@ class HistoryBulkRedo internal constructor(
         var done = skipped.values.sum()
         onProgress(done, total)
 
-        val restageResults = restage(plan.filterIsInstance<BulkRedoItem.NeedsRestage>())
-        val restagedPaths = restageResults.values
-            .filterIsInstance<FolderRestage.RestageResult.Staged>()
-            .map { it.localPath }
+        // Every re-staged copy, tracked the moment it exists so a throw or a
+        // cancellation anywhere below reclaims it.
+        val staged = LinkedHashSet<String>()
+        return try {
+            val restageResults = restage(plan.filterIsInstance<BulkRedoItem.NeedsRestage>()) { path -> staged.add(path) }
+            val restagedPaths = restageResults.values
+                .filterIsInstance<FolderRestage.RestageResult.Staged>()
+                .map { it.localPath }
+            staged += restagedPaths
 
-        val backendId = profile.backendId ?: preferencesManager.transcriptionBackend.first()
-        val items = ArrayList<BulkRedoReady>()
-        // Plan order is History order, so the ready list keeps it.
-        for (item in plan) {
-            val (localPath, restaged) = when (item) {
-                is BulkRedoItem.Skipped -> continue
-                is BulkRedoItem.Ready -> item.localPath to false
-                is BulkRedoItem.NeedsRestage -> when (val result = restageResults[item]) {
-                    is FolderRestage.RestageResult.Staged -> result.localPath to true
-                    is FolderRestage.RestageResult.Failed -> {
-                        skip(result.reason)
-                        onProgress(++done, total)
-                        continue
-                    }
-                    // A restager that dropped a target: nothing to run it from.
-                    null -> {
-                        skip(SkipReason.FILE_GONE)
-                        onProgress(++done, total)
-                        continue
+            val backendId = profile.backendId ?: preferencesManager.transcriptionBackend.first()
+            val items = ArrayList<BulkRedoReady>()
+            // Plan order is History order, so the ready list keeps it.
+            for (item in plan) {
+                val (localPath, restaged) = when (item) {
+                    is BulkRedoItem.Skipped -> continue
+                    is BulkRedoItem.Ready -> item.localPath to false
+                    is BulkRedoItem.NeedsRestage -> when (val result = restageResults[item]) {
+                        is FolderRestage.RestageResult.Staged -> result.localPath to true
+                        is FolderRestage.RestageResult.Failed -> {
+                            skip(result.reason)
+                            onProgress(++done, total)
+                            continue
+                        }
+                        // A restager that dropped a target: nothing to run it from.
+                        null -> {
+                            skip(SkipReason.FILE_GONE)
+                            onProgress(++done, total)
+                            continue
+                        }
                     }
                 }
+                val decision = longAudioDecider.decide(backendId, localPath, context)
+                items += BulkRedoReady(
+                    row = item.row,
+                    origin = originOf(item.row, folders),
+                    localPath = localPath,
+                    restaged = restaged,
+                    isLong = decision.warn.showDialog,
+                    durationSeconds = decision.durationSeconds,
+                )
+                onProgress(++done, total)
             }
-            val decision = longAudioDecider.decide(backendId, localPath, context)
-            items += BulkRedoReady(
-                row = item.row,
-                origin = originOf(item.row, folders),
-                localPath = localPath,
-                restaged = restaged,
-                isLong = decision.warn.showDialog,
-                durationSeconds = decision.durationSeconds,
+            val long = items.filter { it.isLong }
+            Log.i(TAG, "event=bulk_redo_prepared total=$total ready=${items.size} long=${long.size} restaged=${restagedPaths.size}")
+            PreparedBatch(
+                items = items,
+                skipped = skipped,
+                longCount = long.size,
+                longestSeconds = long.maxOfOrNull { it.durationSeconds } ?: 0.0,
+                restagedPaths = restagedPaths,
+                backendId = backendId,
             )
-            onProgress(++done, total)
+        } catch (e: Throwable) {
+            staged.forEach { SharedAudioHandler.deleteStagedCopy(it) }
+            throw e
         }
-        val long = items.filter { it.isLong }
-        Log.i(TAG, "event=bulk_redo_prepared total=$total ready=${items.size} long=${long.size} restaged=${restagedPaths.size}")
-        return PreparedBatch(
-            items = items,
-            skipped = skipped,
-            longCount = long.size,
-            longestSeconds = long.maxOfOrNull { it.durationSeconds } ?: 0.0,
-            restagedPaths = restagedPaths,
-            backendId = backendId,
-        )
     }
 
     /**
      * Starts one request per item (long items only when [includeLong]),
      * grouped by (backend, language). The started items' staged copies are
      * the queue's inputs and stay; the re-staged copies of items that do not
-     * start (dropped long items, failed starts) are deleted.
+     * start (dropped long items, failed starts, items never attempted) are
+     * deleted.
+     *
+     * The FIRST start that comes back as a fallback notification (the app
+     * may not start a service from the background) is counted deferred and
+     * ends the loop: that notification is the only carrier of its request
+     * and the fallback slots are few, so a large batch would overflow them
+     * silently. Its staged copy stays for the notification; the items after
+     * it are counted notStarted and their re-staged copies deleted.
      */
     fun enqueue(batch: PreparedBatch, profile: TranscriptionProfile, includeLong: Boolean): BulkRedoReport {
         val effective = profile.copy(backendId = profile.backendId ?: batch.backendId)
@@ -165,20 +205,33 @@ class HistoryBulkRedo internal constructor(
         val ordered = BulkRedoPlanner.orderForEnqueue(run) { effective.backendId to effective.language }
         var queued = 0
         var failed = 0
-        for (item in ordered) {
+        var deferred = 0
+        var notStarted = emptyList<BulkRedoReady>()
+        for ((index, item) in ordered.withIndex()) {
             val taskId = RetranscribeIntent.taskIdFor(item.row, item.origin, RetranscribeIntent.nextTaskMs())
             val intent = RetranscribeIntent.build(context, item.row, item.origin, item.localPath, taskId, effective)
-            when (InferenceEnqueue.start(context, intent)) {
-                InferenceEnqueue.Outcome.Started,
-                InferenceEnqueue.Outcome.FallbackNotificationPosted -> queued++
+            when (start(intent)) {
+                InferenceEnqueue.Outcome.Started -> queued++
+                InferenceEnqueue.Outcome.FallbackNotificationPosted -> {
+                    deferred = 1
+                    notStarted = ordered.subList(index + 1, ordered.size)
+                    break
+                }
                 is InferenceEnqueue.Outcome.Failed -> {
                     failed++
                     if (item.restaged) SharedAudioHandler.deleteStagedCopy(item.localPath)
                 }
             }
         }
-        Log.i(TAG, "event=bulk_redo_enqueued queued=$queued failed=$failed dropped_long=${dropped.size}")
-        return BulkRedoReport(queued = queued, failedToStart = failed)
+        notStarted.filter { it.restaged }.forEach { SharedAudioHandler.deleteStagedCopy(it.localPath) }
+        Log.i(TAG, "event=bulk_redo_enqueued queued=$queued failed=$failed deferred=$deferred " +
+            "not_started=${notStarted.size} dropped_long=${dropped.size}")
+        return BulkRedoReport(
+            queued = queued,
+            failedToStart = failed,
+            deferred = deferred,
+            notStarted = notStarted.size,
+        )
     }
 
     /** The user cancelled before enqueue: deletes every copy the batch re-staged. */

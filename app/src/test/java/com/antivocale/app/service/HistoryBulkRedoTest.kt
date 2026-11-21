@@ -28,6 +28,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
 import java.io.File
+import kotlin.coroutines.cancellation.CancellationException
 
 /**
  * The bulk redo end to end over a mocked DAO: one started service per
@@ -100,20 +101,43 @@ class HistoryBulkRedoTest {
         }
     }
 
-    private fun redo(selected: List<LogEntry> = rows): HistoryBulkRedo {
+    private fun defaultRestage(
+        targets: List<BulkRedoItem.NeedsRestage>,
+    ): Map<BulkRedoItem.NeedsRestage, FolderRestage.RestageResult> {
+        restageTargets += targets
+        return targets.associateWith { target ->
+            if (target.row.id == "restage-ok") FolderRestage.RestageResult.Staged(restagedLong.path)
+            else FolderRestage.RestageResult.Failed(SkipReason.NOT_FOUND_IN_FOLDER)
+        }
+    }
+
+    private fun redo(
+        selected: List<LogEntry> = rows,
+        restage: suspend (
+            List<BulkRedoItem.NeedsRestage>,
+            (String) -> Unit,
+        ) -> Map<BulkRedoItem.NeedsRestage, FolderRestage.RestageResult> = { targets, _ -> defaultRestage(targets) },
+        start: ((Intent) -> InferenceEnqueue.Outcome)? = null,
+    ): HistoryBulkRedo {
         val logDao: LogDao = mockk {
             coEvery { getByIds(any()) } returns selected.map { it.toEntity() }
         }
         val store: ScheduledFolderStore = mockk { coEvery { folders() } returns emptyList() }
         val prefs: PreferencesManager = mockk { every { transcriptionBackend } returns flowOf("active-backend") }
-        return HistoryBulkRedo(app, logDao, store, prefs, decider) { targets ->
-            restageTargets += targets
-            targets.associateWith { target ->
-                if (target.row.id == "restage-ok") FolderRestage.RestageResult.Staged(restagedLong.path)
-                else FolderRestage.RestageResult.Failed(SkipReason.NOT_FOUND_IN_FOLDER)
-            }
+        return if (start == null) {
+            HistoryBulkRedo(app, logDao, store, prefs, decider, restage = restage)
+        } else {
+            HistoryBulkRedo(app, logDao, store, prefs, decider, restage = restage, start = start)
         }
     }
+
+    /** Rows whose staged copies were swept, re-staged one per row into [restagedFileOf]. */
+    private fun folderRows(count: Int): List<LogEntry> = (1..count).map { n ->
+        audioRow("f$n", 1_000L - n, filePath = "/gone/f$n.m4a",
+            taskId = FolderWatchTaskIds.mint(tree, "f$n.m4a", n.toLong()), folder = true)
+    }
+
+    private fun restagedFileOf(rowId: String): File = File(app.cacheDir, "restaged-$rowId.m4a")
 
     private fun startedServices(): List<Intent> {
         val shadow = shadowOf(app)
@@ -218,5 +242,59 @@ class HistoryBulkRedoTest {
         coVerify { decider.decide("active-backend", shortFile.path, any()) }
         assertEquals("active-backend",
             startedServices().single().getStringExtra(InferenceService.EXTRA_BACKEND_OVERRIDE))
+    }
+
+    @Test
+    fun `a cancelled restage deletes the copies it already staged and propagates`() = runBlocking {
+        val selected = folderRows(3)
+        val staged = selected.take(2).map { restagedFileOf(it.id) }
+        val bulk = redo(selected, restage = { _, onStaged ->
+            staged.forEach { file ->
+                file.writeText("audio")
+                onStaged(file.path)
+            }
+            throw CancellationException("cancelled mid-restage")
+        })
+
+        val thrown = runCatching { bulk.prepare(selected.map { it.id }, profile) { _, _ -> } }.exceptionOrNull()
+
+        assertTrue("the cancellation propagates, got $thrown", thrown is CancellationException)
+        staged.forEach { assertFalse("${it.name} is reclaimed", it.exists()) }
+        assertEquals(emptyList<Intent>(), startedServices())
+    }
+
+    @Test
+    fun `the first background-start fallback defers that item and starts none after it`() = runBlocking {
+        val selected = folderRows(5)
+        val bulk = redo(
+            selected,
+            restage = { targets, onStaged ->
+                targets.associateWith { target ->
+                    val file = restagedFileOf(target.row.id).apply { writeText("audio") }
+                    onStaged(file.path)
+                    FolderRestage.RestageResult.Staged(file.path)
+                }
+            },
+            start = run {
+                val outcomes = ArrayDeque(listOf(
+                    InferenceEnqueue.Outcome.Started,
+                    InferenceEnqueue.Outcome.Started,
+                    InferenceEnqueue.Outcome.FallbackNotificationPosted,
+                ))
+                val fake: (Intent) -> InferenceEnqueue.Outcome = {
+                    outcomes.removeFirstOrNull() ?: error("an item after the fallback was started")
+                }
+                fake
+            },
+        )
+        val batch = bulk.prepare(selected.map { it.id }, profile) { _, _ -> }
+        assertEquals(listOf("f1", "f2", "f3", "f4", "f5"), batch.items.map { it.row.id })
+
+        val report = bulk.enqueue(batch, profile, includeLong = true)
+
+        assertEquals(BulkRedoReport(queued = 2, failedToStart = 0, deferred = 1, notStarted = 2), report)
+        listOf("f1", "f2").forEach { assertTrue("$it was started: its copy is the queue's input", restagedFileOf(it).exists()) }
+        assertTrue("the deferred item's notification still needs its copy", restagedFileOf("f3").exists())
+        listOf("f4", "f5").forEach { assertFalse("$it never started: its copy is reclaimed", restagedFileOf(it).exists()) }
     }
 }
