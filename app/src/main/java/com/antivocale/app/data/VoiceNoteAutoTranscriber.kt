@@ -41,7 +41,7 @@ class VoiceNoteAutoTranscriber @Inject constructor(
     private val identityCache: VoiceNoteIdentityCache,
     private val duplicateGuard: VoiceNoteDuplicateGuard,
     private val preferencesManager: PreferencesManager,
-    private val activeModelRepository: ActiveModelRepository,
+    private val backendLoadability: BackendLoadability,
 ) {
 
     /**
@@ -153,9 +153,10 @@ class VoiceNoteAutoTranscriber @Inject constructor(
     /**
      * The source's model pin through the shared profile resolver (the
      * pin is this source's sourceDefault scope; R5 fills no other scope).
-     * A blank pin, a pin on a model that is no longer installed, and a
-     * pin equal to the active model all resolve to null: no override
-     * extra, so two-pass and the warm resident model stay intact.
+     * A blank pin, a pin on a model that cannot be loaded (see
+     * [BackendLoadability]), and a pin equal to the active model all
+     * resolve to null: no override extra, so two-pass and the warm
+     * resident model stay intact.
      */
     private suspend fun resolveBackendOverride(source: VoiceNoteSource): String? {
         val pin = when (source) {
@@ -163,18 +164,16 @@ class VoiceNoteAutoTranscriber @Inject constructor(
             VoiceNoteSource.WHATSAPP_BUSINESS -> preferencesManager.voiceNoteBusinessBackendId.first()
             VoiceNoteSource.WATCHED_FOLDER -> null
         }
-        // The installed set is read only when there is a pin to check.
-        val installed: Set<String> =
-            if (pin.isNullOrBlank()) {
-                emptySet()
-            } else {
-                activeModelRepository.installedBackendsFlow.first().mapTo(HashSet()) { it.backendId }
-            }
+        // The pin is the only id the resolver can ask about; its
+        // loadability is read from persisted state (BackendLoadability),
+        // never the cold-start-empty records StateFlow.
+        val loadablePin: String? =
+            pin?.trim()?.takeIf { it.isNotEmpty() && backendLoadability.isLoadable(it) }
         val resolved = TranscriptionProfileResolver.resolve(
             chain = ScopeChain(sourceDefault = TranscriptionProfile.of(pin, null)),
             languageModels = emptyMap(),
             globalBackendId = preferencesManager.transcriptionBackend.first(),
-            isLoadable = { id -> id.isNotBlank() && id in installed },
+            isLoadable = { id -> id == loadablePin },
             support = { _, _ -> LanguageSupport.IGNORES },
         )
         Log.i(

@@ -9,7 +9,6 @@ import com.antivocale.app.service.InferenceService
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
@@ -40,15 +39,28 @@ class VoiceNoteAutoTranscriberTest {
 
     private val prefs = FakePreferencesManager()
 
-    /** The installed set the loadability check reads (backend ids). */
-    private fun installed(vararg backendIds: String) = mockk<ActiveModelRepository> {
-        every { installedBackendsFlow } returns flowOf(backendIds.map { InstalledBackend(it, it) })
+    private val modelsRoot: java.io.File =
+        java.nio.file.Files.createTempDirectory("voicenote-loadability").toFile()
+
+    /** The external store the loadability check reads (persisted records). */
+    private val store = ExternalModelStore(prefs)
+
+    /**
+     * A real [BackendLoadability] over [prefs] and [store], with each
+     * built-in id's saved model path pointing at an existing dir.
+     */
+    private fun installed(vararg backendIds: String): BackendLoadability {
+        backendIds.forEach { id ->
+            val dir = java.io.File(modelsRoot, id.replace(':', '_')).apply { mkdirs() }
+            prefs._sherpaModelPath(id).value = dir.absolutePath
+        }
+        return BackendLoadability(prefs, store)
     }
 
     private fun impl(
         resolveResult: String?,
         alreadyTranscribed: Boolean = false,
-        activeModels: ActiveModelRepository = installed(),
+        activeModels: BackendLoadability = installed(),
     ) = VoiceNoteAutoTranscriber(
         context,
         mockk<VoiceNoteTreeGrant> {
@@ -235,7 +247,7 @@ class VoiceNoteAutoTranscriberTest {
     /** Enqueues one resolvable note and returns the started service intent. */
     private suspend fun enqueuedIntent(
         source: VoiceNoteSource,
-        activeModels: ActiveModelRepository,
+        activeModels: BackendLoadability,
     ): android.content.Intent {
         val transcriber = VoiceNoteAutoTranscriber(
             context,
@@ -302,4 +314,45 @@ class VoiceNoteAutoTranscriberTest {
         val intent = enqueuedIntent(VoiceNoteSource.WHATSAPP, installed("whisper", "sherpa-onnx"))
         assertEquals(false, intent.hasExtra(InferenceService.EXTRA_BACKEND_OVERRIDE))
     }
+
+    /**
+     * Review fix 1(b): the provider StateFlow the old check read starts
+     * empty on a cold start; the persisted record alone must make the
+     * pin loadable. Nothing here feeds an ExternalModelRecordsProvider,
+     * which is exactly the cold-start state the old check saw.
+     */
+    @Test
+    fun `an external pin with a persisted record counts as loadable on a cold start`() = runBlocking {
+        val dir = java.io.File(modelsRoot, "ext-ok").apply { mkdirs() }
+        store.add(externalRecord("ok-id", dir.absolutePath))
+        prefs._voiceNoteBackendId.value = "external:ok-id"
+        val intent = enqueuedIntent(VoiceNoteSource.WHATSAPP, installed("sherpa-onnx"))
+        assertEquals("external:ok-id", intent.getStringExtra(InferenceService.EXTRA_BACKEND_OVERRIDE))
+    }
+
+    /**
+     * Review fix 1(a): a non-blank saved path is not enough; a built-in
+     * pin whose model dir was deleted degrades to the active model.
+     */
+    @Test
+    fun `a built-in pin whose model files are gone degrades to the active model`() = runBlocking {
+        prefs._sherpaModelPath("whisper").value = java.io.File(modelsRoot, "deleted-whisper").absolutePath
+        prefs._voiceNoteBackendId.value = "whisper"
+        val intent = enqueuedIntent(VoiceNoteSource.WHATSAPP, BackendLoadability(prefs, store))
+        assertEquals(false, intent.hasExtra(InferenceService.EXTRA_BACKEND_OVERRIDE))
+    }
+
+    private fun externalRecord(id: String, dir: String) = ExternalModelRecord(
+        id = id,
+        displayName = "Model $id",
+        dir = dir,
+        family = ModelFamily.TRANSDUCER,
+        modelType = "nemo_transducer",
+        languages = emptyList(),
+        source = ExternalModelSource.URL,
+        sourceUrl = null,
+        files = emptyMap(),
+        sizeBytes = 1L,
+        importedAt = 0L,
+    )
 }
