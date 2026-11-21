@@ -299,6 +299,33 @@ class FolderScanPlannerTest {
     }
 
     @Test
+    fun `unseen entries of a capped walk are bounded, awaiting first, then the oldest facts`() {
+        val previous = listOf(
+            FileSnapshot("Calls/old-fact.m4a", 1, 100),
+            FileSnapshot("Calls/awaiting.m4a", 2, null),
+            FileSnapshot("Calls/new-fact.m4a", 3, 300),
+            FileSnapshot("Calls/mid-fact.m4a", 4, 200),
+        )
+        val plan = FolderScanPlanner.plan(
+            emptyList(), previous, now = 1000, listingComplete = false, unseenRetention = 2,
+        )
+        assertEquals(
+            setOf(FileSnapshot("Calls/new-fact.m4a", 3, 300), FileSnapshot("Calls/mid-fact.m4a", 4, 200)),
+            plan.nextSnapshot.toSet(),
+        )
+
+        // repeated capped scans after deletions never grow past the bound
+        var snapshot = previous
+        repeat(5) { round ->
+            val seen = listOf(child("root-$round.m4a", size = 5))
+            snapshot = FolderScanPlanner.plan(
+                seen, snapshot, now = 2000L + round, listingComplete = false, unseenRetention = 2,
+            ).nextSnapshot
+        }
+        assertTrue("snapshot grew to ${snapshot.size}", snapshot.size <= 3)
+    }
+
+    @Test
     fun `the stability recheck backoff starts within seconds and ends`() {
         assertEquals(3L, FolderScanPlanner.recheckDelaySeconds(0))
         var total = 0L

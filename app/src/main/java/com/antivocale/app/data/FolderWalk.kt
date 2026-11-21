@@ -16,9 +16,9 @@ package com.antivocale.app.data
  *    listed. Recorder layouts nest by app/year/month/contact at most four
  *    deep; six leaves margin without following a storage tree all the way.
  *  - [MAX_ENTRIES] = 2000 rows in total (files AND directories, audio or
- *    not: the cost is the rows read). The snapshot store's size contract
- *    (one JSON key, tens of KB for hundreds of files) stays within its
- *    budget at that size. The ROOT listing is always read whole, as before
+ *    not: the cost is the rows read). This bounds what ONE walk lists; the
+ *    persisted snapshot of a capped tree also keeps entries the walk did not
+ *    reach, under FolderScanPlanner.DEFAULT_UNSEEN_RETENTION. The ROOT listing is always read whole, as before
  *    recursion existed (a root-only folder of any size keeps working
  *    unchanged); its rows count toward the budget, which then bounds only
  *    what subdirectories add.

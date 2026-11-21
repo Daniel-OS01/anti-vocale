@@ -41,7 +41,11 @@ import com.antivocale.app.util.SharedAudioHandler
  *    unseen is not vanished. Every previous entry whose name the listing
  *    lacks is kept verbatim (enqueued or awaiting) and does not count
  *    against the retention cap, so a capped walk never forgets a dedup fact
- *    or a stability baseline.
+ *    or a stability baseline. Those unseen entries have their OWN bound,
+ *    [DEFAULT_UNSEEN_RETENTION]: a tree that stays capped would otherwise
+ *    carry every file it ever held (deleted ones included) forever. Past
+ *    the bound the awaiting entries go first (they only restart a
+ *    stability wait), then the oldest enqueued facts.
  *  - At most [batchCap] files enqueue per run (huge folders drain over
  *    successive runs); the deferred rest stay eligible for the next scan.
  *
@@ -87,6 +91,14 @@ object FolderScanPlanner {
 
     const val DEFAULT_BATCH_CAP = 20
     const val DEFAULT_PROCESSED_RETENTION = 1000
+
+    /**
+     * The bound on entries a capped walk did not reach (see POLICY). Generous
+     * against the walk's 2000-row budget so a capped tree's facts survive
+     * several walks' worth of churn, and small enough that the folder's JSON
+     * stays a few hundred KB at worst.
+     */
+    const val DEFAULT_UNSEEN_RETENTION = 5000
 
     /** Audio-only containers; the video containers come from the share
      *  flow's set (the audio track is extracted at decode time), so the
@@ -186,6 +198,7 @@ object FolderScanPlanner {
         processedRetention: Int = DEFAULT_PROCESSED_RETENTION,
         /** False when the walk was capped: absent entries are unseen, not vanished (see POLICY). */
         listingComplete: Boolean = true,
+        unseenRetention: Int = DEFAULT_UNSEEN_RETENTION,
     ): Plan {
         require(batchCap > 0) { "batchCap must drain (was $batchCap)" }
         require(processedRetention > 0) { "processedRetention must keep facts (was $processedRetention)" }
@@ -225,7 +238,13 @@ object FolderScanPlanner {
         val absent = previous.filter { it.name !in listed }
         // A capped walk did not reach the absent entries: all of them stay
         // verbatim, outside the retention cap (see POLICY).
-        val unseenKept = if (listingComplete) emptyList() else absent
+        val unseenKept = if (listingComplete) {
+            emptyList()
+        } else {
+            // Awaiting entries sort first (MIN), so the bound drops them
+            // before any enqueued fact, then the oldest facts.
+            absent.sortedBy { it.enqueuedAt ?: Long.MIN_VALUE }.takeLast(unseenRetention.coerceAtLeast(0))
+        }
         val vanishedFacts = if (listingComplete) {
             absent.filter { it.enqueuedAt != null }.sortedBy { it.enqueuedAt!! }
         } else {
