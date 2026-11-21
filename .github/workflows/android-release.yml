@@ -1,1121 +1,138 @@
 name: Android CI/CD
 
+# Fork workflow: unit tests on every push/PR to main; a GitHub Release (APKs only) for every
+# pushed tag v* or a manual run with a tag. No Play Store, F-Droid or store-listing steps.
+#
+# Optional repository secrets:
+#   KEYSTORE_BASE64      base64 of a release keystore  } both set -> the release APK is signed
+#   KEYSTORE_PROPERTIES  keystore.properties content   }   (storeFile=release.keystore, ...)
+#   DEBUG_KEYSTORE_BASE64  base64 of a debug.keystore -> debug APKs keep one signature across
+#                          releases, so a new one installs over the previous one
+# Without secrets the release still works: the debug APKs (package com.antivocale.app.debug)
+# install as-is; the release APK is then unsigned and must be signed before installing.
+
 on:
   push:
     branches: [ main ]
+    tags: [ 'v*' ]
   pull_request:
     branches: [ main ]
-  release:
-    types: [ published, prereleased ]
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Release tag to attach APK to (e.g., 0.1)'
-        required: false
-      commit:
-        description: 'Build-first mode (TASK-446): full SHA to build from BEFORE the tag exists. No release is created; all release assets upload as workflow artifacts for scripts/release-create.sh. Mutually exclusive with tag.'
-        required: false
-      play-store-track:
-        description: 'Upload AAB to Play Store track'
-        type: choice
-        options:
-          - ''
-          - internal
-          - production
-        default: ''
-      draft-release:
-        description: 'Create as draft (not published)'
-        type: boolean
-        default: false
+        description: 'Tag to build and release (created on the current commit if it does not exist), e.g. v1.18.0-fork.1'
+        required: true
 
 permissions:
   contents: write
 
-env:
-  # TASK-645: true on every release-tagged mode (release event, or a dispatch
-  # carrying an explicit tag). Steps that must not run on build-first
-  # (commit-only) or publish-only (track-only) dispatches key on this env
-  # instead of repeating the event matrix inline; the runbook's dispatch-mode
-  # section remains the source of truth for what each mode means.
-  TAG_ANCHORED: ${{ github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && github.event.inputs.tag != '') }}
-  # TASK-853: true on the Play publish modes (a published release, or a
-  # dispatch carrying a play-store track). The whistle-engine fetch and the
-  # Release AAB build share this gate so they cannot drift apart (the AAB's
-  # CMake configure dies without the fetched engine); keyed once here
-  # instead of repeating the event matrix inline, the TAG_ANCHORED
-  # convention.
-  PLAY_RELEASE_BUILD: ${{ (github.event_name == 'release' && github.event.action == 'published') || (github.event_name == 'workflow_dispatch' && github.event.inputs.play-store-track != '') }}
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  # TASK-683.9: every runs-on in this file is pinned to ubuntu-24.04 because
-  # the ubuntu-latest label migrates to Ubuntu 26 beginning 2026-10-19
-  # (actions/runner-images issue 14748, seen as a job annotation on the
-  # 2026-09-26 runs). Unpin deliberately, after validating 26, never by drift.
   test:
     name: Unit tests
     runs-on: ubuntu-24.04
-
+    timeout-minutes: 60
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v7
+      - uses: actions/checkout@v7
 
-      - name: Set up JDK 21
-        uses: actions/setup-java@v6
+      - uses: actions/setup-java@v6
         with:
           distribution: 'temurin'
           java-version: '21'
           cache: 'gradle'
 
-      # TASK-354 (CI flake): Robolectric fetches android-all jars from Maven Central
-      # at test RUNTIME on a cold runner (MavenArtifactFetcher; slow egress kills the
-      # whole class, 5/50 runs). The jars cache in ~/.m2/repository; caching that
-      # path makes the fetch a local hit after the first run. NOTE: the jars must
-      # NOT be declared as Gradle test dependencies - on the classpath they break
-      # Robolectric's sandbox (verified: 10 previously-green tests fail).
-      # TASK-683.9: actions/cache@v4 targets Node 20 and is force-migrated to
-      # Node 24 (GitHub changelog 2025-09-19); v5 is the first major running
-      # node24 natively.
-      - name: Cache Robolectric android-all artifacts
-        uses: actions/cache@v6
+      # Robolectric downloads android-all jars at test runtime; cache them.
+      - uses: actions/cache@v6
         with:
           path: ~/.m2/repository/org/robolectric
           key: robolectric-androidall-4.12.1-sdk31-34
-          
-      - name: Grant execute permission for gradlew
-        run: chmod +x gradlew
-
-      - name: Check sherpa version sync (issue #38)
-        run: ./scripts/check-sherpa-sync.sh
-
-      - name: Check model size claims match the catalog (TASK-923)
-        run: ./scripts/check-model-sizes.sh
-
-      - name: Check translation package freshness (TASK-950)
-        run: ./scripts/check-translation-package.sh
 
       - name: Fetch sherpa-onnx AAR
-        run: ./scripts/fetch-sherpa-aar.sh
+        run: chmod +x gradlew && ./scripts/fetch-sherpa-aar.sh
 
-      # TASK-853/854: NO whistle-engine fetch here. The JVM suite never
-      # builds native code (libneedle.a is a link input, not a classpath
-      # entry, unlike the sherpa AAR above); the first version of this step
-      # fetched anyway and its unpinned pip dependency broke CI (the
-      # cactus-needle package reshuffled its entry points in 3.2.7). The
-      # Build job fetches the engine where the native builds need it.
-
-      # Fdroid flavor on purpose: the google-services plugin does not apply
-      # to Fdroid tasks, so unit tests need no Firebase json. (The playStore
-      # debug variant has the .debug applicationId suffix, which the Firebase
-      # client list does not contain.) The suite is flavor-shared: 611 tests
-      # pass identically under both flavors.
+      # fdroid flavor: no Firebase google-services.json needed.
       - name: Run unit tests (fdroid debug)
-        # TASK-960 incident #4 (2026-11-09): this step wedged twice on CI
-        # (two different runners, 60+ min, cancel never landed; green
-        # locally in every shape). A step-level timeout turns that wedge
-        # class into a normal step failure, so the failure-conditional
-        # upload below runs and the log names the stall. 45 min is ~10x
-        # the slowest legitimate green step (green workflows finish in
-        # 7-16 min END TO END); do not lower it for flake comfort.
         timeout-minutes: 45
         run: ./gradlew :app:testFdroidDebugUnitTest --console=plain
 
-      # TASK-920: scripts/tests rides with the JVM suite in this job because
-      # the job gates publish. Deps come from scripts/requirements-test.txt
-      # (pinned; shared with store-listing.yml so the suite and the shipped
-      # uploader validate the same import surface). Feedback-latency and
-      # attribution trade-offs of hosting here are recorded in TASK-920.
-      - uses: actions/setup-python@v7
-        with:
-          python-version: '3.12'
-
-      - name: Scripts unit tests
-        # Same wedge class as the unit-test timeout above (a stuck pip
-        # install is the classic runner hang); step-level so a failure()
-        # diagnostic step can still run.
-        timeout-minutes: 15
-        run: |
-          python3 -m pip install --quiet -r scripts/requirements-test.txt
-          python3 -m pytest scripts/tests -q
-
-      - name: Android Lint (errors fatal; warnings baseline-pinned, TASK-251)
-        timeout-minutes: 30
-        run: ./gradlew :app:lintFdroidDebug --console=plain
-
       - name: Upload test results on failure
         if: failure()
-        # TASK-683.9: v4 targets Node 20 (forced to Node 24); v6 is the first
-        # major that runs node24 by default with no behavior change.
         uses: actions/upload-artifact@v7
         with:
-          name: unit-test-results
-          path: app/build/reports/tests/testFdroidDebugUnitTest/
+          name: test-results
+          path: app/build/reports/tests/
 
-  build:
-    name: Build
+  release:
+    name: GitHub Release
+    needs: test
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
-
+    timeout-minutes: 60
+    env:
+      TAG: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref_name }}
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v7
-        with:
-          # Build from the dispatched tag's or commit's SHA, not whatever main
-          # HEAD happens to be at run time. Without this, the APKs could be
-          # built from a different commit than the release they belong to.
-          # `commit` is the build-first mode (TASK-446): the tag does not exist
-          # yet, the SHA is the future tag target.
-          ref: ${{ github.event.inputs.commit || github.event.inputs.tag || github.ref }}
+      - uses: actions/checkout@v7
 
-      - name: Set up JDK 21
-        uses: actions/setup-java@v6
+      - uses: actions/setup-java@v6
         with:
           distribution: 'temurin'
           java-version: '21'
           cache: 'gradle'
 
-      # TASK-354 (CI flake): Robolectric fetches android-all jars from Maven Central
-      # at test RUNTIME on a cold runner (MavenArtifactFetcher; slow egress kills the
-      # whole class, 5/50 runs). The jars cache in ~/.m2/repository; caching that
-      # path makes the fetch a local hit after the first run. NOTE: the jars must
-      # NOT be declared as Gradle test dependencies - on the classpath they break
-      # Robolectric's sandbox (verified: 10 previously-green tests fail).
-      # TASK-683.9: actions/cache@v4 targets Node 20 and is force-migrated to
-      # Node 24 (GitHub changelog 2025-09-19); v5 is the first major running
-      # node24 natively.
-      - name: Cache Robolectric android-all artifacts
-        uses: actions/cache@v6
-        with:
-          path: ~/.m2/repository/org/robolectric
-          key: robolectric-androidall-4.12.1-sdk31-34
-          
-      - name: Grant execute permission for gradlew
-        run: chmod +x gradlew
-
-      - name: Write google-services.json
-        run: echo "${{ secrets.GOOGLE_SERVICES_JSON_B64 }}" | base64 -d > app/google-services.json
-
       - name: Fetch sherpa-onnx AAR
-        # Tag dispatches may check out a pre-script commit; fall back to the
-        # inline download there (same pinned URL the script uses).
+        run: chmod +x gradlew && ./scripts/fetch-sherpa-aar.sh
+
+      - name: Install signing material (optional)
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PROPERTIES: ${{ secrets.KEYSTORE_PROPERTIES }}
+          DEBUG_KEYSTORE_BASE64: ${{ secrets.DEBUG_KEYSTORE_BASE64 }}
         run: |
-          if [ -x scripts/fetch-sherpa-aar.sh ]; then
-            ./scripts/fetch-sherpa-aar.sh
+          if [ -n "$KEYSTORE_BASE64" ] && [ -n "$KEYSTORE_PROPERTIES" ]; then
+            printf '%s' "$KEYSTORE_BASE64" | base64 -d > app/release.keystore
+            printf '%s\n' "$KEYSTORE_PROPERTIES" > keystore.properties
+            echo "SIGNED_RELEASE=true" >> "$GITHUB_ENV"
           else
-            mkdir -p app/libs
-            curl -fL --retry 3 -o app/libs/sherpa-onnx.aar \
-              https://github.com/k2-fsa/sherpa-onnx/releases/download/v2.0.2/sherpa-onnx-2.0.2.aar
+            echo "No release keystore secrets: the release APK will be unsigned."
+            echo "SIGNED_RELEASE=false" >> "$GITHUB_ENV"
+          fi
+          if [ -n "$DEBUG_KEYSTORE_BASE64" ]; then
+            mkdir -p ~/.android
+            printf '%s' "$DEBUG_KEYSTORE_BASE64" | base64 -d > ~/.android/debug.keystore
           fi
 
-      # TASK-853: the Whistle JNI bridge needs libneedle.a per arm ABI (the
-      # CMake configure fails loudly without it). Pinned+verified downloads
-      # (scripts/fetch-whistle-engine.sh). Only the playStore AAB below
-      # consumes the real engine: every fdroid arm in this job builds the
-      # stub form under -PwhistleEngineDisabled, so the fetch carries the
-      # AAB's own condition and plain push/PR runs download nothing.
-      - name: Fetch whistle engine
-        if: env.PLAY_RELEASE_BUILD == 'true'
-        # The pre-script guard matters for the reachable pre-whistle cases
-        # (a release event on an old tag, a commit-input dispatch carrying a
-        # play-store track): those checkouts predate the script and their
-        # CMake wants no engine; skip with a note instead of exiting 127.
+      # fdroid flavor = Firebase-free; -PwhistleEngineDisabled builds the stub whistle bridge
+      # (the prebuilt engine is only fetched for the upstream Play build).
+      - name: Build APKs
+        run: ./gradlew assembleFdroidRelease assembleFdroidDebug -PwhistleEngineDisabled --console=plain
+
+      - name: Collect release assets
         run: |
-          if [ -x scripts/fetch-whistle-engine.sh ]; then
-            ./scripts/fetch-whistle-engine.sh
-          else
-            echo "fetch-whistle-engine.sh absent on this ref (pre-TASK-853); no engine needed"
-          fi
-
-      - name: Build fdroid Release APK
-        id: fdroid-apk
-        # Firebase-free APK for F-Droid / GitHub Releases / sideloading.
-        # No google-services.json or keystore needed (unsigned for F-Droid re-signing).
-        # TASK-854: -PwhistleEngineDisabled mirrors the F-Droid recipe (the
-        # fdroid channel ships the stub bridge; upstream's prebuilt-only
-        # engine cannot enter a source-built package).
-        run: ./gradlew assembleFdroidRelease -PwhistleEngineDisabled
-
-      # Issue #32: tester-friendly APKs with direct download links. Debug
-      # builds are already signed with the standard Android debug keystore
-      # (generated on the fly by Gradle in CI), so they install as-is.
-      # TASK-641 late review: fdroid ONLY, no playStore fallback. The CI
-      # google-services.json carries no client for the .debug suffix, so
-      # assemblePlayStoreDebug always fails at processPlayStoreDebugGoogleServices
-      # (the same failure that killed the old playStore-first order, leaving
-      # half-written split outputs behind); a fallback that cannot succeed
-      # only buries the fdroid error under a second failure. FdroidDebug skips
-      # the google-services plugin entirely (taskNames contains "Fdroid").
-      - name: Build per-ABI debug APKs (tester builds)
-        # tag OR commit dispatch: build-first (commit) produces the tester APKs
-        # as artifacts too; only the attach steps below stay tag-only.
-        if: >-
-          github.event_name == 'release' ||
-          (github.event_name == 'workflow_dispatch' && (github.event.inputs.tag != '' || github.event.inputs.commit != ''))
-        run: ./gradlew assembleFdroidDebug -PwhistleEngineDisabled
-
-      - name: Build Release AAB
-        id: playstore-aab
-        # The PLAY_RELEASE_BUILD gate (shared with the engine fetch above).
-        if: env.PLAY_RELEASE_BUILD == 'true'
-        run: |
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > app/release.keystore
-          echo "${{ secrets.KEYSTORE_PROPERTIES }}" > keystore.properties
-          sed -i 's|storeFile=.*|storeFile=release.keystore|' keystore.properties
-          ./gradlew bundlePlayStoreRelease
-
-      # TASK-976: the AAB locale gate. Play's translation validation
-      # rejects bundles carrying languages it cannot translate, and the
-      # AAB inherits every LIBRARY locale (AndroidX ships dozens; v1.16.0's
-      # first publish died on Telugu). The gradle localeFilters strip them;
-      # this verifies the ARTIFACT so a config regression or a new library
-      # locale fails HERE, minutes after the bundle build, instead of at
-      # the store upload (which burns the release-event publish and needs
-      # the recovery dispatch). One step, no cache: the gate fires on
-      # release runs weeks apart, and the script self-downloads the pinned
-      # bundletool jar (32MB, version-keyed) when missing.
-      - name: Verify AAB locale set (Play translation gate)
-        if: steps.playstore-aab.outcome == 'success'
-        run: |
-          ./scripts/check-aab-locales.sh \
-            app/build/outputs/bundle/playStoreRelease/app-playStore-release.aab
-
-      - name: Extract release notes
-        if: >-
-          (github.event_name == 'release' && github.event.action == 'published') ||
-          (github.event_name == 'workflow_dispatch' && github.event.inputs.play-store-track != '')
-        env:
-          RELEASE_BODY: ${{ github.event.release.body }}
-        run: |
-          python3 scripts/extract-release-notes.py \
-            --fallback "$RELEASE_BODY" \
-            --output-dir whats-new
-
-      - name: Upload fdroid Release APK artifact
-        if: steps.fdroid-apk.outcome == 'success'
-        # TASK-683.9: node24-native major (see the test-job comment).
-        uses: actions/upload-artifact@v7
-        with:
-          name: app-fdroid-release
-          path: app/build/outputs/apk/fdroid/release/app-fdroid-*-release-unsigned.apk
-
-      - name: Upload Release AAB artifact
-        if: >-
-          (github.event_name == 'release' && github.event.action == 'published') ||
-          (github.event_name == 'workflow_dispatch' && github.event.inputs.play-store-track != '')
-        # TASK-683.9: node24-native major (see the test-job comment).
-        uses: actions/upload-artifact@v7
-        with:
-          name: app-release-aab
-          path: app/build/outputs/bundle/playStoreRelease/app-playStore-release.aab
-          if-no-files-found: error
-
-      # TASK-729: the Crashlytics Gradle plugin already uploads this
-      # mapping during bundlePlayStoreRelease (uploadCrashlyticsMapping-
-      # FilePlayStoreRelease), but PLAY Vitals and local retrace have no
-      # copy: keep it as a workflow artifact (NOT a public release asset -
-      # publishing it would make the shipped build's obfuscation
-      # reversible by anyone) and hand it to Play with the AAB below
-      # (the mappingFile input on the publish step).
-      - name: Upload playStore R8 mapping artifact
-        # The mapping is a co-product of the AAB build: key on its outcome
-        # (the file's own idiom) instead of repeating the event matrix.
-        if: steps.playstore-aab.outcome == 'success' 
-        # TASK-683.9: node24-native major (see the test-job comment).
-        uses: actions/upload-artifact@v7
-        with:
-          name: app-playstore-mapping
-          path: app/build/outputs/mapping/playStoreRelease/mapping.txt
-          if-no-files-found: error
-
-      - name: Upload release notes artifact
-        if: >-
-          (github.event_name == 'release' && github.event.action == 'published') ||
-          (github.event_name == 'workflow_dispatch' && github.event.inputs.play-store-track != '')
-        uses: actions/upload-artifact@v7
-        with:
-          name: release-notes
-          path: whats-new/
-
-      # Issue #32 naming contract: the tester APKs are attached under names
-      # DISTINCT from the canonical F-Droid assets (app-fdroid-<abi>-release.apk
-      # and app-fdroid-<abi>-release-unsigned.apk, which the F-Droid recipe's
-      # binary: URLs and reproducibility checks depend on). Only these prefixed
-      # names may be used for tester builds:
-      #   antivocale-debug-<abi>.apk            (debug build, debug-signed by Gradle)
-      #   antivocale-fdroid-testsigned-<abi>.apk (fdroid release build, debug-signed below)
-      # Files are COPIED into test-apks/ before any signing: the outputs dir is
-      # never modified in place, so the unsigned canonical APKs stay byte-clean
-      # for the reproducible-fdroid job.
-      - name: Stage tester APKs under canonical tester names
-        if: >-
-          github.event_name == 'release' ||
-          (github.event_name == 'workflow_dispatch' && (github.event.inputs.tag != '' || github.event.inputs.commit != ''))
-        run: |
-          set -eu
-          mkdir -p test-apks
-          # Debug APKs: per-ABI split output (splits.abi applies to every
-          # assemble* variant; see app/build.gradle.kts). Fdroid flavor only
-          # since the TASK-641 tester fix (the build step above has no other).
-          for APK in app/build/outputs/apk/fdroid/debug/app-fdroid-*-debug.apk; do
-            ABI=$(basename "$APK" | sed -E "s/^app-fdroid-(.+)-debug\.apk$/\1/")
-            cp "$APK" "test-apks/antivocale-debug-${ABI}.apk"
-          done
-          ls test-apks/antivocale-debug-*.apk
-          # Fdroid release unsigned copies, to be test-signed next.
-          for ABI in armeabi-v7a arm64-v8a x86_64; do
-            cp "app/build/outputs/apk/fdroid/release/app-fdroid-${ABI}-release-unsigned.apk" \
-               "test-apks/antivocale-fdroid-testsigned-${ABI}.apk"
-          done
-          ls test-apks/
-
-      # Test-sign ONLY the staged copies. TASK-926 (GH #124 reopen): the
-      # keystore is now STABLE, pinned as the CI_TEST_KEYSTORE_BASE64 secret,
-      # so test-signed builds update in place over previous test-signed builds
-      # (the reporter's clean-install-every-release pain). SIGNATURE CAVEAT
-      # (issue #32): these APKs remain signed with a debug key, different
-      # from both the Play Store build and the F-Droid build. They will NOT
-      # install as an update over either store version; they install
-      # alongside (or require uninstalling the store version first). The
-      # "testsigned" asset name encodes this. When the secret is absent
-      # (first run, or a fork), the step falls back to a fresh key and the
-      # release notes carry the old caveat.
-      - name: Test-sign staged fdroid APKs with the stable CI debug keystore
-        if: >-
-          github.event_name == 'release' ||
-          (github.event_name == 'workflow_dispatch' && (github.event.inputs.tag != '' || github.event.inputs.commit != ''))
-        env:
-          # Env mapping, never interpolated into the script text: the secret's
-          # bytes must not be able to break the step's shell quoting.
-          CI_TEST_KEYSTORE_BASE64: ${{ secrets.CI_TEST_KEYSTORE_BASE64 }}
-        run: |
-          set -eu
-          if [ -n "$CI_TEST_KEYSTORE_BASE64" ]; then
-            echo "Using the pinned CI test keystore (stable identity)"
-            printf '%s' "$CI_TEST_KEYSTORE_BASE64" | base64 -d > debug.keystore
-          else
-            echo "CI_TEST_KEYSTORE_BASE64 not set; falling back to a fresh key (this build will NOT update in place)"
-            keytool -genkeypair -keystore debug.keystore -alias androiddebugkey \
-              -storepass android -keypass android -keyalg RSA -keysize 2048 \
-              -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
-          fi
-          # apksigner ships with the runner's Android SDK build-tools.
-          APKSIGNER=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
-          for ABI in armeabi-v7a arm64-v8a x86_64; do
-            "$APKSIGNER" sign --ks debug.keystore --ks-key-alias androiddebugkey \
-              --ks-pass pass:android --key-pass pass:android \
-              "test-apks/antivocale-fdroid-testsigned-${ABI}.apk"
-            "$APKSIGNER" verify "test-apks/antivocale-fdroid-testsigned-${ABI}.apk"
-          done
-
-      # CHRONIC RED FIX (2026-10-09, since at least v1.13.1): in build-first
-      # flow the release already exists with all 12 canonical assets (attached
-      # atomically by release-create.sh BEFORE the release event fires), and
-      # the GITHUB_TOKEN cannot update a release authored by an external PAT
-      # ("Resource not accessible by integration" on update-a-release). The
-      # attach steps below are for the legacy workflow-publishes mode; skip
-      # them when the canonical signed set is already on the release.
-      - name: Probe release for canonical assets
-        if: env.TAG_ANCHORED == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          REL_TAG="${{ github.event.inputs.tag || github.ref_name }}"
-          if gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${REL_TAG}" --jq '.assets[].name' 2>/dev/null              | sort > /tmp/assets &&              grep -qx app-fdroid-armeabi-v7a-release.apk /tmp/assets &&              grep -qx app-fdroid-arm64-v8a-release.apk /tmp/assets &&              grep -qx app-fdroid-x86_64-release.apk /tmp/assets; then
-            echo "RELEASE_ASSETS_PRESENT=true" >> "$GITHUB_ENV"
-            echo "canonical signed assets already on $REL_TAG: attach steps will skip"
-          else
-            echo "RELEASE_ASSETS_PRESENT=false" >> "$GITHUB_ENV"
-            echo "canonical set incomplete on $REL_TAG: attach steps will run"
-          fi
-      - name: Attach APKs to GitHub Release
-        if: env.TAG_ANCHORED == 'true' && env.RELEASE_ASSETS_PRESENT != 'true'
-        # TASK-683.9: v3 is the node24 runtime line; v3.0.0 is a runtime move only, no input changes.
-        uses: softprops/action-gh-release@v3
-        with:
-          tag_name: ${{ github.event.inputs.tag || '' }}
-          files: |
-            app/build/outputs/apk/fdroid/release/app-fdroid-armeabi-v7a-release-unsigned.apk
-            app/build/outputs/apk/fdroid/release/app-fdroid-arm64-v8a-release-unsigned.apk
-            app/build/outputs/apk/fdroid/release/app-fdroid-x86_64-release-unsigned.apk
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      # Issue #32: direct-download tester APKs (no GitHub login needed, unlike
-      # workflow artifacts). Same trigger conditions as the attach step above.
-      - name: Attach tester APKs to GitHub Release
-        if: env.TAG_ANCHORED == 'true' && env.RELEASE_ASSETS_PRESENT != 'true'
-        uses: softprops/action-gh-release@v3
-        with:
-          tag_name: ${{ github.event.inputs.tag || '' }}
-          files: |
-            test-apks/antivocale-debug-armeabi-v7a.apk
-            test-apks/antivocale-debug-arm64-v8a.apk
-            test-apks/antivocale-debug-x86_64.apk
-            test-apks/antivocale-fdroid-testsigned-armeabi-v7a.apk
-            test-apks/antivocale-fdroid-testsigned-arm64-v8a.apk
-            test-apks/antivocale-fdroid-testsigned-x86_64.apk
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      # Build-first (TASK-446): no release exists to attach to; the staged
-      # tester APKs upload as an artifact that scripts/release-create.sh
-      # downloads and attaches when it creates tag + release together.
-      - name: Upload tester APKs artifact (build-first mode)
-        if: >-
-          github.event_name == 'workflow_dispatch' &&
-          github.event.inputs.commit != '' && github.event.inputs.tag == ''
-        uses: actions/upload-artifact@v7
-        with:
-          name: tester-apks
-          path: test-apks/*.apk
-          if-no-files-found: error
-
-  publish-play-store:
-    name: Publish to Play Store
-    runs-on: ubuntu-24.04
-    if: >-
-      (github.event_name == 'release' && github.event.action == 'published') ||
-      (github.event_name == 'workflow_dispatch' && github.event.inputs.play-store-track != '')
-    # TASK-683.6: `needs: build` alone let a red test suite reach the production
-    # environment gate (the human approver was the only barrier). tests must
-    # pass before publish is even scheduled.
-    needs: [test, build]
-    environment: production
-
-    steps:
-      # TASK-683.9: v7 is the first download-artifact major running node24 by
-      # default (v5 changed single-artifact path behavior, v6 still defaulted
-      # to Node 20).
-      - name: Download Release AAB
-        uses: actions/download-artifact@v8
-        with:
-          name: app-release-aab
-
-      - name: Download release notes
-        uses: actions/download-artifact@v8
-        with:
-          name: release-notes
-          path: whats-new
-
-      - name: Download playStore R8 mapping
-        # TASK-729: Play Vitals reads the deobfuscation file only if it
-        # ships WITH the AAB (the action's mappingFile input); the build
-        # job keeps the artifact from the same run as the AAB.
-        uses: actions/download-artifact@v8
-        with:
-          name: app-playstore-mapping
-          path: mapping
-
-      - name: Upload AAB to Play Store
-        # TASK-683.9: the v1 line is node24-native since v1.1.4 (action.yml
-        # runs.using at the v1 tag, checked 2026-09-28); nothing to defer here.
-        uses: r0adkll/upload-google-play@v1
-        with:
-          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
-          packageName: com.antivocale.app
-          releaseFiles: app-playStore-release.aab
-          # TASK-729: deobfuscation file for Play Vitals stack traces.
-          mappingFile: mapping/mapping.txt
-          # TASK-683.9: the `track` input is deprecated upstream (job annotation,
-          # 2026-09-26 run); `tracks` takes the same single value here.
-          tracks: ${{ github.event.inputs.play-store-track || 'internal' }}
-          status: ${{ (github.event_name == 'workflow_dispatch' && github.event.inputs.draft-release == 'true') && 'draft' || 'completed' }}
-          whatsNewDirectory: whats-new
-
-  # TASK-683.8: cheap API-only pre-check so the release-event run does not
-  # burn ~3h45m rebuilding byte-identical signed references. It skips the
-  # rebuild only when BOTH hold: the signed per-ABI APKs are already attached
-  # to the release (the build-first flow: scripts/release-create.sh attached
-  # the dispatch run's references moments before creating the tag) AND the
-  # mirror recipe still points at the tag's commit (same identity test the
-  # rebuild's own guard performs). A separate job because a job-level if
-  # cannot call the API; on any doubt it answers skip=false and the full
-  # build runs. To FORCE a rebuild, delete the signed assets first (prepare's
-  # stale-asset cleanup does exactly that).
-  reproducible-skip-decision:
-    name: Decide whether the reproducible rebuild is needed
-    runs-on: ubuntu-24.04
-    # Run on EVERY dispatch, not only tag-carrying ones (2026-10-09, found at
-    # 1.14.0): a skipped need skips its dependents regardless of their if, so
-    # gating the decision to tag inputs silently skipped the reproducible job
-    # on every build-first (commit-only) dispatch; the release-day "success"
-    # carried no signed APKs. The decision itself is harmless when no release
-    # exists: assets_ok=false -> skip=false -> the rebuild runs.
-    if: >-
-      github.event_name == 'release' ||
-      github.event_name == 'workflow_dispatch' 
-    outputs:
-      skip: ${{ steps.decide.outputs.skip }}
-    steps:
-      - name: Check for identical signed references already on the release
-        id: decide
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RELEASE_TAG: ${{ github.event.inputs.tag || github.ref_name }}
-        run: |
-          set -eu
-          assets_ok=false
-          if gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_TAG}" --jq '.assets[].name' > /tmp/assets 2>/dev/null; then
-            cat /tmp/assets
-            if grep -qx 'app-fdroid-armeabi-v7a-release.apk' /tmp/assets \
-               && grep -qx 'app-fdroid-arm64-v8a-release.apk' /tmp/assets \
-               && grep -qx 'app-fdroid-x86_64-release.apk' /tmp/assets; then
-              assets_ok=true
-            fi
-          else
-            echo "release ${RELEASE_TAG} has no assets yet (or does not exist)"
-          fi
-          echo "signed references present: ${assets_ok}"
-          tag_commit=$(git ls-remote https://github.com/RisorseArtificiali/anti-vocale "refs/tags/${RELEASE_TAG}^{}" | awk '{print $1}')
-          if [ -z "$tag_commit" ]; then
-            tag_commit=$(git ls-remote https://github.com/RisorseArtificiali/anti-vocale "refs/tags/${RELEASE_TAG}" | awk '{print $1}')
-          fi
-          recipe_commit=$(curl -sfL \
-            https://raw.githubusercontent.com/paoloantinori/fdroid-data-mirror/av1100-slim/metadata/com.antivocale.app.yml \
-            | awk '/^[[:space:]]+commit:/{c=$2} END{print c}')
-          recipe_ok=false
-          if [ -n "$tag_commit" ] && [ -n "$recipe_commit" ] && [ "$tag_commit" = "$recipe_commit" ]; then
-            recipe_ok=true
-          fi
-          echo "tag ${RELEASE_TAG} -> ${tag_commit:-unknown}; mirror recipe newest commit: ${recipe_commit:-unknown}; recipe unchanged: ${recipe_ok}"
-          skip=false
-          if [ "$assets_ok" = true ] && [ "$recipe_ok" = true ]; then
-            skip=true
-            echo "SKIP: signed references for ${RELEASE_TAG} (armeabi-v7a, arm64-v8a, x86_64) already exist at recipe commit ${recipe_commit}; skipping the ~3h reproducible rebuild (TASK-683.8)"
-          fi
-          echo "skip=${skip}" >> "$GITHUB_OUTPUT"
-
-  # Produces the three byte-reproducible per-ABI reference APKs for F-Droid's
-  # per-build binary: check (armeabi-v7a, arm64-v8a, x86_64). Built inside
-  # F-Droid's own buildserver image (same toolchain/NDK as F-Droid CI). Each ABI
-  # is signed with the project release key and uploaded to the GitHub release as
-  # the reference APK for that ABI.
-  reproducible-fdroid:
-    name: Build reproducible F-Droid reference APKs (per-ABI)
-    runs-on: ubuntu-24.04
-    # Manual dispatch (the runbook flow: recipe pushed to the fork first) AND every
-    # release event. On a fresh release the fork recipe usually still points at the
-    # previous tag, so the recipe guard below fails LOUDLY with remediation text
-    # instead of the old behavior where this job was silently skipped and the
-    # release shipped unsigned-only (GitHub issue #27).
-    # A dispatch carrying play-store-track is a PUBLISH-ONLY run: the signed APKs
-    # already exist on the release, and re-running this ~3h sherpa source build
-    # (3 ABIs from source; 3h02m measured on v1.12.0) for a Play upload is pure
-    # waste (TASK-414, flagged during v1.11.0).
-    # TASK-683.8: needs + the skip output gate the ~3h rebuild behind the
-    # decision job above. An empty output (decision job skipped, i.e. every
-    # build-first dispatch) means "run": the comparison can never skip a
-    # flow that has no pre-existing references to reuse.
-    needs: reproducible-skip-decision
-    if: >-
-      (github.event_name == 'release' ||
-      (github.event_name == 'workflow_dispatch' && github.event.inputs.play-store-track == '')) &&
-      needs.reproducible-skip-decision.outputs.skip != 'true'
-    container:
-      image: registry.gitlab.com/fdroid/fdroidserver:buildserver-trixie
-      options: --user root
-    env:
-      ANDROID_HOME: /opt/android-sdk
-
-    steps:
-      - name: Clone fdroiddata into /home/vagrant (match F-Droid's build path)
-        run: |
-          set -ex
-          # F-Droid builds at /home/vagrant/build/srclib/...; the .so embeds that path.
-          # We MUST build from /home/vagrant so fdroid creates /home/vagrant/build/, matching byte-for-byte.
-          chown -R vagrant:vagrant /home/vagrant
-          # Recipe source: the GitHub mirror of our fdroiddata fork. The old
-          # clone pinned the anti-vocale-1.8.2 branch on the GitLab fork, so
-          # references for newer releases were still built from the stale
-          # 1.8.2-era recipe (prebuilt sherpa AAR) and never matched the
-          # fdroiddata srclib builds (MR !46215 reproducibility failure).
-          # The mirror's av1100-slim branch carries the recipe exactly as the
-          # fdroiddata MR does (srclib build, pin 3dc7c569).
-          sudo -u vagrant git clone --depth 1 --branch av1100-slim \
-            https://github.com/paoloantinori/fdroid-data-mirror.git /home/vagrant/fdroiddata
-          # fdroiddata files (config.yml, metadata/, srclibs/) need to be at the build CWD = /home/vagrant,
-          # so fdroid's build/ output lands at /home/vagrant/build (not /home/vagrant/fdroiddata/build).
-          sudo -u vagrant sh -c 'cd /home/vagrant && cp -r fdroiddata/* fdroiddata/.* . 2>/dev/null || true'
-
-      - name: Install fdroidserver (fdroid sets up the recipe NDK itself)
-        run: |
-          set -ex
-          . /etc/profile.d/bsenv.sh || true
-          export fdroidserver=/opt/fdroidserver
-          rm -rf $fdroidserver && mkdir $fdroidserver
-          # Pinned to the exact master commit that built v1.10.0 reproducibly:
-          # an unpinned master is an undeclared variable in a reproducibility
-          # pipeline. (Note for log readers: the `rsync: mkdir /tmp/repo/status
-          # failed` line further down is chronic, NON-fatal noise present in
-          # every successful build too; it was misread as a breakage once,
-          # 2026-08-30. The real failures that day were recipe-side.)
-          curl --silent https://gitlab.com/fdroid/fdroidserver/-/archive/6af4c4216e43d0fcb29e33919cd0fe8fef7e7400/fdroidserver-6af4c4216e43d0fcb29e33919cd0fe8fef7e7400.tar.gz | \
-            tar -xz --directory=$fdroidserver --strip-components=1
-          export PATH="$fdroidserver:$PATH"
-          export PYTHONPATH="$fdroidserver:$fdroidserver/examples"
-          export PYTHONUNBUFFERED=true
-          export serverwebroot=/tmp
-          # F-Droid's image ships without an NDK, and in this container fdroidserver
-          # cannot download one itself (its runners do; ours errors out immediately
-          # with "Android NDK version 'r28c' could not be found!"). Preinstall the
-          # EXACT sdkmanager version of EVERY `ndk:` pin the recipe declares, so
-          # fdroid finds a matching NDK instead of silently falling back to whatever
-          # else is present. Pins are derived from the recipe: on 2026-08-31 the
-          # 1.11.0 blocks moved to r28c while this step preinstalled only r27c, and
-          # the reference build died ~40 min in, after the srclib compile. An
-          # unmapped pin fails at setup, in seconds. A wrong-but-present version
-          # (the previous preinstall, 27.0.12077973) built every native lib
-          # with a different toolchain than the fdroiddata builds we must byte-match:
-          # that is the 371/372/374 reproducibility failure on MR !46215 (their job
-          # log: 'Set up NDK r27c (27.2.12479018)'; ours: 'Set up NDK r27').
-          chown -R vagrant:vagrant /opt/android-sdk
-
-          # Guard: recipe must exist and have NDK pins (C1: silent loop on missing file)
-          RECIPE=/home/vagrant/metadata/com.antivocale.app.yml
-          [ -f "$RECIPE" ] || { echo "::error::recipe not found at $RECIPE (clone/copy step failed)"; exit 1; }
-          NDK_PINS=$(grep -E '^[[:space:]]+ndk: ' "$RECIPE" | awk '{print $2}' | sort -u)
-          [ -n "$NDK_PINS" ] || { echo "::error::no ndk: pins found in $RECIPE"; exit 1; }
-
-          NDK_MAP="r27=27.0.12077973 r27c=27.2.12479018 r28c=28.2.13676358"
-          UNMAPPED=""
-          PACKAGES=""
-          for PIN in $NDK_PINS; do
-            EXACT=""
-            for M in $NDK_MAP; do if [ "${M%%=*}" = "$PIN" ]; then EXACT="${M#*=}"; fi; done
-            if [ -z "$EXACT" ]; then
-              echo "::error::recipe pins ndk '$PIN' but NDK_MAP in this step lacks it. Add '${PIN}=<sdkmanager-version>' to NDK_MAP above (see developer.android.com/ndk/downloads for the mapping)."
-              UNMAPPED=1
+          mkdir -p dist
+          for apk in app/build/outputs/apk/fdroid/release/*.apk; do
+            name=$(basename "$apk" .apk)
+            if [ "$SIGNED_RELEASE" = "true" ]; then
+              cp "$apk" "dist/anti-vocale-${TAG}-${name#app-fdroid-}.apk"
             else
-              PACKAGES="$PACKAGES ndk;${EXACT}"
+              cp "$apk" "dist/anti-vocale-${TAG}-${name#app-fdroid-}-UNSIGNED.apk"
             fi
           done
-          [ -n "$UNMAPPED" ] && exit 1
-
-          # Batch install: sdkmanager accepts multiple packages in one call (efficiency fix)
-          # TASK-1025: the refreshed buildserver image (2026-11) no longer
-          # preinstalls build-tools (AGP fetches its own aapt2, so builds run),
-          # but the reference-APK guard needs a real aapt2 for the badging dump
-          # (run 44818706694 died on the empty find). Install one explicitly;
-          # the version is irrelevant to output (the guard only dumps badging).
-          PACKAGES="$PACKAGES build-tools;34.0.0"
-          yes | sdkmanager $PACKAGES
-          # Verify each NDK actually installed (C2: || true masked real failures)
-          for PIN in $NDK_PINS; do
-            EXACT=""
-            for M in $NDK_MAP; do if [ "${M%%=*}" = "$PIN" ]; then EXACT="${M#*=}"; fi; done
-            [ -d "/opt/android-sdk/ndk/${EXACT}" ] || { echo "::error::ndk;${EXACT} did not install (directory not found)"; exit 1; }
+          for apk in app/build/outputs/apk/fdroid/debug/*.apk; do
+            name=$(basename "$apk" .apk)
+            cp "$apk" "dist/anti-vocale-${TAG}-${name#app-fdroid-}.apk"
           done
-          # The recipe's sudo: deps (wget etc.) don't auto-install when running as root; install them.
-          apt-get update -qq && apt-get install -y --no-install-recommends wget build-essential cmake g++ zip unzip
-          fdroid --version || true
+          ls -l dist
+          test -n "$(ls dist)"
 
-      - name: Verify recipe commit matches the release target (prevent stale-recipe reference)
-        env:
-          # Resolve the tag the same way the release-attach step does (inputs.tag,
-          # else the ref the run was triggered on).
-          RELEASE_TAG: ${{ github.event.inputs.tag || github.ref_name }}
-          # Build-first mode (TASK-446): the dispatched commit is the future
-          # tag target; the tag itself does not exist yet.
-          DISPATCH_COMMIT: ${{ github.event.inputs.commit }}
-          DISPATCH_TAG: ${{ github.event.inputs.tag }}
-        run: |
-          set -eu
-          # Mode matrix guard: tag and commit dispatches are mutually exclusive
-          # (declared on the input). With both set, every step-level condition
-          # silently degrades to the legacy tag-published flow, the exact
-          # bot-racy shape build-first exists to retire.
-          if [ -n "$DISPATCH_COMMIT" ] && [ -n "$DISPATCH_TAG" ]; then
-            echo "ERROR: dispatch with EITHER -f commit=<sha> (build-first) OR -f tag=vX.Y.Z (legacy), never both."
-            exit 1
-          fi
-          # GUARD: this job builds the reference APKs that F-Droid will verify
-          # reproducibility against. It clones the fdroid-data fork and builds
-          # whatever `commit:` the recipe points to. If the recipe on the fork is
-          # stale (e.g. still pointing at the previous version's commit because the
-          # recipe push landed after this job started), the reference gets built
-          # from the WRONG commit. F-Droid then clones the updated recipe, builds
-          # the right commit, and the reproducibility check fails on a whole-APK
-          # diff. Fail fast here instead of silently shipping a wrong reference.
-          RECIPE=/home/vagrant/metadata/com.antivocale.app.yml
-          # fdroiddata lists Builds oldest-first (newest entry LAST), so the
-          # newest entry's commit is the last match, not the first.
-          RECIPE_COMMIT=$(awk '/^[[:space:]]+commit:/{c=$2} END{print c}' "$RECIPE")
-          if [ -z "$RECIPE_COMMIT" ]; then
-            echo "ERROR: could not read commit: from $RECIPE"; exit 1
-          fi
-          if [ -n "$DISPATCH_COMMIT" ]; then
-            # Build-first: the recipe must point at the dispatched SHA, and if
-            # the tag already exists it must agree with it (stale recipe or a
-            # mistaken re-dispatch after publishing). RELEASE_TAG falls back to
-            # the BRANCH name in this mode (no tag input), so derive the real
-            # tag from the recipe's newest versionName instead.
-            RECIPE_TAG="v$(awk '/^  - versionName:/{v=$3} END{print v}' "$RECIPE")"
-            if [ "$RECIPE_COMMIT" != "$DISPATCH_COMMIT" ]; then
-              echo "ERROR: recipe commit ($RECIPE_COMMIT) != dispatched commit ($DISPATCH_COMMIT)."
-              echo "       Regenerate the recipe with --commit $DISPATCH_COMMIT and re-sync the mirror."
-              exit 1
-            fi
-            EXISTING=$(git ls-remote https://github.com/RisorseArtificiali/anti-vocale \
-              "refs/tags/${RECIPE_TAG}^{}" 2>/dev/null | awk '{print $1}' | head -1)
-            if [ -z "$EXISTING" ]; then
-              EXISTING=$(git ls-remote https://github.com/RisorseArtificiali/anti-vocale \
-                "refs/tags/${RECIPE_TAG}" 2>/dev/null | awk '{print $1}' | head -1)
-            fi
-            if [ -n "$EXISTING" ] && [ "$EXISTING" != "$DISPATCH_COMMIT" ]; then
-              echo "ERROR: tag ${RECIPE_TAG} already exists at $EXISTING, not at the dispatched $DISPATCH_COMMIT."
-              exit 1
-            fi
-            [ -z "$EXISTING" ] && echo "note: tag ${RECIPE_TAG} does not exist yet (build-first; release-create.sh makes it)"
-            # TASK-672 review F8: the SHAs must appear on the SUCCESS path too;
-            # release-create.sh's material binding greps this log for the
-            # expected commit on micro-release orders (headSha != the bump).
-            echo "OK: recipe commit $RECIPE_COMMIT matches the dispatched commit $DISPATCH_COMMIT (build-first)."
-            exit 0
-          fi
-          # Resolve the commit the target tag actually points to. ^{} peels an
-          # annotated tag; lightweight tags (created by gh release create, which is
-          # how our betas are tagged) do not resolve under ^{}, so fall back to the
-          # plain ref: for a lightweight tag that ref IS the commit.
-          TAG_COMMIT=$(git ls-remote https://github.com/RisorseArtificiali/anti-vocale \
-            "refs/tags/${RELEASE_TAG}^{}" 2>/dev/null | awk '{print $1}')
-          if [ -z "$TAG_COMMIT" ]; then
-            TAG_COMMIT=$(git ls-remote https://github.com/RisorseArtificiali/anti-vocale \
-              "refs/tags/${RELEASE_TAG}" 2>/dev/null | awk '{print $1}')
-            if [ -n "$TAG_COMMIT" ]; then
-              echo "note: ${RELEASE_TAG} is a lightweight tag; using its direct commit"
-            fi
-          fi
-          if [ -z "$TAG_COMMIT" ]; then
-            echo "ERROR: tag ${RELEASE_TAG} not found on the app repo"
-            exit 1
-          fi
-          echo "recipe commit : $RECIPE_COMMIT"
-          echo "tag ${RELEASE_TAG} -> $TAG_COMMIT"
-          if [ "$RECIPE_COMMIT" != "$TAG_COMMIT" ]; then
-            echo "ERROR: recipe commit ($RECIPE_COMMIT) != ${RELEASE_TAG} commit ($TAG_COMMIT)."
-            echo "       Push the updated recipe to the fork BEFORE building references."
-            exit 1
-          fi
-          echo "OK: recipe commit matches ${RELEASE_TAG}."
-
-      - name: Strip per-build binary references (this job produces them, does not verify against them)
-        run: |
-          set -ex
-          # fdroid build enforces reproducibility against any binary: URLs in the recipe. This
-          # job builds and publishes those references, so strip them from our local recipe copy
-          # first. Without this, a stale reference at the URL (e.g. after a version bump) makes
-          # fdroid refuse to emit a new signed APK, a chicken-and-egg that blocks correcting it.
-          #
-          # Each binary: entry is two lines: `    binary: ` (note trailing space) then a 6-space
-          # indented https://.../app-fdroid-<abi>-release.apk URL. Match the trailing space, or
-          # the binary: line survives and fdroid parses an empty binary reference.
-          sed -i '/^    binary: *$/d; /^      https:\/\/github.com.*\/app-fdroid-.*-release\.apk$/d' \
-            /home/vagrant/metadata/com.antivocale.app.yml
-          echo "=== recipe after stripping binary: ==="
-          grep -nE "binary:|versionCode:" /home/vagrant/metadata/com.antivocale.app.yml
-          # Hard fail if any binary: survived: the whole point of this step is to remove them.
-          ! grep -q '^    binary:' /home/vagrant/metadata/com.antivocale.app.yml
-
-      - name: Build app via fdroid build (reproducible, from source)
-        env:
-          PYTHONPATH: /opt/fdroidserver:/opt/fdroidserver/examples
-          PYTHONUNBUFFERED: "true"
-          serverwebroot: /tmp
-          home_vagrant: /home/vagrant
-        run: |
-          set -ex
-          . /etc/profile.d/bsenv.sh || true
-          export PATH="/opt/fdroidserver:/opt/android-sdk/cmdline-tools/latest/bin:/opt/android-sdk/platform-tools:$PATH"
-          # Build as the vagrant user from /home/vagrant, mirroring F-Droid's --on-server layout,
-          # so the srclib build lands at /home/vagrant/build/srclib/sherpa_onnx (matching path embedding).
-          # Per-ABI split: build ONLY the newest versionName's versionCodes,
-          # DERIVED from the cloned recipe (still no hardcoding: a version bump
-          # does not require editing this workflow). The bare `fdroid build
-          # com.antivocale.app` used until 2026-10-09 builds EVERY block in the
-          # recipe: 12 blocks were ~3h at v1.12.0 (the runbook's "~3h" figure),
-          # and the bot-grown recipe reached 36 blocks = a ~9h sweep that looked
-          # like a loop and never reached the new trio in 4h (run 37923023195,
-          # cancelled: 18 old vercodes built, 471/472/474 never started).
-          # Each pinned block compiles its ABI's sherpa .so from source
-          # (~8-17 min each; expect ~45-60 min total for the trio).
-          chown -R vagrant:vagrant /home/vagrant
-          sudo -u vagrant -E env PATH="$PATH" PYTHONPATH="$PYTHONPATH" HOME=/home/vagrant \
-            bash -c 'cd /home/vagrant && VERCODES=$(python3 -c "import re; meta=open(\"fdroiddata/metadata/com.antivocale.app.yml\").read(); pairs=re.findall(r\"- versionName: ([0-9.]+)\n    versionCode: (\d+)\", meta); newest=max((tuple(map(int,v.split(chr(46)))),v) for v,_ in pairs)[1]; print(chr(32).join(vc for v,vc in pairs if v==newest))") && echo "building vercodes: $VERCODES" && fdroid build $(for vc in $VERCODES; do echo com.antivocale.app:$vc; done) --no-tarball'
-      - name: Debug - locate built APK
-        if: always()
-        run: |
-          set +e
-          echo "=== all APKs under /home/vagrant ==="
-          find /home/vagrant -name "*.apk" 2>/dev/null | head
-          echo "=== embedded path in built jni .so (should be /home/vagrant/build/...) ==="
-          APK=$(find /home/vagrant -path "*/apk/fdroid/release/*.apk" | head -1)
-          if [ -n "$APK" ]; then
-            TMP=$(mktemp -d); unzip -o -q "$APK" "lib/arm64-v8a/libsherpa-onnx-jni.so" -d "$TMP" 2>/dev/null
-            strings "$TMP/lib/arm64-v8a/libsherpa-onnx-jni.so" 2>/dev/null | grep -oE "/(home/vagrant|__w)[^ ]*sherpa[^ ]*" | head -2
-            rm -rf "$TMP"
-          fi
-          exit 0
-
-      - name: Guard - newest-version builds must exist and match their versionCode
-        run: |
-          set -eu
-          # The 2026-08-21 incident: the 371/372/374 builds failed seconds after
-          # starting (stale ndk: pin in the mirror recipe) while fdroid still exited
-          # 0, having built the older versionCodes. The attach step then signed the
-          # STALE unsigned APKs (built at the beta.2 commit) and published them as
-          # the v1.10.0 reference: F-Droid's check failed on the embedded git
-          # revision (MR !46215 note_3715941208). Require the newest trio, and
-          # verify each APK's OWN versionCode, before anything gets signed.
-          RECIPE=/home/vagrant/metadata/com.antivocale.app.yml
-          # Newest version = every build block whose versionName equals the LAST
-          # versionName in the recipe (fdroiddata lists builds oldest-first and
-          # uses ONE BLOCK PER versionCode, all sharing the version's name).
-          LASTVN=$(grep '^  - versionName:' "$RECIPE" | tail -1 | awk '{print $3}')
-          [ -n "$LASTVN" ] || { echo "ERROR: could not read any versionName from $RECIPE"; exit 1; }
-          TRIO=$(awk -v lv="$LASTVN" '/^  - versionName:/{inblk = ($3 == lv)} inblk && /versionCode:/{print $2}' "$RECIPE")
-          NEWEST_VC=$(echo "$TRIO" | tail -1)
-          echo "newest versionName: $LASTVN; expected versionCodes: $(echo $TRIO)"
-          [ -n "$TRIO" ] || { echo "ERROR: no versionCodes found for newest versionName $LASTVN"; exit 1; }
-          # Newer build-tools ship aapt2 only; both support 'dump badging'.
-          AAPT=$(find /opt/android-sdk/build-tools \( -name aapt -o -name aapt2 \) | sort | tail -1)
-          [ -n "$AAPT" ] || {
-            # fdroidserver's post-build SDK cleanup removes sdkmanager-installed
-            # packages (run 44825349290: build-tools installed at setup was gone
-            # by guard time). Reinstall one for the badging dump, then re-find.
-            echo "no aapt under build-tools (fdroid cleanup): reinstalling"
-            yes | sdkmanager "build-tools;34.0.0" >/dev/null
-            AAPT=$(find /opt/android-sdk/build-tools \( -name aapt -o -name aapt2 \) | sort | tail -1)
-          }
-          [ -n "$AAPT" ] || { echo "ERROR: no aapt/aapt2 under /opt/android-sdk/build-tools"; exit 1; }
-          # The directory that actually contains the NEWEST version is the only one
-          # the sign step may touch (exported below). Scanning everywhere, as the old
-          # sign loop did, risks signing stale APKs left by earlier runs on this
-          # persistent VM.
-          UNSIGNED_DIR=""
-          for CANDIDATE in $(find /home/vagrant /tmp -name "com.antivocale.app_$NEWEST_VC.apk" 2>/dev/null | grep -v test/data | xargs -r -n1 dirname | sort -u); do
-            FOUND=0
-            for VC in $TRIO; do [ -f "$CANDIDATE/com.antivocale.app_$VC.apk" ] && FOUND=$((FOUND+1)); done
-            [ "$FOUND" -eq "$(echo "$TRIO" | wc -l)" ] && { UNSIGNED_DIR="$CANDIDATE"; break; }
-          done
-          [ -n "$UNSIGNED_DIR" ] || { echo "ERROR: no directory contains the full newest version ($TRIO); refusing to sign stale APKs"; exit 1; }
-          # The commit the newest build must come from (the incident shipped APKs
-          # built at the previous tag's commit with a correct versionCode).
-          RECIPE_COMMIT=$(awk -v lv="$LASTVN" '/^  - versionName:/{inblk = ($3 == lv)} inblk && /^    commit:/{print $2; exit}' "$RECIPE")
-          [ -n "$RECIPE_COMMIT" ] || { echo "ERROR: could not read the newest commit: from $RECIPE"; exit 1; }
-          for VC in $TRIO; do
-            APK="$UNSIGNED_DIR/com.antivocale.app_$VC.apk"
-            EMBEDDED=$("$AAPT" dump badging "$APK" | head -1 | grep -oE "versionCode='[0-9]+'" | grep -oE '[0-9]+')
-            [ "$EMBEDDED" = "$VC" ] || { echo "ERROR: $APK embeds versionCode '$EMBEDDED', expected $VC"; exit 1; }
-            # Extract the sha INSIDE the quotes: a bare [0-9a-f]+ also matches
-            # the 'e' in 'revision' (caught as a false-positive guard failure on
-            # the first production run, 2026-08-21).
-            EMBEDDED_REV=$(unzip -p "$APK" META-INF/version-control-info.textproto 2>/dev/null \
-              | grep -oE 'revision: "[0-9a-f]+"' | sed 's/.*"\(.*\)"/\1/')
-            [ "$EMBEDDED_REV" = "$RECIPE_COMMIT" ] || { echo "ERROR: $APK was built at revision '$EMBEDDED_REV', expected $RECIPE_COMMIT (stale build)"; exit 1; }
-            echo "OK: $VC built at $RECIPE_COMMIT ($APK)"
-          done
-          echo "REPRO_UNSIGNED_DIR=$UNSIGNED_DIR" >> "$GITHUB_ENV"
-
-      - name: Sign the three per-ABI reference APKs (v2/v3 only, alignment preserved; apksigner must not rewrite the zip)
-        run: |
-          set -eux
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > release.keystore
-          echo "${{ secrets.KEYSTORE_PROPERTIES }}" > keystore.properties
-          # Secret hygiene: xtrace prints variable assignments ('+ STORE_PASS=...'),
-          # which leaked the keystore passwords into a public Actions log once
-          # (2026-08-20). Disable tracing for the reads and register add-mask so
-          # any future accidental echo of these values is redacted by GitHub.
-          set +x
-          STORE_PASS=$(grep '^storePassword=' keystore.properties | cut -d= -f2-)
-          KEY_PASS=$(grep '^keyPassword=' keystore.properties | cut -d= -f2-)
-          ALIAS=$(grep '^keyAlias=' keystore.properties | cut -d= -f2-)
-          echo "::add-mask::$STORE_PASS"
-          echo "::add-mask::$KEY_PASS"
-          set -x
-          # fdroidserver copies each built unsigned APK to unsigned/com.antivocale.app_<versionCode>.apk.
-          # Discover the versionCodes fdroid actually built and derive each ABI from the arch suffix
-          # (VC % 10): 1=armeabi-v7a, 2=arm64-v8a, 4=x86_64. This invariant lives in
-          # app/build.gradle.kts androidComponents.onVariants, so no versionCodes are hardcoded here
-          # and a version bump does not require editing this workflow.
-          sign_built() {
-            local UNSIGNED="$1" VC="$2"
-            local SUFFIX=$(( VC % 10 ))
-            local ABI
-            case "$SUFFIX" in
-              1) ABI=armeabi-v7a ;;
-              2) ABI=arm64-v8a ;;
-              4) ABI=x86_64 ;;
-              *) echo "Unrecognized arch suffix $SUFFIX on versionCode $VC"; exit 1 ;;
-            esac
-            # v1 (JAR) signing and forced realignment (build-tools >= 35) both rebuild the
-            # zip, breaking apksigcopier's byte-identical signature copy in fdroid publish.
-            apksigner sign \
-              --ks release.keystore \
-              --ks-key-alias "$ALIAS" \
-              --ks-pass "pass:$STORE_PASS" \
-              --key-pass "pass:$KEY_PASS" \
-              --v1-signing-enabled false \
-              --alignment-preserved \
-              --in "$UNSIGNED" --out "app-fdroid-${ABI}-release.apk"
-            apksigner verify --print-certs "app-fdroid-${ABI}-release.apk" | grep SHA-256
-          }
-          # The guard step located the one directory holding the full newest trio
-          # (REPRO_UNSIGNED_DIR) and verified each APK's embedded versionCode.
-          # Sign ONLY from there: the old scan-everywhere loop could pick up stale
-          # APKs from earlier runs on this persistent VM and let them overwrite
-          # the good ones under the fixed per-ABI output names.
-          SIGNED_ANY=0
-          for UNSIGNED in $(find "$REPRO_UNSIGNED_DIR" -maxdepth 1 -name 'com.antivocale.app_*.apk' | sort); do
-            VC=$(echo "$UNSIGNED" | grep -oE 'com\.antivocale\.app_[0-9]+\.apk' | grep -oE '[0-9]+')
-            sign_built "$UNSIGNED" "$VC"
-            SIGNED_ANY=1
-          done
-          test "$SIGNED_ANY" -eq 1 || { echo "No built unsigned APKs found to sign"; exit 1; }
-          ls -la app-fdroid-*-release.apk
-
-      # Tag-anchored modes only (release event or dispatch WITH a tag): the
-      # bare `inputs.tag || ref_name` fallback would resolve to the branch name
-      # on a tagless dispatch (build-first included), creating a release on a
-      # nonsense "main" tag. Build-first uploads artifacts below instead.
-      - name: Attach signed per-ABI reference APKs to GitHub Release
-        if: env.TAG_ANCHORED == 'true'
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v3
         with:
-          tag_name: ${{ github.event.inputs.tag || github.ref_name }}
-          files: |
-            app-fdroid-armeabi-v7a-release.apk
-            app-fdroid-arm64-v8a-release.apk
-            app-fdroid-x86_64-release.apk
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      # Build-first (TASK-446): the signed references land as an artifact;
-      # scripts/release-create.sh attaches them when tag + release are created.
-      - name: Upload signed reference APKs artifact (build-first mode)
-        if: >-
-          github.event_name == 'workflow_dispatch' &&
-          github.event.inputs.commit != '' && github.event.inputs.tag == ''
-        uses: actions/upload-artifact@v7
-        with:
-          name: fdroid-signed-references
-          path: app-fdroid-*-release.apk
-          if-no-files-found: error
-
-  # TASK-333: incomplete or untested releases must fail LOUDLY, never silently.
-  # Root cause of issue #27 was silence on two fronts: the signing job was skipped
-  # without a word on release events, and a red test job produced no explicit
-  # release-level signal. This job turns both into a named red X with remediation.
-  release-sanity:
-    name: Release sanity (loud failure on incomplete releases)
-    runs-on: ubuntu-24.04
-    # TASK-641: reproducible-fdroid joins the needs so the unsigned-vs-signed
-    # check runs AFTER the ~3h reference APKs attach, not on a timing accident
-    # (the tag-mode dispatch 35840619513 went red here while the signing job
-    # was still running; always() keeps reporting on failed siblings).
-    # TASK-683.3: publish-play-store joins the needs so this job can assert its
-    # result; green sanity now also means the publish decision resolved. The
-    # price is honest: on a run parked at the production gate, sanity waits
-    # with it instead of printing a green that said nothing about publish.
-    needs: [test, build, reproducible-fdroid, publish-play-store]
-    # BUILD-FIRST DELEGATION: on a -f commit= dispatch there is no release, so
-    # the asset-pairing steps below skip by their tag-only conditions; the
-    # completeness check for that mode lives in scripts/release-create.sh
-    # guard 5 (12-asset manifest), which refuses to publish an incomplete set.
-    # always(): this job exists precisely to report on failed siblings; without it
-    # GitHub would skip it whenever `test` fails, recreating the silence it fixes.
-    if: >-
-      always() &&
-      (github.event_name == 'release' || github.event_name == 'workflow_dispatch')
-    steps:
-      - name: Fail loudly if the build job did not succeed
-        # TASK-683.3 (live 2026-09-26, run 36257611232: Build=failure with
-        # sanity=success while the signing job still ran): sanity never looked
-        # at the build result. != success covers failure, cancelled, skipped.
-        if: needs.build.result != 'success'
-        run: |
-          echo "::error::BUILD JOB '${{ needs.build.result }}': the release binaries were never produced (or not from this run)."
-          echo "::error::Do not promote anything from this release; re-dispatch the build and re-check."
-          exit 1
-
-      - name: Fail loudly if the Play publish job failed where publishing was in scope
-        # TASK-683.3 (live 2026-09-26, run 36262228446: Publish=failure with
-        # sanity=success). 'skipped' is legitimate on runs where publishing
-        # was never in scope (no release event, no play-store-track input) or
-        # where the test gate above already red-flagged the run (TASK-683.6
-        # skips publish on a red test job).
-        if: >-
-          needs.publish-play-store.result != 'success' &&
-          needs.publish-play-store.result != 'skipped'
-        run: |
-          echo "::error::PUBLISH TO PLAY STORE '${{ needs.publish-play-store.result }}': the Play upload failed (check the production environment gate decision and the upload step)."
-          echo "::error::Green sanity previously ignored this; it no longer does. Re-dispatch with the play-store-track input once fixed."
-          exit 1
-
-      - name: Fail loudly if the test suite did not pass on a release run
-        # != success covers failure, cancelled, and skipped: anything short of a
-        # green test job must not leave a green release signal (review issue 1).
-        if: needs.test.result != 'success'
-        run: |
-          echo "::error::RELEASE WITHOUT A GREEN PIPELINE: the unit-test job result was '${{ needs.test.result }}' (not success)."
-          echo "::error::The release event fires after publishing, so nothing was blocked retroactively;"
-          echo "::error::this red X is the explicit signal to investigate before promoting the release."
-          exit 1
-
-      - name: Fail loudly if the reproducible F-Droid job did not succeed
-        # TASK-641 late review: a needs entry gates ORDERING, not outcome; without
-        # this check a failed signing job still left the final "sanity ok" line
-        # green (vacuous pass against whatever assets were already attached).
-        # Tag-anchored per the job-level BUILD-FIRST DELEGATION note above;
-        # 'skipped' is the job's deliberate opt-out (publish-only dispatches).
-        if: >-
-          env.TAG_ANCHORED == 'true' &&
-          needs.reproducible-fdroid.result != 'success' &&
-          needs.reproducible-fdroid.result != 'skipped'
-        run: |
-          echo "::error::REPRODUCIBLE F-DROID JOB '${{ needs.reproducible-fdroid.result }}': the signed reference APKs for this run are not trustworthy."
-          echo "::error::Do not point the fdroid-data recipe at this tag until a re-run (workflow_dispatch with the tag) is green."
-          exit 1
-
-      - name: Fail loudly if any unsigned F-Droid APK has no signed counterpart
-        if: env.TAG_ANCHORED == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RELEASE_TAG: ${{ github.event.inputs.tag || github.ref_name }}
-        run: |
-          set -eu
-          # A release carrying app-fdroid-<abi>-release-unsigned.apk without the
-          # matching signed app-fdroid-<abi>-release.apk is incomplete: F-Droid's
-          # binary: URLs 404 (issue #27). TASK-641 late review: on release events
-          # this can no longer be the benign "recipe not pushed yet" reminder
-          # (needs ordering waits out the ~3h signing job, and a failed one exits
-          # at the assert step above before reaching here); red here means a
-          # genuinely broken asset set on a run whose signing job succeeded.
-          assets=$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_TAG}" --jq '.assets[].name')
-          echo "release assets:"; echo "$assets"
-          missing=0
-          for abi in armeabi-v7a arm64-v8a x86_64; do
-            unsigned="app-fdroid-${abi}-release-unsigned.apk"
-            signed="app-fdroid-${abi}-release.apk"
-            if echo "$assets" | grep -qx "$unsigned" && ! echo "$assets" | grep -qx "$signed"; then
-              echo "::error::INCOMPLETE RELEASE: $unsigned present but $signed missing."
-              missing=1
-            fi
-          done
-          if [ "$missing" -ne 0 ]; then
-            echo "::error::Remediation: the signing job for this run SUCCEEDED (the assert step above"
-            echo "::error::passed), so the recipe is not the problem. Inspect the reproducible-fdroid"
-            echo "::error::job's attach step for which APKs it uploaded, then re-run the tag dispatch"
-            echo "::error::(${RELEASE_TAG}) to rebuild and re-attach the missing signed APKs."
-            exit 1
-          fi
-          echo "OK: every unsigned F-Droid APK has its signed counterpart."
-
-      - name: All sanity checks passed
-        # success() composes the two assert steps above AND the asset check:
-        # this message can only print on a run where every check in THIS job
-        # went green (the assert steps already translate red siblings into
-        # failed steps), so no sibling result needs re-mirroring here.
-        if: success() && env.TAG_ANCHORED == 'true'
-        # Reports the siblings' actual results instead of claiming green:
-        # on a tag+track dispatch the reproducible job is deliberately skipped.
-        run: |
-          echo "release sanity ok; test=${{ needs.test.result }} build=${{ needs.build.result }} publish=${{ needs.publish-play-store.result }} reproducible=${{ needs.reproducible-fdroid.result }} signed/unsigned APK pairing complete"
-
+          tag_name: ${{ env.TAG }}
+          target_commitish: ${{ github.sha }}
+          name: ${{ env.TAG }}
+          generate_release_notes: true
+          files: dist/*.apk
+          fail_on_unmatched_files: true
