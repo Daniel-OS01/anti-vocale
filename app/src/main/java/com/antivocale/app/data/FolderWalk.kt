@@ -144,6 +144,12 @@ object FolderWalk {
      * joins them ('/' between names, a bare name at the root), so a path the
      * walk recorded round-trips. Not capped by [MAX_ENTRIES]: the work is
      * one query per segment plus one listing.
+     *
+     * A display name holding '/' joins into the same relative path as
+     * nested names (a directory "A/B" beside "A" holding "B" both give
+     * "A/B"), so the path no longer names one directory: such a child
+     * DIRECTORY matching the remaining path at a segment boundary, or any
+     * child holding '/' in the resolved directory, is [DirFiles.Ambiguous].
      */
     fun listDirectory(
         rootDocId: String,
@@ -151,8 +157,15 @@ object FolderWalk {
         listDir: (dirDocId: String) -> List<Row>?,
     ): DirFiles {
         var dirDocId = rootDocId
-        for (segment in subPath?.split('/').orEmpty()) {
+        val segments = subPath?.split('/').orEmpty()
+        for ((index, segment) in segments.withIndex()) {
             val rows = listDir(dirDocId) ?: return DirFiles.Unavailable
+            val remaining = segments.subList(index, segments.size).joinToString("/")
+            val aliased = rows.any {
+                it.isDirectory && '/' in it.name &&
+                    (remaining == it.name || remaining.startsWith(it.name + "/"))
+            }
+            if (aliased) return DirFiles.Ambiguous
             val dirs = rows.filter { it.isDirectory && it.name == segment }
             dirDocId = when (dirs.size) {
                 0 -> return DirFiles.NotFound
@@ -161,6 +174,7 @@ object FolderWalk {
             }
         }
         val rows = listDir(dirDocId) ?: return DirFiles.Unavailable
+        if (rows.any { '/' in it.name }) return DirFiles.Ambiguous
         return DirFiles.Found(
             rows.filter { !it.isDirectory }.map { row ->
                 (if (subPath == null) row.name else "$subPath/${row.name}") to row.documentId

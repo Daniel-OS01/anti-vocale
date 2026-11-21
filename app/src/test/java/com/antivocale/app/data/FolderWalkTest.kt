@@ -189,6 +189,45 @@ class FolderWalkTest {
     }
 
     @Test
+    fun `a directory name holding a slash that aliases the path is ambiguous`() {
+        // "A/B" beside "A" holding "B": the walk gives both files "A/B/x.m4a".
+        val tree = mapOf(
+            "root" to listOf(dir("A/B", "slashed"), dir("A", "a")),
+            "slashed" to listOf(file("x.m4a", "x1")),
+            "a" to listOf(dir("B", "b")),
+            "b" to listOf(file("x.m4a", "x2")),
+        )
+        assertEquals(FolderWalk.DirFiles.Ambiguous, FolderWalk.listDirectory("root", "A/B", provider(tree)))
+        // The alias also covers deeper paths under it.
+        assertEquals(FolderWalk.DirFiles.Ambiguous, FolderWalk.listDirectory("root", "A/B/C", provider(tree)))
+    }
+
+    @Test
+    fun `a slashed name in the resolved directory is ambiguous`() {
+        // A file "B/x.m4a" in "A" joins into the same path as A/B's own x.m4a.
+        val tree = mapOf(
+            "root" to listOf(dir("A", "a")),
+            "a" to listOf(file("B/x.m4a", "s1"), file("y.m4a", "y1"), dir("B", "b")),
+            "b" to listOf(file("x.m4a", "x1")),
+        )
+        assertEquals(FolderWalk.DirFiles.Ambiguous, FolderWalk.listDirectory("root", "A", provider(tree)))
+    }
+
+    @Test
+    fun `a slashed name off the path leaves ordinary resolution unchanged`() {
+        // "AB/C" does not match "A/B" at a segment boundary, nor is it in the resolved directory.
+        val tree = mapOf(
+            "root" to listOf(dir("AB/C", "other"), dir("A", "a"), dir("A/Bx", "near")),
+            "a" to listOf(dir("B", "b")),
+            "b" to listOf(file("x.m4a", "x1")),
+        )
+        assertEquals(
+            FolderWalk.DirFiles.Found(listOf("A/B/x.m4a" to "x1")),
+            FolderWalk.listDirectory("root", "A/B", provider(tree)),
+        )
+    }
+
+    @Test
     fun `a null query at any level is unavailable`() {
         // "ru" has no entry: its query answers null.
         val tree = mapOf(
