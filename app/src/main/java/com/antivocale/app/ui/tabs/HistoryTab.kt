@@ -807,7 +807,8 @@ fun HistoryTab(
     val selection by viewModel.selection.collectAsStateWithLifecycle()
     BackHandler(enabled = selectionMode) { viewModel.exitSelection() }
     var showBulkDeleteDialog by remember { mutableStateOf(false) }
-    var bulkDeleteResult by remember { mutableStateOf<LogsViewModel.BulkDeleteResult?>(null) }
+    // Published by the VM once the delete ran (the DAO's count, not the selection's).
+    val bulkDeleteResult by viewModel.bulkDeleteResult.collectAsState()
     // Bulk redo: the picker is tab-local; the prepare/summary/done flow is the VM's.
     var showBulkRedoPicker by remember { mutableStateOf(false) }
     val bulkRedoState by viewModel.bulkRedoState.collectAsState()
@@ -1018,6 +1019,7 @@ fun HistoryTab(
     // Bulk delete outcome: the deleted count, plus the in-flight rows the
     // delete skipped. The counts are only known at result time, so the
     // plurals resolve here (no undo: the rows are gone in one statement).
+    // Consumed AFTER the snackbar, as the bulk redo's Done below.
     LaunchedEffect(bulkDeleteResult) {
         val outcome = bulkDeleteResult ?: return@LaunchedEffect
         val res = context.resources
@@ -1028,9 +1030,10 @@ fun HistoryTab(
                 ?.let { res.getQuantityString(R.plurals.logs_entries_skipped_processing, it, it) },
         ).joinToString(" · ")
         if (message.isNotEmpty()) snackbarHostState.showSnackbar(message)
-        bulkDeleteResult = null
+        viewModel.consumeBulkDeleteResult()
     }
-    // Bulk redo outcome: queued, plus the requests that could not start.
+    // Bulk redo outcome: queued, plus the requests that could not start,
+    // the one waiting on a tap-to-start notification, and those never started.
     // Dismissed AFTER the snackbar: dismissing first would change this
     // effect's key and cancel it before the snackbar shows.
     val bulkRedoDone = bulkRedoState as? LogsViewModel.BulkRedoUiState.Done
@@ -1041,6 +1044,10 @@ fun HistoryTab(
             res.getQuantityString(R.plurals.bulk_redo_queued, report.queued, report.queued),
             report.failedToStart.takeIf { it > 0 }
                 ?.let { res.getQuantityString(R.plurals.bulk_redo_failed_to_start, it, it) },
+            report.deferred.takeIf { it > 0 }
+                ?.let { res.getQuantityString(R.plurals.bulk_redo_deferred, it, it) },
+            report.notStarted.takeIf { it > 0 }
+                ?.let { res.getQuantityString(R.plurals.bulk_redo_not_started, it, it) },
         ).joinToString(" · ")
         snackbarHostState.showSnackbar(message)
         viewModel.dismissBulkRedoResult()
@@ -1068,7 +1075,7 @@ fun HistoryTab(
             confirmButton = {
                 TextButton(onClick = {
                     showBulkDeleteDialog = false
-                    bulkDeleteResult = viewModel.deleteSelected()
+                    viewModel.deleteSelected()
                 }) {
                     Text(stringResource(R.string.logs_delete_selected))
                 }

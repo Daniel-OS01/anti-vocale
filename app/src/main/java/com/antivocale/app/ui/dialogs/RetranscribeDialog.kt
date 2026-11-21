@@ -35,6 +35,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.antivocale.app.R
 import com.antivocale.app.data.TranscriptionProfile
+import com.antivocale.app.transcription.TranscriptionLanguagePolicy
 import com.antivocale.app.ui.components.transcriptionPickerFor
 import com.antivocale.app.ui.viewmodel.LogsViewModel
 import com.antivocale.app.util.LocaleManager
@@ -57,7 +58,7 @@ fun RetranscribeDialog(
  * The model picker, with an optional language step. [rowCount] set = the
  * bulk redo ("Redo N recordings", plus the single-pass hint).
  * [offeredLanguages] set = after a backend is picked, a non-empty offered
- * set shows a language choice ("Model default" = null language first).
+ * set shows a language choice (Auto-detect = "auto", model-side detection, first).
  */
 @Composable
 fun RetranscribeDialog(
@@ -71,7 +72,8 @@ fun RetranscribeDialog(
     // Null while loading (or when there is no language step).
     var languages by remember { mutableStateOf<Set<String>?>(null) }
     var languageStep by remember { mutableStateOf(false) }
-    var selectedLanguage by remember { mutableStateOf<String?>(null) }
+    // "auto", never null: a null language falls back to the global pin.
+    var selectedLanguage by remember { mutableStateOf(TranscriptionLanguagePolicy.PREF_AUTO) }
     LaunchedEffect(selectedBackendId) {
         languages = null
         val id = selectedBackendId ?: return@LaunchedEffect
@@ -167,7 +169,7 @@ fun RetranscribeDialog(
                         if (stepLanguages.isNullOrEmpty()) {
                             onProfileSelected(TranscriptionProfile(backendId = id))
                         } else {
-                            selectedLanguage = null
+                            selectedLanguage = TranscriptionLanguagePolicy.PREF_AUTO
                             languageStep = true
                         }
                     }
@@ -200,18 +202,18 @@ private fun SinglePassHint() {
     )
 }
 
-/** The language step: "Model default" (null) first, then the offered codes by native name. */
+/** The language step: Auto-detect ("auto") first, then the offered codes by native name. */
 @Composable
 private fun LanguageStepDialog(
     rowCount: Int?,
     offered: Set<String>,
-    selectedLanguage: String?,
-    onLanguageSelected: (String?) -> Unit,
+    selectedLanguage: String,
+    onLanguageSelected: (String) -> Unit,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     // The Settings picker's model (locale-collated native names); its
-    // sentinels are dropped, "Model default" stands in for them here.
+    // sentinels are dropped, Auto-detect stands in for them here.
     val options = remember(offered) {
         transcriptionPickerFor(offered, LocaleManager.effectiveLocale()).options
             .filter { it.code in offered }
@@ -233,9 +235,9 @@ private fun LanguageStepDialog(
                         .verticalScroll(rememberScrollState())
                 ) {
                     LanguageRow(
-                        label = stringResource(R.string.bulk_redo_language_model_default),
-                        selected = selectedLanguage == null,
-                        onClick = { onLanguageSelected(null) },
+                        label = stringResource(R.string.transcription_language_auto),
+                        selected = selectedLanguage == TranscriptionLanguagePolicy.PREF_AUTO,
+                        onClick = { onLanguageSelected(TranscriptionLanguagePolicy.PREF_AUTO) },
                     )
                     options.forEach { option ->
                         LanguageRow(

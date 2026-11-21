@@ -1342,7 +1342,6 @@
     <string name="history_scope_rule_subfolder_title">Transcribir esta subcarpeta como…</string>
     <string name="history_scope_rule_long_press_label">Definir regla de transcripción</string>
     <string name="bulk_redo_single_pass_hint">El modo de dos pasadas está desactivado para esta repetición: una sola pasada con el modelo elegido.</string>
-    <string name="bulk_redo_language_model_default">Predeterminado del modelo</string>
     <string name="bulk_redo_preparing">Preparando %1$d de %2$d</string>
     <string name="bulk_redo_all">Repetir todas</string>
     <string name="bulk_redo_skip_long">Omitir las largas</string>
@@ -1390,5 +1389,13 @@
     <plurals name="bulk_redo_failed_to_start">
         <item quantity="one">%d no pudo iniciarse</item>
         <item quantity="other">%d no pudieron iniciarse</item>
+    </plurals>
+    <plurals name="bulk_redo_deferred">
+        <item quantity="one">%d necesita un toque para iniciarse</item>
+        <item quantity="other">%d necesitan un toque para iniciarse</item>
+    </plurals>
+    <plurals name="bulk_redo_not_started">
+        <item quantity="one">%d no se inició (la app pasó a segundo plano)</item>
+        <item quantity="other">%d no se iniciaron (la app pasó a segundo plano)</item>
     </plurals>
 </resources>

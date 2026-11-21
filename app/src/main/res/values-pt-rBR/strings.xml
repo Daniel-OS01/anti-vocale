@@ -1342,7 +1342,6 @@
     <string name="history_scope_rule_subfolder_title">Transcrever esta subpasta como…</string>
     <string name="history_scope_rule_long_press_label">Definir regra de transcrição</string>
     <string name="bulk_redo_single_pass_hint">O modo de duas passagens está desativado para esta repetição: uma passagem com o modelo escolhido.</string>
-    <string name="bulk_redo_language_model_default">Padrão do modelo</string>
     <string name="bulk_redo_preparing">Preparando %1$d de %2$d</string>
     <string name="bulk_redo_all">Refazer todas</string>
     <string name="bulk_redo_skip_long">Pular as longas</string>
@@ -1390,5 +1389,13 @@
     <plurals name="bulk_redo_failed_to_start">
         <item quantity="one">%d não pôde iniciar</item>
         <item quantity="other">%d não puderam iniciar</item>
+    </plurals>
+    <plurals name="bulk_redo_deferred">
+        <item quantity="one">%d precisa de um toque para iniciar</item>
+        <item quantity="other">%d precisam de um toque para iniciar</item>
+    </plurals>
+    <plurals name="bulk_redo_not_started">
+        <item quantity="one">%d não foi iniciada (o app foi para segundo plano)</item>
+        <item quantity="other">%d não foram iniciadas (o app foi para segundo plano)</item>
     </plurals>
 </resources>

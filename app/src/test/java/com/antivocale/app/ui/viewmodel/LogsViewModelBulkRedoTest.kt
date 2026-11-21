@@ -28,6 +28,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.setMain
 import kotlinx.coroutines.withTimeout
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -48,6 +50,7 @@ class LogsViewModelBulkRedoTest : ViewModelTeardownTest() {
 
     private lateinit var viewModel: LogsViewModel
     private lateinit var bulkRedo: HistoryBulkRedo
+    private lateinit var logDao: LogDao
     private val rows = MutableStateFlow<List<LogEntity>>(emptyList())
 
     // A field (not the constructor default) so the harness cancels it.
@@ -69,10 +72,10 @@ class LogsViewModelBulkRedoTest : ViewModelTeardownTest() {
         // Real unconfined Main: the runner hops to IO, so the test
         // synchronizes on the state flow itself (as the batch-intake suite).
         Dispatchers.setMain(Dispatchers.Unconfined)
-        val logDao: LogDao = mockk(relaxed = true)
+        logDao = mockk(relaxed = true)
         every { logDao.getAll() } returns rows
         bulkRedo = mockk(relaxed = true)
-        every { bulkRedo.enqueue(any(), any(), any()) } returns BulkRedoReport(queued = 3, failedToStart = 1)
+        every { bulkRedo.enqueue(any(), any(), any()) } returns BulkRedoReport(queued = 3, failedToStart = 1, deferred = 0, notStarted = 0)
         viewModel = register(LogsViewModel(
             mockk(relaxed = true), logDao, stubPreferencesManager(), staticRegistry(),
             mockk(relaxed = true), mockk(relaxed = true), mockk(relaxed = true),
@@ -132,7 +135,7 @@ class LogsViewModelBulkRedoTest : ViewModelTeardownTest() {
         viewModel.confirmBulkRedo(includeLong = false)
 
         val done = awaitState { it is BulkRedoUiState.Done } as BulkRedoUiState.Done
-        assertEquals(BulkRedoReport(queued = 3, failedToStart = 1), done.report)
+        assertEquals(BulkRedoReport(queued = 3, failedToStart = 1, deferred = 0, notStarted = 0), done.report)
         verify(exactly = 1) { bulkRedo.enqueue(batch, profile, false) }
         verify(exactly = 0) { bulkRedo.discard(any()) }
         assertFalse(viewModel.selectionMode.value)
@@ -155,9 +158,14 @@ class LogsViewModelBulkRedoTest : ViewModelTeardownTest() {
     @Test
     fun `cancel during Preparing stops the prepare and enqueues nothing`() = runBlocking {
         val entered = CompletableDeferred<Unit>()
+        val cancelled = CompletableDeferred<Unit>()
         coEvery { bulkRedo.prepare(any(), any(), any()) } coAnswers {
             entered.complete(Unit)
-            awaitCancellation()
+            try {
+                awaitCancellation()
+            } finally {
+                cancelled.complete(Unit)
+            }
         }
         viewModel.redoRows(listOf("a"), profile)
         withTimeout(30_000) { entered.await() }
@@ -166,6 +174,8 @@ class LogsViewModelBulkRedoTest : ViewModelTeardownTest() {
         viewModel.cancelBulkRedo()
 
         assertEquals(BulkRedoUiState.Idle, viewModel.bulkRedoState.value)
+        // The prepare itself was cancelled (not merely hidden behind Idle).
+        withTimeout(10_000) { cancelled.await() }
         // Give a wrongly surviving prepare the chance to publish a Summary.
         delay(200)
         assertEquals(BulkRedoUiState.Idle, viewModel.bulkRedoState.value)
@@ -186,6 +196,81 @@ class LogsViewModelBulkRedoTest : ViewModelTeardownTest() {
 
         awaitState { it is BulkRedoUiState.Summary }
         coVerify(exactly = 1) { bulkRedo.prepare(match { it.toSet() == setOf("a", "c") }, profile, any()) }
+        collector.cancel()
+    }
+
+    @Test
+    fun `redoRows is rejected while Preparing and while a Summary awaits confirmation`() = runBlocking {
+        val gate = CompletableDeferred<Unit>()
+        coEvery { bulkRedo.prepare(any(), any(), any()) } coAnswers {
+            gate.await()
+            batch
+        }
+        assertTrue(viewModel.redoRows(listOf("a"), profile))
+        awaitState { it is BulkRedoUiState.Preparing }
+
+        assertFalse(viewModel.redoRows(listOf("b"), profile))
+
+        gate.complete(Unit)
+        awaitState { it is BulkRedoUiState.Summary }
+        assertFalse(viewModel.redoRows(listOf("c"), profile))
+        coVerify(exactly = 1) { bulkRedo.prepare(any(), any(), any()) }
+        assertTrue(viewModel.bulkRedoState.value is BulkRedoUiState.Summary)
+        assertFalse(viewModel.redoRows(emptyList(), profile))
+    }
+
+    @Test
+    fun `a slow enqueue keeps Enqueuing, rejects a second batch and publishes its own report`() = runBlocking {
+        val release = CountDownLatch(1)
+        val entered = CompletableDeferred<Unit>()
+        val reportA = BulkRedoReport(queued = 1, failedToStart = 0, deferred = 1, notStarted = 2)
+        every { bulkRedo.enqueue(any(), any(), any()) } answers {
+            entered.complete(Unit)
+            // Bounded, so a failing test cannot park an IO thread forever.
+            release.await(30, TimeUnit.SECONDS)
+            reportA
+        }
+        prepareToSummary()
+
+        viewModel.confirmBulkRedo(includeLong = true)
+        assertTrue(viewModel.bulkRedoState.value is BulkRedoUiState.Enqueuing)
+        withTimeout(30_000) { entered.await() }
+
+        assertFalse(viewModel.redoRows(listOf("x"), profile))
+        // A cancel cannot abandon a confirmed enqueue either.
+        viewModel.cancelBulkRedo()
+        assertTrue(viewModel.bulkRedoState.value is BulkRedoUiState.Enqueuing)
+        coVerify(exactly = 1) { bulkRedo.prepare(any(), any(), any()) }
+
+        release.countDown()
+        val done = awaitState { it is BulkRedoUiState.Done } as BulkRedoUiState.Done
+        assertEquals(reportA, done.report)
+        verify(exactly = 0) { bulkRedo.discard(any()) }
+
+        // Done is replaced by the next batch.
+        assertTrue(viewModel.redoRows(listOf("y"), profile))
+        awaitState { it is BulkRedoUiState.Summary }
+        coVerify(exactly = 2) { bulkRedo.prepare(any(), any(), any()) }
+    }
+
+    @Test
+    fun `redoSelected passes a row present only in the search results`() = runBlocking {
+        rows.value = listOf(entity("new"))
+        // Both: searchAll is a default method delegating to searchAllRaw.
+        val hits = MutableStateFlow(listOf(entity("old")))
+        every { logDao.searchAll(any()) } returns hits
+        every { logDao.searchAllRaw(any()) } returns hits
+        val collector = launch(Dispatchers.Unconfined) { viewModel.selection.collect { } }
+        viewModel.onSearchQueryChanged("old")
+        withTimeout(30_000) { viewModel.filteredLogs.first { list -> list.any { it.id == "old" } } }
+        viewModel.enterSelection("old")
+        withTimeout(30_000) { viewModel.selection.first { it == setOf("old") } }
+        coEvery { bulkRedo.prepare(any(), any(), any()) } returns batch
+
+        assertTrue(viewModel.redoSelected(profile))
+
+        awaitState { it is BulkRedoUiState.Summary }
+        coVerify(exactly = 1) { bulkRedo.prepare(listOf("old"), profile, any()) }
         collector.cancel()
     }
 }

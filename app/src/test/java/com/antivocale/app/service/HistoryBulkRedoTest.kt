@@ -161,7 +161,7 @@ class HistoryBulkRedoTest {
         assertEquals(setOf("restage-ok", "restage-missing"), restageTargets.map { it.row.id }.toSet())
 
         val report = bulk.enqueue(batch, profile, includeLong = true)
-        assertEquals(BulkRedoReport(queued = 3, failedToStart = 0), report)
+        assertEquals(BulkRedoReport(queued = 3, failedToStart = 0, deferred = 0, notStarted = 0), report)
 
         val started = startedServices()
         assertEquals(listOf("p-short", "p-long", "p-restage-ok"),
@@ -201,7 +201,7 @@ class HistoryBulkRedoTest {
         val batch = bulk.prepare(rows.map { it.id }, profile) { _, _ -> }
         val report = bulk.enqueue(batch, profile, includeLong = false)
 
-        assertEquals(BulkRedoReport(queued = 1, failedToStart = 0), report)
+        assertEquals(BulkRedoReport(queued = 1, failedToStart = 0, deferred = 0, notStarted = 0), report)
         assertEquals(listOf("p-short"),
             startedServices().map { it.getStringExtra(TaskerRequestReceiver.EXTRA_PROMPT) })
         assertFalse("the dropped long item's re-staged copy is reclaimed", restagedLong.exists())
@@ -227,7 +227,7 @@ class HistoryBulkRedoTest {
         val batch = bulk.prepare(skippedOnly.map { it.id }, profile) { _, _ -> }
         val report = bulk.enqueue(batch, profile, includeLong = true)
 
-        assertEquals(BulkRedoReport(queued = 0, failedToStart = 0), report)
+        assertEquals(BulkRedoReport(queued = 0, failedToStart = 0, deferred = 0, notStarted = 0), report)
         assertEquals(emptyList<Intent>(), startedServices())
     }
 

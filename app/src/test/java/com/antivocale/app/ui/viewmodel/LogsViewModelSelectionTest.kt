@@ -4,6 +4,7 @@ import android.app.Application
 import com.antivocale.app.data.local.LogDao
 import com.antivocale.app.data.local.LogEntity
 import com.antivocale.app.transcription.staticRegistry
+import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
@@ -75,11 +76,12 @@ class LogsViewModelSelectionTest : ViewModelTeardownTest() {
         listOf("err", "queued", "running", "legacy").forEach(viewModel::toggleSelected)
         advanceUntilIdle()
         assertEquals(5, viewModel.selection.value.size)
+        coEvery { logDao.deleteByIds(any()) } answers { firstArg<List<String>>().size }
 
-        val result = viewModel.deleteSelected()
+        viewModel.deleteSelected()
         advanceUntilIdle()
 
-        assertEquals(LogsViewModel.BulkDeleteResult(deleted = 2, skipped = 3), result)
+        assertEquals(LogsViewModel.BulkDeleteResult(deleted = 2, skipped = 3), viewModel.bulkDeleteResult.value)
         coVerify(exactly = 1) { logDao.deleteByIds(match { it.toSet() == setOf("ok", "err") }) }
         assertFalse(viewModel.selectionMode.value)
         assertTrue(viewModel.selection.value.isEmpty())
@@ -93,11 +95,55 @@ class LogsViewModelSelectionTest : ViewModelTeardownTest() {
         viewModel.enterSelection("running")
         advanceUntilIdle()
 
-        val result = viewModel.deleteSelected()
+        viewModel.deleteSelected()
         advanceUntilIdle()
 
-        assertEquals(LogsViewModel.BulkDeleteResult(deleted = 0, skipped = 1), result)
+        assertEquals(LogsViewModel.BulkDeleteResult(deleted = 0, skipped = 1), viewModel.bulkDeleteResult.value)
         coVerify(exactly = 0) { logDao.deleteByIds(any()) }
+        viewModel.consumeBulkDeleteResult()
+        assertEquals(null, viewModel.bulkDeleteResult.value)
+    }
+
+    @Test
+    fun `deleteSelected reports the count the DAO deleted, not the selection size`() = runTest {
+        rows.value = listOf(entity("a", "SUCCESS"), entity("b", "SUCCESS"))
+        backgroundScope.launch { viewModel.selection.collect { } }
+        advanceUntilIdle()
+        viewModel.enterSelection("a")
+        viewModel.toggleSelected("b")
+        advanceUntilIdle()
+        // One of the two was already gone by the time the statement ran.
+        coEvery { logDao.deleteByIds(any()) } returns 1
+
+        viewModel.deleteSelected()
+        advanceUntilIdle()
+
+        assertEquals(LogsViewModel.BulkDeleteResult(deleted = 1, skipped = 0), viewModel.bulkDeleteResult.value)
+    }
+
+    @Test
+    fun `a search hit older than the newest rows stays selected and is deleted`() = runTest {
+        // logs holds only the newest rows; the literal search reaches past them.
+        rows.value = listOf(entity("new", "SUCCESS"))
+        val hits = MutableStateFlow(listOf(entity("old", "SUCCESS")))
+        // Both: searchAll is a default method delegating to searchAllRaw.
+        every { logDao.searchAll(any()) } returns hits
+        every { logDao.searchAllRaw(any()) } returns hits
+        coEvery { logDao.deleteByIds(any()) } answers { firstArg<List<String>>().size }
+        backgroundScope.launch { viewModel.selection.collect { } }
+        viewModel.onSearchQueryChanged("old")
+        advanceUntilIdle()
+        assertEquals(listOf("old"), viewModel.filteredLogs.value.map { it.id })
+
+        viewModel.enterSelection("old")
+        advanceUntilIdle()
+        assertEquals(setOf("old"), viewModel.selection.value)
+
+        viewModel.deleteSelected()
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { logDao.deleteByIds(listOf("old")) }
+        assertEquals(LogsViewModel.BulkDeleteResult(deleted = 1, skipped = 0), viewModel.bulkDeleteResult.value)
     }
 
     @Test

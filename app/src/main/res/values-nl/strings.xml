@@ -1490,7 +1490,6 @@
     <string name="history_scope_rule_subfolder_title">Deze submap transcriberen als…</string>
     <string name="history_scope_rule_long_press_label">Transcriptieregel instellen</string>
     <string name="bulk_redo_single_pass_hint">Twee-pass staat uit voor deze herhaling: één pass met het gekozen model.</string>
-    <string name="bulk_redo_language_model_default">Modelstandaard</string>
     <string name="bulk_redo_preparing">Voorbereiden %1$d van %2$d</string>
     <string name="bulk_redo_all">Alles opnieuw</string>
     <string name="bulk_redo_skip_long">Lange overslaan</string>
@@ -1538,5 +1537,13 @@
     <plurals name="bulk_redo_failed_to_start">
         <item quantity="one">%d kon niet starten</item>
         <item quantity="other">%d konden niet starten</item>
+    </plurals>
+    <plurals name="bulk_redo_deferred">
+        <item quantity="one">%d moet met een tik worden gestart</item>
+        <item quantity="other">%d moeten met een tik worden gestart</item>
+    </plurals>
+    <plurals name="bulk_redo_not_started">
+        <item quantity="one">%d is niet gestart (app ging naar de achtergrond)</item>
+        <item quantity="other">%d zijn niet gestart (app ging naar de achtergrond)</item>
     </plurals>
 </resources>

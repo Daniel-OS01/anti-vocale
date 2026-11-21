@@ -21,8 +21,8 @@ import com.antivocale.app.ui.viewmodel.LogsViewModel.BulkRedoUiState
 import com.antivocale.app.util.AudioDurationFormat
 
 /**
- * The bulk redo's state dialogs: Preparing and Summary. Idle and Done render
- * nothing here (Done is the tab's snackbar).
+ * The bulk redo's state dialogs: Preparing and Summary. Idle, Enqueuing and
+ * Done render nothing here (Done is the tab's snackbar).
  */
 @Composable
 fun BulkRedoDialogs(
@@ -33,7 +33,8 @@ fun BulkRedoDialogs(
     when (state) {
         is BulkRedoUiState.Preparing -> BulkRedoPreparingDialog(state.done, state.total, onCancel)
         is BulkRedoUiState.Summary -> BulkRedoSummaryDialog(state.batch, state.modelDisplayName, onConfirm, onCancel)
-        BulkRedoUiState.Idle, is BulkRedoUiState.Done -> Unit
+        // Enqueuing is brief and not cancellable: no dialog of its own.
+        BulkRedoUiState.Idle, is BulkRedoUiState.Enqueuing, is BulkRedoUiState.Done -> Unit
     }
 }
 

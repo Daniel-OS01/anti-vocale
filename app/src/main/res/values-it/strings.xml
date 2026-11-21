@@ -1480,7 +1480,6 @@
     <string name="history_scope_rule_subfolder_title">Trascrivi questa sottocartella come…</string>
     <string name="history_scope_rule_long_press_label">Imposta regola di trascrizione</string>
     <string name="bulk_redo_single_pass_hint">La modalità a due passaggi è disattivata per questa ripetizione: un solo passaggio con il modello scelto.</string>
-    <string name="bulk_redo_language_model_default">Predefinito del modello</string>
     <string name="bulk_redo_preparing">Preparazione %1$d di %2$d</string>
     <string name="bulk_redo_all">Rifai tutte</string>
     <string name="bulk_redo_skip_long">Salta le lunghe</string>
@@ -1528,5 +1527,13 @@
     <plurals name="bulk_redo_failed_to_start">
         <item quantity="one">%d non è partita</item>
         <item quantity="other">%d non sono partite</item>
+    </plurals>
+    <plurals name="bulk_redo_deferred">
+        <item quantity="one">%d richiede un tocco per avviarsi</item>
+        <item quantity="other">%d richiedono un tocco per avviarsi</item>
+    </plurals>
+    <plurals name="bulk_redo_not_started">
+        <item quantity="one">%d non è stata avviata (app in background)</item>
+        <item quantity="other">%d non sono state avviate (app in background)</item>
     </plurals>
 </resources>

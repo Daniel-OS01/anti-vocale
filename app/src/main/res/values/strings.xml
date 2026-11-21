@@ -1500,7 +1500,6 @@
     <string name="history_scope_rule_subfolder_title">Transcribe this subfolder as…</string>
     <string name="history_scope_rule_long_press_label">Set transcription rule</string>
     <string name="bulk_redo_single_pass_hint">Two-pass is off for this redo: one pass with the chosen model.</string>
-    <string name="bulk_redo_language_model_default">Model default</string>
     <string name="bulk_redo_preparing">Preparing %1$d of %2$d</string>
     <string name="bulk_redo_all">Redo all</string>
     <string name="bulk_redo_skip_long">Skip long ones</string>
@@ -1548,5 +1547,13 @@
     <plurals name="bulk_redo_failed_to_start">
         <item quantity="one">%d could not start</item>
         <item quantity="other">%d could not start</item>
+    </plurals>
+    <plurals name="bulk_redo_deferred">
+        <item quantity="one">%d needs a tap to start</item>
+        <item quantity="other">%d need a tap to start</item>
+    </plurals>
+    <plurals name="bulk_redo_not_started">
+        <item quantity="one">%d was not started (app went to the background)</item>
+        <item quantity="other">%d were not started (app went to the background)</item>
     </plurals>
 </resources>

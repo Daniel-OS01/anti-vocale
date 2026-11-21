@@ -1509,7 +1509,6 @@
     <string name="history_scope_rule_subfolder_title">Распознавать эту подпапку как…</string>
     <string name="history_scope_rule_long_press_label">Задать правило распознавания</string>
     <string name="bulk_redo_single_pass_hint">Двухпроходный режим для этого повтора отключён: один проход выбранной моделью.</string>
-    <string name="bulk_redo_language_model_default">По умолчанию модели</string>
     <string name="bulk_redo_preparing">Подготовка %1$d из %2$d</string>
     <string name="bulk_redo_all">Повторить все</string>
     <string name="bulk_redo_skip_long">Пропустить длинные</string>
@@ -1579,5 +1578,17 @@
         <item quantity="few">%d не удалось запустить</item>
         <item quantity="many">%d не удалось запустить</item>
         <item quantity="other">%d не удалось запустить</item>
+    </plurals>
+    <plurals name="bulk_redo_deferred">
+        <item quantity="one">Ожидают нажатия для запуска: %d</item>
+        <item quantity="few">Ожидают нажатия для запуска: %d</item>
+        <item quantity="many">Ожидают нажатия для запуска: %d</item>
+        <item quantity="other">Ожидают нажатия для запуска: %d</item>
+    </plurals>
+    <plurals name="bulk_redo_not_started">
+        <item quantity="one">Не запущено (приложение ушло в фон): %d</item>
+        <item quantity="few">Не запущено (приложение ушло в фон): %d</item>
+        <item quantity="many">Не запущено (приложение ушло в фон): %d</item>
+        <item quantity="other">Не запущено (приложение ушло в фон): %d</item>
     </plurals>
 </resources>

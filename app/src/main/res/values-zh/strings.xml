@@ -1298,7 +1298,6 @@
     <string name="history_scope_rule_subfolder_title">将此子文件夹转写为…</string>
     <string name="history_scope_rule_long_press_label">设置转写规则</string>
     <string name="bulk_redo_single_pass_hint">本次重做关闭双遍模式：使用所选模型单遍转写。</string>
-    <string name="bulk_redo_language_model_default">模型默认</string>
     <string name="bulk_redo_preparing">正在准备 %1$d / %2$d</string>
     <string name="bulk_redo_all">全部重做</string>
     <string name="bulk_redo_skip_long">跳过较长的</string>
@@ -1335,5 +1334,11 @@
     </plurals>
     <plurals name="bulk_redo_failed_to_start">
         <item quantity="other">%d 条无法启动</item>
+    </plurals>
+    <plurals name="bulk_redo_deferred">
+        <item quantity="other">%d 条需点按通知才能开始</item>
+    </plurals>
+    <plurals name="bulk_redo_not_started">
+        <item quantity="other">%d 条未启动（应用已转入后台）</item>
     </plurals>
 </resources>

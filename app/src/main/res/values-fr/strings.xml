@@ -1342,7 +1342,6 @@
     <string name="history_scope_rule_subfolder_title">Transcrire ce sous-dossier en…</string>
     <string name="history_scope_rule_long_press_label">Définir une règle de transcription</string>
     <string name="bulk_redo_single_pass_hint">Le mode deux passes est désactivé pour cette reprise : une seule passe avec le modèle choisi.</string>
-    <string name="bulk_redo_language_model_default">Par défaut du modèle</string>
     <string name="bulk_redo_preparing">Préparation %1$d sur %2$d</string>
     <string name="bulk_redo_all">Tout refaire</string>
     <string name="bulk_redo_skip_long">Ignorer les longs</string>
@@ -1390,5 +1389,13 @@
     <plurals name="bulk_redo_failed_to_start">
         <item quantity="one">%d n\'a pas pu démarrer</item>
         <item quantity="other">%d n\'ont pas pu démarrer</item>
+    </plurals>
+    <plurals name="bulk_redo_deferred">
+        <item quantity="one">%d attend un appui pour démarrer</item>
+        <item quantity="other">%d attendent un appui pour démarrer</item>
+    </plurals>
+    <plurals name="bulk_redo_not_started">
+        <item quantity="one">%d n'a pas été lancée (l'app est passée en arrière-plan)</item>
+        <item quantity="other">%d n'ont pas été lancées (l'app est passée en arrière-plan)</item>
     </plurals>
 </resources>

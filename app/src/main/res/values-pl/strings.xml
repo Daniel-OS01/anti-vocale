@@ -1508,7 +1508,6 @@
     <string name="history_scope_rule_subfolder_title">Transkrybuj ten podfolder jako…</string>
     <string name="history_scope_rule_long_press_label">Ustaw regułę transkrypcji</string>
     <string name="bulk_redo_single_pass_hint">Tryb dwuprzebiegowy jest wyłączony dla tego powtórzenia: jeden przebieg wybranym modelem.</string>
-    <string name="bulk_redo_language_model_default">Domyślny modelu</string>
     <string name="bulk_redo_preparing">Przygotowywanie %1$d z %2$d</string>
     <string name="bulk_redo_all">Powtórz wszystkie</string>
     <string name="bulk_redo_skip_long">Pomiń długie</string>
@@ -1578,5 +1577,17 @@
         <item quantity="few">Nie udało się uruchomić: %d</item>
         <item quantity="many">Nie udało się uruchomić: %d</item>
         <item quantity="other">Nie udało się uruchomić: %d</item>
+    </plurals>
+    <plurals name="bulk_redo_deferred">
+        <item quantity="one">Wymaga dotknięcia, aby uruchomić: %d</item>
+        <item quantity="few">Wymaga dotknięcia, aby uruchomić: %d</item>
+        <item quantity="many">Wymaga dotknięcia, aby uruchomić: %d</item>
+        <item quantity="other">Wymaga dotknięcia, aby uruchomić: %d</item>
+    </plurals>
+    <plurals name="bulk_redo_not_started">
+        <item quantity="one">Nie uruchomiono (aplikacja przeszła w tło): %d</item>
+        <item quantity="few">Nie uruchomiono (aplikacja przeszła w tło): %d</item>
+        <item quantity="many">Nie uruchomiono (aplikacja przeszła w tło): %d</item>
+        <item quantity="other">Nie uruchomiono (aplikacja przeszła w tło): %d</item>
     </plurals>
 </resources>

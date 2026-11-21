@@ -751,8 +751,11 @@ class LogsViewModel @Inject constructor(
     // ---- History multi-select ----
     // The raw set holds what the user picked; [selection] is that set pruned
     // against the live rows, so a deleted row drops out without a write-back.
-    // The search query is deliberately NOT an input: rows hidden by a query
-    // stay selected (the bar reports them), and a new row is never added.
+    // The live rows are [logs] (the newest 500) UNION [filteredLogs]: a
+    // literal search filters before its LIMIT 500, so a visible hit can be
+    // older than every row of [logs]. A row drops out only when it is in
+    // neither. The query itself is deliberately NOT an input: rows hidden by
+    // a query stay selected (the bar reports them), and a new row is never added.
 
     private val _selectionMode = MutableStateFlow(false)
     val selectionMode: StateFlow<Boolean> = _selectionMode.asStateFlow()
@@ -760,9 +763,24 @@ class LogsViewModel @Inject constructor(
     private val _selectedIds = MutableStateFlow<Set<String>>(emptySet())
 
     val selection: StateFlow<Set<String>> =
-        combine(_selectedIds, logs) { sel, rows ->
-            HistorySelection.prune(sel, rows.mapTo(HashSet()) { it.id })
+        combine(_selectedIds, logs, filteredLogs) { sel, rows, hits ->
+            HistorySelection.prune(sel, selectableRows(rows, hits).keys)
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
+
+    /** The rows a selection may hold, by id: [rows] union [hits]. */
+    private fun selectableRows(rows: List<LogEntry>, hits: List<LogEntry>): Map<String, LogEntry> {
+        val byId = LinkedHashMap<String, LogEntry>(rows.size + hits.size)
+        rows.forEach { byId[it.id] = it }
+        hits.forEach { byId.putIfAbsent(it.id, it) }
+        return byId
+    }
+
+    /** The current selection's rows, pruned exactly as [selection] prunes. */
+    private fun effectiveSelectedRows(): List<LogEntry> {
+        val byId = selectableRows(logs.value, filteredLogs.value)
+        val selected = HistorySelection.prune(_selectedIds.value, byId.keys)
+        return selected.mapNotNull { byId[it] }
+    }
 
     /** Enters selection mode with [id] checked (the row long-press). */
     fun enterSelection(id: String) {
@@ -789,20 +807,28 @@ class LogsViewModel @Inject constructor(
         _selectionMode.value = false
     }
 
-    /** What [deleteSelected] did: [skipped] rows were still in flight. */
+    /** What [deleteSelected] did: [deleted] is the DAO's count; [skipped] rows were still in flight. */
     data class BulkDeleteResult(val deleted: Int, val skipped: Int)
+
+    private val _bulkDeleteResult = MutableStateFlow<BulkDeleteResult?>(null)
+
+    /** The last bulk delete's outcome, published once the delete ran; consume it with [consumeBulkDeleteResult]. */
+    val bulkDeleteResult: StateFlow<BulkDeleteResult?> = _bulkDeleteResult.asStateFlow()
+
+    fun consumeBulkDeleteResult() {
+        _bulkDeleteResult.value = null
+    }
 
     /**
      * Deletes the selected TERMINAL rows (SUCCESS / ERROR) and exits
-     * selection mode. In-flight rows (QUEUED / PROCESSING, which also covers
-     * the legacy "PENDING" spelling via toLogEntry) are skipped: deleting a
-     * row the service is still writing would let its next status write miss.
+     * selection mode, then publishes [bulkDeleteResult] with the count the
+     * DAO actually deleted. In-flight rows (QUEUED / PROCESSING, which also
+     * covers the legacy "PENDING" spelling via toLogEntry) are skipped:
+     * deleting a row the service is still writing would let its next status
+     * write miss.
      */
-    fun deleteSelected(): BulkDeleteResult {
-        val rows = logs.value
-        val selected = HistorySelection.prune(_selectedIds.value, rows.mapTo(HashSet()) { it.id })
-        val (terminal, inFlight) = rows
-            .filter { it.id in selected }
+    fun deleteSelected() {
+        val (terminal, inFlight) = effectiveSelectedRows()
             .partition { it.status == LogEntry.Status.SUCCESS || it.status == LogEntry.Status.ERROR }
         val ids = terminal.map { it.id }
         // TASK-599 F3, as in deleteLog: the caches must not outlive the rows.
@@ -812,10 +838,10 @@ class LogsViewModel @Inject constructor(
             segmentsByRow.remove(id)
         }
         exitSelection()
-        if (ids.isNotEmpty()) {
-            viewModelScope.launch { logDao.deleteByIds(ids) }
+        viewModelScope.launch {
+            val deleted = if (ids.isEmpty()) 0 else logDao.deleteByIds(ids)
+            _bulkDeleteResult.value = BulkDeleteResult(deleted = deleted, skipped = inFlight.size)
         }
-        return BulkDeleteResult(deleted = ids.size, skipped = inFlight.size)
     }
 
     // ---- History bulk redo ----
@@ -831,6 +857,8 @@ class LogsViewModel @Inject constructor(
             val profile: TranscriptionProfile,
             val modelDisplayName: String,
         ) : BulkRedoUiState
+        /** Confirmed; the enqueue of [batch] is running. Not cancellable. */
+        data class Enqueuing(val batch: PreparedBatch) : BulkRedoUiState
         data class Done(val report: BulkRedoReport) : BulkRedoUiState
     }
 
@@ -841,17 +869,24 @@ class LogsViewModel @Inject constructor(
 
     /**
      * Prepares a redo of [rowIds] with [profile] (Preparing, then Summary).
-     * Ignored while another bulk redo is preparing or awaiting confirmation.
+     *
+     * Only one bulk redo runs at a time: this starts only from Idle or Done
+     * (a Done result is replaced) and returns true. While a redo is
+     * Preparing, awaiting confirmation (Summary) or Enqueuing, it does
+     * nothing and returns false, so a caller outside the multi-select bar
+     * must check the result before assuming its rows were taken. Empty
+     * [rowIds] also return false.
      */
-    fun redoRows(rowIds: Collection<String>, profile: TranscriptionProfile) {
-        if (rowIds.isEmpty()) return
-        val current = _bulkRedoState.value
-        if (current is BulkRedoUiState.Preparing || current is BulkRedoUiState.Summary) {
-            Log.w(TAG, "event=bulk_redo_ignored reason=busy")
-            return
-        }
+    fun redoRows(rowIds: Collection<String>, profile: TranscriptionProfile): Boolean {
+        if (rowIds.isEmpty()) return false
         val ids = rowIds.toList()
-        _bulkRedoState.value = BulkRedoUiState.Preparing(0, ids.size)
+        val current = _bulkRedoState.value
+        val free = current is BulkRedoUiState.Idle || current is BulkRedoUiState.Done
+        // compareAndSet: the enqueue's completion writes Done from another thread.
+        if (!free || !_bulkRedoState.compareAndSet(current, BulkRedoUiState.Preparing(0, ids.size))) {
+            Log.w(TAG, "event=bulk_redo_ignored reason=busy")
+            return false
+        }
         bulkPrepareJob = viewModelScope.launch {
             val batch = try {
                 withContext(Dispatchers.IO) {
@@ -872,40 +907,49 @@ class LogsViewModel @Inject constructor(
             val modelName = displayNameFor(batch.backendId, appContext)
             _bulkRedoState.value = BulkRedoUiState.Summary(batch, profile, modelName)
         }
+        return true
     }
 
-    /** [redoRows] over the current multi-select selection. */
-    fun redoSelected(profile: TranscriptionProfile) {
-        redoRows(selection.value, profile)
-    }
+    /** [redoRows] over the current multi-select selection (the same pruned set as [selection]). */
+    fun redoSelected(profile: TranscriptionProfile): Boolean =
+        redoRows(effectiveSelectedRows().map { it.id }, profile)
 
     /** The Summary's confirm: enqueues (long items only when [includeLong]), then Done. */
     fun confirmBulkRedo(includeLong: Boolean) {
         val summary = _bulkRedoState.value as? BulkRedoUiState.Summary ?: return
-        // Leaves Summary synchronously, so a double tap cannot enqueue twice.
-        _bulkRedoState.value = BulkRedoUiState.Idle
-        viewModelScope.launch {
+        // Leaves Summary synchronously, so a double tap cannot enqueue twice;
+        // Enqueuing (not Idle) keeps redoRows from preparing a second batch
+        // whose Summary this enqueue's Done would overwrite.
+        val enqueuing = BulkRedoUiState.Enqueuing(summary.batch)
+        if (!_bulkRedoState.compareAndSet(summary, enqueuing)) return
+        // appScope: the batch is confirmed and its copies are the queue's
+        // inputs, so a ViewModel clear must not cancel the enqueue halfway.
+        appScope.launch(Dispatchers.IO) {
             val report = try {
-                withContext(Dispatchers.IO) {
-                    historyBulkRedo.enqueue(summary.batch, summary.profile, includeLong)
-                }
+                historyBulkRedo.enqueue(summary.batch, summary.profile, includeLong)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 Log.e(TAG, "event=bulk_redo_enqueue_failed items=${summary.batch.items.size}", e)
                 val runCount = summary.batch.items.count { includeLong || !it.isLong }
-                BulkRedoReport(queued = 0, failedToStart = runCount)
+                BulkRedoReport(queued = 0, failedToStart = runCount, deferred = 0, notStarted = 0)
             }
-            _bulkRedoState.value = BulkRedoUiState.Done(report)
-            if (_selectionMode.value) exitSelection()
+            // Only THIS enqueue's own state becomes Done (nothing else leaves
+            // Enqueuing today; the check keeps a future path from being
+            // overwritten). Selection exits first, so Done implies it.
+            if (_bulkRedoState.value === enqueuing) {
+                if (_selectionMode.value) exitSelection()
+                _bulkRedoState.compareAndSet(enqueuing, BulkRedoUiState.Done(report))
+            }
         }
     }
 
-    /** Cancels a running prepare, or discards a prepared batch; back to Idle. */
+    /** Cancels a running prepare, or discards a prepared batch; back to Idle. A confirmed enqueue is not cancelled. */
     fun cancelBulkRedo() {
         when (val state = _bulkRedoState.value) {
             is BulkRedoUiState.Preparing -> bulkPrepareJob?.cancel()
             is BulkRedoUiState.Summary -> discardBatch(state.batch)
+            is BulkRedoUiState.Enqueuing -> return
             BulkRedoUiState.Idle, is BulkRedoUiState.Done -> Unit
         }
         bulkPrepareJob = null
@@ -926,6 +970,8 @@ class LogsViewModel @Inject constructor(
     }
 
     override fun onCleared() {
+        // Only an unconfirmed Summary is discarded: an Enqueuing batch's
+        // copies belong to the enqueue still running on appScope.
         (_bulkRedoState.value as? BulkRedoUiState.Summary)?.let { discardBatch(it.batch) }
         super.onCleared()
     }

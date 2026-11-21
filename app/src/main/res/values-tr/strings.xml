@@ -1474,7 +1474,6 @@
     <string name="history_scope_rule_subfolder_title">Bu alt klasörü şöyle yazıya dök…</string>
     <string name="history_scope_rule_long_press_label">Yazıya dökme kuralı belirle</string>
     <string name="bulk_redo_single_pass_hint">Bu yineleme için iki geçiş kapalı: seçilen modelle tek geçiş.</string>
-    <string name="bulk_redo_language_model_default">Model varsayılanı</string>
     <string name="bulk_redo_preparing">Hazırlanıyor: %1$d / %2$d</string>
     <string name="bulk_redo_all">Tümünü yinele</string>
     <string name="bulk_redo_skip_long">Uzunları atla</string>
@@ -1522,5 +1521,13 @@
     <plurals name="bulk_redo_failed_to_start">
         <item quantity="one">%d başlatılamadı</item>
         <item quantity="other">%d başlatılamadı</item>
+    </plurals>
+    <plurals name="bulk_redo_deferred">
+        <item quantity="one">%d başlatmak için dokunma bekliyor</item>
+        <item quantity="other">%d başlatmak için dokunma bekliyor</item>
+    </plurals>
+    <plurals name="bulk_redo_not_started">
+        <item quantity="one">%d başlatılmadı (uygulama arka plana geçti)</item>
+        <item quantity="other">%d başlatılmadı (uygulama arka plana geçti)</item>
     </plurals>
 </resources>

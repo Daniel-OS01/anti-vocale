@@ -1479,7 +1479,6 @@
     <string name="history_scope_rule_subfolder_title">رونویسی این زیرپوشه به‌صورت…</string>
     <string name="history_scope_rule_long_press_label">تنظیم قانون رونویسی</string>
     <string name="bulk_redo_single_pass_hint">حالت دو مرحله‌ای برای این تکرار خاموش است: یک مرحله با مدل انتخاب‌شده.</string>
-    <string name="bulk_redo_language_model_default">پیش‌فرض مدل</string>
     <string name="bulk_redo_preparing">در حال آماده‌سازی %1$d از %2$d</string>
     <string name="bulk_redo_all">تکرار همه</string>
     <string name="bulk_redo_skip_long">رد کردن موارد طولانی</string>
@@ -1527,5 +1526,13 @@
     <plurals name="bulk_redo_failed_to_start">
         <item quantity="one">%d شروع نشد</item>
         <item quantity="other">%d شروع نشد</item>
+    </plurals>
+    <plurals name="bulk_redo_deferred">
+        <item quantity="one">%d برای شروع به یک ضربه نیاز دارد</item>
+        <item quantity="other">%d برای شروع به یک ضربه نیاز دارد</item>
+    </plurals>
+    <plurals name="bulk_redo_not_started">
+        <item quantity="one">%d شروع نشد (برنامه به پس‌زمینه رفت)</item>
+        <item quantity="other">%d شروع نشد (برنامه به پس‌زمینه رفت)</item>
     </plurals>
 </resources>

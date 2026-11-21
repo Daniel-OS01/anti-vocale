@@ -1314,7 +1314,6 @@
     <string name="history_scope_rule_subfolder_title">Litteroi tämä alikansio näin…</string>
     <string name="history_scope_rule_long_press_label">Aseta litterointisääntö</string>
     <string name="bulk_redo_single_pass_hint">Kaksivaiheinen tila on pois päältä tässä uusinnassa: yksi kierros valitulla mallilla.</string>
-    <string name="bulk_redo_language_model_default">Mallin oletus</string>
     <string name="bulk_redo_preparing">Valmistellaan %1$d/%2$d</string>
     <string name="bulk_redo_all">Tee kaikki uudelleen</string>
     <string name="bulk_redo_skip_long">Ohita pitkät</string>
@@ -1362,5 +1361,13 @@
     <plurals name="bulk_redo_failed_to_start">
         <item quantity="one">%d ei käynnistynyt</item>
         <item quantity="other">%d ei käynnistynyt</item>
+    </plurals>
+    <plurals name="bulk_redo_deferred">
+        <item quantity="one">%d odottaa napautusta käynnistyäkseen</item>
+        <item quantity="other">%d odottaa napautusta käynnistyäkseen</item>
+    </plurals>
+    <plurals name="bulk_redo_not_started">
+        <item quantity="one">%d jäi käynnistämättä (sovellus siirtyi taustalle)</item>
+        <item quantity="other">%d jäi käynnistämättä (sovellus siirtyi taustalle)</item>
     </plurals>
 </resources>

@@ -56,8 +56,8 @@ data class PreparedBatch(
 data class BulkRedoReport(
     val queued: Int,
     val failedToStart: Int,
-    val deferred: Int = 0,
-    val notStarted: Int = 0,
+    val deferred: Int,
+    val notStarted: Int,
 )
 
 /**
