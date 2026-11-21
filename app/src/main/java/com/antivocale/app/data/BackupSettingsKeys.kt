@@ -85,6 +85,11 @@ object BackupSettingsKeys {
         "transcript_export_format",
         "transcription_backend",
         "transcription_language",
+        // The per-source voice-note model pins (blank = active model). A
+        // pin naming a model the restoring install lacks is not loadable
+        // there and degrades to the active model.
+        "voice_note_backend_id",
+        "voice_note_business_backend_id",
     )
 
     private val INT = setOf(

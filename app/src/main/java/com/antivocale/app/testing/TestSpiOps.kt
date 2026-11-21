@@ -180,6 +180,9 @@ internal class TestSpiOps(
             .put("refinementModelBackendId", preferences.refinementModelBackendId.first())
             // The two-pass preview (first-pass) model pin (empty = automatic).
             .put("previewModelBackendId", preferences.previewModelBackendId.first())
+            // The per-source voice-note model pins (empty = active model).
+            .put("voiceNoteBackendId", preferences.voiceNoteBackendId.first())
+            .put("voiceNoteBusinessBackendId", preferences.voiceNoteBusinessBackendId.first())
             // TASK-588.1: the advanced-reveal state (the conformance test
             // pins every flow exposed, keyed by its flow name).
             .put("settingsTranscriptionAdvancedExpanded", preferences.settingsTranscriptionAdvancedExpanded.first())

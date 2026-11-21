@@ -9,7 +9,11 @@ import com.antivocale.app.receiver.VoiceNoteSenderResolution
 import com.antivocale.app.service.AudioRequestIntent
 import com.antivocale.app.service.InferenceEnqueue
 import com.antivocale.app.service.InferenceService
+import com.antivocale.app.transcription.LanguageSupport
+import com.antivocale.app.transcription.ScopeChain
+import com.antivocale.app.transcription.TranscriptionProfileResolver
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.flow.first
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -36,6 +40,8 @@ class VoiceNoteAutoTranscriber @Inject constructor(
     private val audioPreprocessor: AudioPreprocessor,
     private val identityCache: VoiceNoteIdentityCache,
     private val duplicateGuard: VoiceNoteDuplicateGuard,
+    private val preferencesManager: PreferencesManager,
+    private val activeModelRepository: ActiveModelRepository,
 ) {
 
     /**
@@ -90,8 +96,10 @@ class VoiceNoteAutoTranscriber @Inject constructor(
         // null hashes never match by construction). The file is local and
         // small; hashing here on the coordinator's IO dispatcher is safe.
         val contentHash = VoiceNoteDuplicateGuard.hashOf(localPath)
+        val backendOverride = resolveBackendOverride(source)
         return when (val outcome = InferenceEnqueue.start(
-            context, serviceIntent(localPath, whatsappPath, senderName, contentHash, source, catchup))) {
+            context,
+            serviceIntent(localPath, whatsappPath, senderName, contentHash, source, catchup, backendOverride))) {
             InferenceEnqueue.Outcome.Started,
             InferenceEnqueue.Outcome.FallbackNotificationPosted -> {
                 Log.i(TAG, "voice note auto-enqueued: $localPath")
@@ -109,7 +117,9 @@ class VoiceNoteAutoTranscriber @Inject constructor(
      * when that receiver was removed): request type audio, the LOCAL path,
      * the note-derived task id, the voice-note source so History rows and
      * the result notification can tell the origin apart, and the resolved
-     * sender so the row lands in the sender's History group.
+     * sender so the row lands in the sender's History group. The backend
+     * override is already resolved ([resolveBackendOverride]); null rides
+     * no extra, so the service uses the active model.
      */
     internal fun serviceIntent(
         localPath: String,
@@ -118,6 +128,7 @@ class VoiceNoteAutoTranscriber @Inject constructor(
         contentHash: String? = null,
         source: VoiceNoteSource = VoiceNoteSource.WHATSAPP,
         catchup: Boolean = false,
+        backendOverride: String? = null,
     ): Intent =
         // TASK-776: the shared audio-request factory; the taskId stays
         // local because the PTT-name derivation is this transcriber's
@@ -136,7 +147,44 @@ class VoiceNoteAutoTranscriber @Inject constructor(
             contentHash = contentHash,
             catchup = catchup,
             sourceKind = SourceKind.VOICE_NOTE,
+            backendOverride = backendOverride,
         )
+
+    /**
+     * The source's model pin through the shared profile resolver (the
+     * pin is this source's sourceDefault scope; R5 fills no other scope).
+     * A blank pin, a pin on a model that is no longer installed, and a
+     * pin equal to the active model all resolve to null: no override
+     * extra, so two-pass and the warm resident model stay intact.
+     */
+    private suspend fun resolveBackendOverride(source: VoiceNoteSource): String? {
+        val pin = when (source) {
+            VoiceNoteSource.WHATSAPP -> preferencesManager.voiceNoteBackendId.first()
+            VoiceNoteSource.WHATSAPP_BUSINESS -> preferencesManager.voiceNoteBusinessBackendId.first()
+            VoiceNoteSource.WATCHED_FOLDER -> null
+        }
+        // The installed set is read only when there is a pin to check.
+        val installed: Set<String> =
+            if (pin.isNullOrBlank()) {
+                emptySet()
+            } else {
+                activeModelRepository.installedBackendsFlow.first().mapTo(HashSet()) { it.backendId }
+            }
+        val resolved = TranscriptionProfileResolver.resolve(
+            chain = ScopeChain(sourceDefault = TranscriptionProfile.of(pin, null)),
+            languageModels = emptyMap(),
+            globalBackendId = preferencesManager.transcriptionBackend.first(),
+            isLoadable = { id -> id.isNotBlank() && id in installed },
+            support = { _, _ -> LanguageSupport.IGNORES },
+        )
+        Log.i(
+            TAG,
+            "scope_profile_resolved source=${source.name} decidedBy=${resolved.decidedBy} " +
+                "backend=${resolved.backendOverride} language=${resolved.languageOverride} " +
+                "warning=${resolved.warning}",
+        )
+        return resolved.backendOverride
+    }
 
     /**
      * TASK-776 review F2: ONE derivation (the enqueue-side dedup check and

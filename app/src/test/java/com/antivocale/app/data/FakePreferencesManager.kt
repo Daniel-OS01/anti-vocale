@@ -317,6 +317,18 @@ internal class FakePreferencesManager : PreferencesManager {
         _previewModelBackendId.value = backendId
     }
 
+    // The per-source voice-note model pins (empty = the active model).
+    val _voiceNoteBackendId = MutableStateFlow("")
+    override val voiceNoteBackendId: Flow<String> = _voiceNoteBackendId
+    override suspend fun saveVoiceNoteBackendId(backendId: String) {
+        _voiceNoteBackendId.value = backendId
+    }
+    val _voiceNoteBusinessBackendId = MutableStateFlow("")
+    override val voiceNoteBusinessBackendId: Flow<String> = _voiceNoteBusinessBackendId
+    override suspend fun saveVoiceNoteBusinessBackendId(backendId: String) {
+        _voiceNoteBusinessBackendId.value = backendId
+    }
+
     // TASK-588.1: the advanced-reveal state (default collapsed, like prod).
     val _transcriptionAdvancedExpanded = MutableStateFlow(false)
     private val _disclosureState = MutableStateFlow<Map<String, Boolean>>(emptyMap())

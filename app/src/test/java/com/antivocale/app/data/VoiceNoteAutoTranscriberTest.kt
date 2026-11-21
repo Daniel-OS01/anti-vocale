@@ -7,7 +7,9 @@ import com.antivocale.app.receiver.TaskerRequestReceiver
 import com.antivocale.app.receiver.VoiceNoteIdentityCache
 import com.antivocale.app.service.InferenceService
 import io.mockk.coEvery
+import io.mockk.every
 import io.mockk.mockk
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
@@ -36,9 +38,17 @@ class VoiceNoteAutoTranscriberTest {
     private val resolvedSources = mutableListOf<VoiceNoteSource>()
     private val checkedTaskIds = mutableListOf<String>()
 
+    private val prefs = FakePreferencesManager()
+
+    /** The installed set the loadability check reads (backend ids). */
+    private fun installed(vararg backendIds: String) = mockk<ActiveModelRepository> {
+        every { installedBackendsFlow } returns flowOf(backendIds.map { InstalledBackend(it, it) })
+    }
+
     private fun impl(
         resolveResult: String?,
         alreadyTranscribed: Boolean = false,
+        activeModels: ActiveModelRepository = installed(),
     ) = VoiceNoteAutoTranscriber(
         context,
         mockk<VoiceNoteTreeGrant> {
@@ -56,6 +66,8 @@ class VoiceNoteAutoTranscriberTest {
                 alreadyTranscribed
             }
         },
+        prefs,
+        activeModels,
     )
 
     @Test
@@ -152,6 +164,8 @@ class VoiceNoteAutoTranscriberTest {
             mockk<AudioPreprocessor>(),
             cache,
             mockk { coEvery { alreadyTranscribed(any()) } returns false },
+            prefs,
+            installed(),
         )
         val outcome = transcriber.enqueue(
             "/storage/emulated/0/Music/Signal/note.m4a", 1_000L,
@@ -213,5 +227,79 @@ class VoiceNoteAutoTranscriberTest {
             "no service may start for an unresolvable note",
             null,
             shadowOf(context.applicationContext as android.app.Application).nextStartedService)
+    }
+
+    // R5 item A: the per-source model pin, resolved through the shared
+    // profile resolver as the source's sourceDefault scope.
+
+    /** Enqueues one resolvable note and returns the started service intent. */
+    private suspend fun enqueuedIntent(
+        source: VoiceNoteSource,
+        activeModels: ActiveModelRepository,
+    ): android.content.Intent {
+        val transcriber = VoiceNoteAutoTranscriber(
+            context,
+            mockk { coEvery { resolve(any(), any(), any()) } returns "/local/n.opus" },
+            mockk<AudioPreprocessor>(),
+            // Not accepting: the sender matcher returns at once (no probe,
+            // no race-window wait).
+            mockk<VoiceNoteIdentityCache> { every { accepting } returns false },
+            mockk { coEvery { alreadyTranscribed(any()) } returns false },
+            prefs,
+            activeModels,
+        )
+        val outcome = transcriber.enqueue("/w/PTT-1.opus", 1_000L, treeUri = "content://tree/t", source = source)
+        assertEquals(VoiceNoteAutoTranscriber.EnqueueOutcome.ENQUEUED, outcome)
+        return requireNotNull(
+            shadowOf(context.applicationContext as android.app.Application).nextStartedService) {
+            "an enqueued note must start the service"
+        }
+    }
+
+    @Test
+    fun `a WhatsApp pin rides the intent as the backend override`() = runBlocking {
+        prefs._voiceNoteBackendId.value = "whisper"
+        val intent = enqueuedIntent(VoiceNoteSource.WHATSAPP, installed("whisper", "sherpa-onnx"))
+        assertEquals("whisper", intent.getStringExtra(InferenceService.EXTRA_BACKEND_OVERRIDE))
+    }
+
+    @Test
+    fun `a Business pin applies to Business notes only`() = runBlocking {
+        prefs._voiceNoteBusinessBackendId.value = "whisper"
+        val models = installed("whisper", "sherpa-onnx")
+        assertEquals(
+            "whisper",
+            enqueuedIntent(VoiceNoteSource.WHATSAPP_BUSINESS, models)
+                .getStringExtra(InferenceService.EXTRA_BACKEND_OVERRIDE))
+        assertNull(
+            "the Business pin must not reach WhatsApp notes",
+            enqueuedIntent(VoiceNoteSource.WHATSAPP, models)
+                .getStringExtra(InferenceService.EXTRA_BACKEND_OVERRIDE))
+        assertNull(
+            "the watched folder has no source pin",
+            enqueuedIntent(VoiceNoteSource.WATCHED_FOLDER, models)
+                .getStringExtra(InferenceService.EXTRA_BACKEND_OVERRIDE))
+    }
+
+    @Test
+    fun `a blank pin gives no override extra`() = runBlocking {
+        prefs._voiceNoteBackendId.value = "   "
+        val intent = enqueuedIntent(VoiceNoteSource.WHATSAPP, installed("whisper", "sherpa-onnx"))
+        assertEquals(false, intent.hasExtra(InferenceService.EXTRA_BACKEND_OVERRIDE))
+    }
+
+    @Test
+    fun `a dangling pin degrades to the active model`() = runBlocking {
+        prefs._voiceNoteBackendId.value = "external:deleted-model"
+        val intent = enqueuedIntent(VoiceNoteSource.WHATSAPP, installed("whisper", "sherpa-onnx"))
+        assertEquals(false, intent.hasExtra(InferenceService.EXTRA_BACKEND_OVERRIDE))
+    }
+
+    @Test
+    fun `a pin equal to the active backend gives no override extra`() = runBlocking {
+        prefs._transcriptionBackend.value = "whisper"
+        prefs._voiceNoteBackendId.value = "whisper"
+        val intent = enqueuedIntent(VoiceNoteSource.WHATSAPP, installed("whisper", "sherpa-onnx"))
+        assertEquals(false, intent.hasExtra(InferenceService.EXTRA_BACKEND_OVERRIDE))
     }
 }

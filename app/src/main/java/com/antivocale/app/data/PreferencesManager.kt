@@ -77,6 +77,19 @@ interface PreferencesManager {
      */
     val previewModelBackendId: Flow<String>
     suspend fun savePreviewModelBackendId(backendId: String)
+
+    /**
+     * The backend WhatsApp voice notes transcribe with, empty (blank) =
+     * the active model. A source-default scope in the transcription
+     * profile resolver; a pin that is not loadable degrades to the active
+     * model.
+     */
+    val voiceNoteBackendId: Flow<String>
+    suspend fun saveVoiceNoteBackendId(backendId: String)
+
+    /** The WhatsApp Business twin of [voiceNoteBackendId] (blank = active model). */
+    val voiceNoteBusinessBackendId: Flow<String>
+    suspend fun saveVoiceNoteBusinessBackendId(backendId: String)
     /**
      * Saved model-path preference for a built-in sherpa-onnx catalog entry,
      * keyed by the entry id (BackendRegistry descriptors delegate to this).

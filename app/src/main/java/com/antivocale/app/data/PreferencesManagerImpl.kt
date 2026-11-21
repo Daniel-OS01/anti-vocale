@@ -61,6 +61,9 @@ class PreferencesManagerImpl(
         private val TRANSCRIPTION_BACKEND = stringPreferencesKey("transcription_backend")
         private val REFINEMENT_MODEL_BACKEND_ID = stringPreferencesKey("refinement_model_backend_id")
         private val PREVIEW_MODEL_BACKEND_ID = stringPreferencesKey("preview_model_backend_id")
+        private val VOICE_NOTE_BACKEND_ID = stringPreferencesKey("voice_note_backend_id")
+        private val VOICE_NOTE_BUSINESS_BACKEND_ID =
+            stringPreferencesKey("voice_note_business_backend_id")
         private val WIPED_REPAIR_CAPTURED_ACTIVE =
             stringPreferencesKey("wiped_repair_captured_active")
         private val WIPED_REPAIR_CAPTURED_PIN =
@@ -188,6 +191,8 @@ class PreferencesManagerImpl(
         val transcriptionBackend: String = PreferencesManager.DEFAULT_TRANSCRIPTION_BACKEND,
         val refinementModelBackendId: String = "",
         val previewModelBackendId: String = "",
+        val voiceNoteBackendId: String = "",
+        val voiceNoteBusinessBackendId: String = "",
         val sherpaModelPaths: Map<String, String?> = emptyMap(),
         val customTransducerModelPath: String? = null,
         val customTransducerModelType: String = PreferencesManager.DEFAULT_CUSTOM_TRANSDUCER_MODEL_TYPE,
@@ -266,6 +271,8 @@ class PreferencesManagerImpl(
         transcriptionBackend = this[TRANSCRIPTION_BACKEND] ?: PreferencesManager.DEFAULT_TRANSCRIPTION_BACKEND,
         refinementModelBackendId = this[REFINEMENT_MODEL_BACKEND_ID] ?: "",
         previewModelBackendId = this[PREVIEW_MODEL_BACKEND_ID] ?: "",
+        voiceNoteBackendId = this[VOICE_NOTE_BACKEND_ID] ?: "",
+        voiceNoteBusinessBackendId = this[VOICE_NOTE_BUSINESS_BACKEND_ID] ?: "",
         sherpaModelPaths = LEGACY_MODEL_PATH_KEYS.entries.associate { (entryId, legacyKey) ->
             entryId to (this[sherpaModelPathKey(entryId)] ?: this[legacyKey])
         },
@@ -528,6 +535,30 @@ class PreferencesManagerImpl(
             preferences[PREVIEW_MODEL_BACKEND_ID] = backendId
         }
         cache.updateAndGet { it.copy(previewModelBackendId = backendId) }
+    }
+
+    override val voiceNoteBackendId: Flow<String> =
+        dataStore.data.map { it[VOICE_NOTE_BACKEND_ID] ?: "" }
+            .onStart { emit(cache.get().voiceNoteBackendId) }
+            .distinctUntilChanged()
+
+    override suspend fun saveVoiceNoteBackendId(backendId: String) {
+        dataStore.edit { preferences ->
+            preferences[VOICE_NOTE_BACKEND_ID] = backendId
+        }
+        cache.updateAndGet { it.copy(voiceNoteBackendId = backendId) }
+    }
+
+    override val voiceNoteBusinessBackendId: Flow<String> =
+        dataStore.data.map { it[VOICE_NOTE_BUSINESS_BACKEND_ID] ?: "" }
+            .onStart { emit(cache.get().voiceNoteBusinessBackendId) }
+            .distinctUntilChanged()
+
+    override suspend fun saveVoiceNoteBusinessBackendId(backendId: String) {
+        dataStore.edit { preferences ->
+            preferences[VOICE_NOTE_BUSINESS_BACKEND_ID] = backendId
+        }
+        cache.updateAndGet { it.copy(voiceNoteBusinessBackendId = backendId) }
     }
 
     override suspend fun saveTranscriptionBackend(backendId: String) {
