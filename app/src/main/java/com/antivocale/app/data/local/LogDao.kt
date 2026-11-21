@@ -148,6 +148,20 @@ interface LogDao {
     @Query("SELECT * FROM logs WHERE taskId = :taskId LIMIT 1")
     suspend fun getByTaskId(taskId: String): LogEntity?
 
+    /** The bulk redo's full-row read of the selected rows, by row id. One
+     *  query per [LOG_DAO_ID_CHUNK] ids (SQLite's 999 bind-parameter limit); row
+     *  order is the database's, not [ids]'. */
+    suspend fun getByIds(ids: List<String>): List<LogEntity> =
+        ids.chunked(LOG_DAO_ID_CHUNK).flatMap { getByIdsChunk(it) }
+
+    /** One chunk of [getByIds]; call [getByIds], which keeps under the bind limit. */
+    @Query("SELECT * FROM logs WHERE id IN (:ids)")
+    suspend fun getByIdsChunk(ids: List<String>): List<LogEntity>
+
+    /** The row ids recorded under one watched folder (sourceFolderKey = its tree uri). */
+    @Query("SELECT id FROM logs WHERE sourceFolderKey = :folderKey")
+    suspend fun getIdsByFolderKey(folderKey: String): List<String>
+
     /** TASK-912: the SPI log_read op reads one row without a run-as DB pull.
      *  Same lean projection as the list queries: the heavy segments and
      *  firstPassTranscript blobs stay out of the row (Room reads them as
@@ -254,3 +268,6 @@ interface LogDao {
         "OR failureContext LIKE '%\"errorClass\":\"SystemSuspended\"%') AND timestamp > :since")
     suspend fun countInterruptedSince(since: Long): Int
 }
+
+/** Ids per IN (...) query in [LogDao.getByIds], under SQLite's 999 bind-parameter limit. */
+private const val LOG_DAO_ID_CHUNK = 900
