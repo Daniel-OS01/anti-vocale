@@ -1387,9 +1387,26 @@ class SettingsViewModel @Inject constructor(
     }
 
     private suspend fun releaseUnusedFolderGrant(app: android.app.Application, uri: Uri) {
-        if (scheduledFolderStore.byUri(uri.toString()) == null) {
+        val key = uri.toString()
+        if (scheduledFolderStore.byUri(key) == null && !grantHeldByAnotherFeature(key)) {
             TreeUris.releasePersistableReadGrant(app, uri)
         }
+    }
+
+    /**
+     * Persisted SAF grants are per tree, not per feature: the export folder
+     * and every voice-note detection source hold one too. Releasing a tree
+     * one of them also picked would silently kill that feature.
+     */
+    private suspend fun grantHeldByAnotherFeature(treeUri: String): Boolean {
+        val holders = buildList {
+            add(preferencesManager.outputFolderUri.firstOrNull())
+            add(preferencesManager.voiceNoteWatchedTreeUri.firstOrNull())
+            for (source in com.antivocale.app.data.VoiceNoteSource.entries) {
+                add(preferencesManager.voiceNoteTreeUri(source).firstOrNull())
+            }
+        }
+        return treeUri in holders
     }
 
     private suspend fun saveWatchedFolder(
@@ -1428,9 +1445,9 @@ class SettingsViewModel @Inject constructor(
         ScheduledFolderScheduler.cancel(app, treeUri)
         if (remaining.isEmpty()) ScheduledFolderScheduler.disarmMediaTrigger(app)
         // Give the grant slot back (the platform caps persisted grants):
-        // only when no OTHER record still watches the same tree.
+        // only when no OTHER record, and no other feature, holds the tree.
         runCatching { android.net.Uri.parse(treeUri) }.getOrNull()?.let { uri ->
-            if (remaining.none { it.treeUri == treeUri }) {
+            if (remaining.none { it.treeUri == treeUri } && !grantHeldByAnotherFeature(treeUri)) {
                 TreeUris.releasePersistableReadGrant(app, uri)
             }
         }
