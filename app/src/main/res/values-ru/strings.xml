@@ -69,6 +69,7 @@
     <string name="logs_select_all">Выбрать все</string>
     <string name="logs_deselect_all">Снять выделение</string>
     <string name="logs_entries_selected">Выбрано: %d</string>
+    <string name="logs_selection_hidden_by_search">· скрыто поиском: %d</string>
     <string name="logs_no_entries_selected">Ничего не выбрано</string>
     <string name="logs_cleared">История очищена</string>
     <string name="logs_entry_deleted">Запись удалена</string>
@@ -77,6 +78,18 @@
         <item quantity="few">%d записи удалены</item>
         <item quantity="many">%d записей удалено</item>
         <item quantity="other">%d записей удалено</item>
+    </plurals>
+    <plurals name="logs_delete_selected_confirm">
+        <item quantity="one">Удалить %d запись?</item>
+        <item quantity="few">Удалить %d записи?</item>
+        <item quantity="many">Удалить %d записей?</item>
+        <item quantity="other">Удалить %d записи?</item>
+    </plurals>
+    <plurals name="logs_entries_skipped_processing">
+        <item quantity="one">%d пропущена (ещё обрабатывается)</item>
+        <item quantity="few">%d пропущены (ещё обрабатываются)</item>
+        <item quantity="many">%d пропущено (ещё обрабатываются)</item>
+        <item quantity="other">%d пропущено (ещё обрабатываются)</item>
     </plurals>
     <string name="logs_undo">Отменить</string>
     <string name="logs_cancel">Отмена</string>
@@ -1503,4 +1516,87 @@
     <string name="sender_rules_note">Правила сопоставляются с именем, которое показывает WhatsApp, или с абонентом в имени файла записи. Если переименовать контакт, его правило перестаёт работать. Правила входят в резервные копии.</string>
     <string name="sender_rules_empty">Правил отправителей пока нет. Чтобы добавить, нажмите и удерживайте отправителя в Истории.</string>
     <string name="sender_rules_section_calls">Записи звонков</string>
+    <string name="bulk_redo_single_pass_hint">Двухпроходный режим для этого повтора отключён: один проход выбранной моделью.</string>
+    <string name="bulk_redo_preparing">Подготовка %1$d из %2$d</string>
+    <string name="bulk_redo_all">Повторить все</string>
+    <string name="bulk_redo_skip_long">Пропустить длинные</string>
+    <string name="history_select_with_subfolders">Выбрать с подпапками</string>
+    <plurals name="bulk_redo_title">
+        <item quantity="one">Повторить %d запись</item>
+        <item quantity="few">Повторить %d записи</item>
+        <item quantity="many">Повторить %d записей</item>
+        <item quantity="other">Повторить %d записи</item>
+    </plurals>
+    <plurals name="bulk_redo_summary_ready">
+        <item quantity="one">%1$d запись будет повторена с %2$s</item>
+        <item quantity="few">%1$d записи будут повторены с %2$s</item>
+        <item quantity="many">%1$d записей будут повторены с %2$s</item>
+        <item quantity="other">%1$d записи будут повторены с %2$s</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_not_audio">
+        <item quantity="one">%d пропущена: не аудио</item>
+        <item quantity="few">%d пропущены: не аудио</item>
+        <item quantity="many">%d пропущено: не аудио</item>
+        <item quantity="other">%d пропущено: не аудио</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_in_flight">
+        <item quantity="one">%d пропущена: ещё в обработке</item>
+        <item quantity="few">%d пропущены: ещё в обработке</item>
+        <item quantity="many">%d пропущено: ещё в обработке</item>
+        <item quantity="other">%d пропущено: ещё в обработке</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_file_gone">
+        <item quantity="one">%d пропущена: файл больше недоступен</item>
+        <item quantity="few">%d пропущены: файл больше недоступен</item>
+        <item quantity="many">%d пропущено: файл больше недоступен</item>
+        <item quantity="other">%d пропущено: файл больше недоступен</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_folder_unavailable">
+        <item quantity="one">%d пропущена: отслеживаемая папка недоступна</item>
+        <item quantity="few">%d пропущены: отслеживаемая папка недоступна</item>
+        <item quantity="many">%d пропущено: отслеживаемая папка недоступна</item>
+        <item quantity="other">%d пропущено: отслеживаемая папка недоступна</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_not_found_in_folder">
+        <item quantity="one">%d пропущена: нет в отслеживаемой папке</item>
+        <item quantity="few">%d пропущены: нет в отслеживаемой папке</item>
+        <item quantity="many">%d пропущено: нет в отслеживаемой папке</item>
+        <item quantity="other">%d пропущено: нет в отслеживаемой папке</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_ambiguous">
+        <item quantity="one">%d пропущена: в папке несколько подходящих файлов</item>
+        <item quantity="few">%d пропущены: в папке несколько подходящих файлов</item>
+        <item quantity="many">%d пропущено: в папке несколько подходящих файлов</item>
+        <item quantity="other">%d пропущено: в папке несколько подходящих файлов</item>
+    </plurals>
+    <plurals name="bulk_redo_long">
+        <item quantity="one">%1$d длинная (самая длинная %2$s)</item>
+        <item quantity="few">%1$d длинные (самая длинная %2$s)</item>
+        <item quantity="many">%1$d длинных (самая длинная %2$s)</item>
+        <item quantity="other">%1$d длинные (самая длинная %2$s)</item>
+    </plurals>
+    <plurals name="bulk_redo_queued">
+        <item quantity="one">%d в очереди</item>
+        <item quantity="few">%d в очереди</item>
+        <item quantity="many">%d в очереди</item>
+        <item quantity="other">%d в очереди</item>
+    </plurals>
+    <plurals name="bulk_redo_failed_to_start">
+        <item quantity="one">%d не удалось запустить</item>
+        <item quantity="few">%d не удалось запустить</item>
+        <item quantity="many">%d не удалось запустить</item>
+        <item quantity="other">%d не удалось запустить</item>
+    </plurals>
+    <plurals name="bulk_redo_deferred">
+        <item quantity="one">Ожидают нажатия для запуска: %d</item>
+        <item quantity="few">Ожидают нажатия для запуска: %d</item>
+        <item quantity="many">Ожидают нажатия для запуска: %d</item>
+        <item quantity="other">Ожидают нажатия для запуска: %d</item>
+    </plurals>
+    <plurals name="bulk_redo_not_started">
+        <item quantity="one">Не запущено (приложение ушло в фон): %d</item>
+        <item quantity="few">Не запущено (приложение ушло в фон): %d</item>
+        <item quantity="many">Не запущено (приложение ушло в фон): %d</item>
+        <item quantity="other">Не запущено (приложение ушло в фон): %d</item>
+    </plurals>
 </resources>

@@ -67,6 +67,7 @@
     <string name="logs_select_all">Alle auswählen</string>
     <string name="logs_deselect_all">Auswahl aufheben</string>
     <string name="logs_entries_selected">%d ausgewählt</string>
+    <string name="logs_selection_hidden_by_search">· %d durch die Suche ausgeblendet</string>
     <string name="logs_no_entries_selected">Keine Einträge ausgewählt</string>
     <string name="logs_cleared">Verlauf gelöscht</string>
     <string name="logs_entry_deleted">Eintrag gelöscht</string>
@@ -1097,6 +1098,14 @@
         <item quantity="one">%d Eintrag gelöscht</item>
         <item quantity="other">%d Einträge gelöscht</item>
     </plurals>
+    <plurals name="logs_delete_selected_confirm">
+        <item quantity="one">%d Eintrag löschen?</item>
+        <item quantity="other">%d Einträge löschen?</item>
+    </plurals>
+    <plurals name="logs_entries_skipped_processing">
+        <item quantity="one">%d übersprungen (wird noch verarbeitet)</item>
+        <item quantity="other">%d übersprungen (werden noch verarbeitet)</item>
+    </plurals>
     <plurals name="queued_count">
         <item quantity="one">%1$d in der Warteschlange</item>
         <item quantity="other">%1$d in der Warteschlange</item>
@@ -1472,4 +1481,61 @@
     <string name="sender_rules_note">Regeln greifen über den Namen, den WhatsApp anzeigt, oder den Anrufer im Dateinamen einer Aufnahme. Wird ein Kontakt umbenannt, greift seine Regel nicht mehr. Regeln sind in Backups enthalten.</string>
     <string name="sender_rules_empty">Noch keine Absenderregeln. Halte im Verlauf einen Absender gedrückt, um eine hinzuzufügen.</string>
     <string name="sender_rules_section_calls">Anrufaufnahmen</string>
+    <string name="bulk_redo_single_pass_hint">Zwei-Durchgang-Modus ist für diese Wiederholung aus: ein Durchgang mit dem gewählten Modell.</string>
+    <string name="bulk_redo_preparing">Vorbereitung %1$d von %2$d</string>
+    <string name="bulk_redo_all">Alle wiederholen</string>
+    <string name="bulk_redo_skip_long">Lange überspringen</string>
+    <string name="history_select_with_subfolders">Mit Unterordnern auswählen</string>
+    <plurals name="bulk_redo_title">
+        <item quantity="one">%d Aufnahme wiederholen</item>
+        <item quantity="other">%d Aufnahmen wiederholen</item>
+    </plurals>
+    <plurals name="bulk_redo_summary_ready">
+        <item quantity="one">%1$d Aufnahme wird mit %2$s neu transkribiert</item>
+        <item quantity="other">%1$d Aufnahmen werden mit %2$s neu transkribiert</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_not_audio">
+        <item quantity="one">%d übersprungen: kein Audio</item>
+        <item quantity="other">%d übersprungen: kein Audio</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_in_flight">
+        <item quantity="one">%d übersprungen: wird noch verarbeitet</item>
+        <item quantity="other">%d übersprungen: wird noch verarbeitet</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_file_gone">
+        <item quantity="one">%d übersprungen: Datei nicht mehr verfügbar</item>
+        <item quantity="other">%d übersprungen: Datei nicht mehr verfügbar</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_folder_unavailable">
+        <item quantity="one">%d übersprungen: überwachter Ordner nicht verfügbar</item>
+        <item quantity="other">%d übersprungen: überwachter Ordner nicht verfügbar</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_not_found_in_folder">
+        <item quantity="one">%d übersprungen: im überwachten Ordner nicht gefunden</item>
+        <item quantity="other">%d übersprungen: im überwachten Ordner nicht gefunden</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_ambiguous">
+        <item quantity="one">%d übersprungen: mehrere passende Dateien im Ordner</item>
+        <item quantity="other">%d übersprungen: mehrere passende Dateien im Ordner</item>
+    </plurals>
+    <plurals name="bulk_redo_long">
+        <item quantity="one">%1$d ist lang (längste %2$s)</item>
+        <item quantity="other">%1$d sind lang (längste %2$s)</item>
+    </plurals>
+    <plurals name="bulk_redo_queued">
+        <item quantity="one">%d in der Warteschlange</item>
+        <item quantity="other">%d in der Warteschlange</item>
+    </plurals>
+    <plurals name="bulk_redo_failed_to_start">
+        <item quantity="one">%d konnte nicht starten</item>
+        <item quantity="other">%d konnten nicht starten</item>
+    </plurals>
+    <plurals name="bulk_redo_deferred">
+        <item quantity="one">%d muss per Tippen gestartet werden</item>
+        <item quantity="other">%d müssen per Tippen gestartet werden</item>
+    </plurals>
+    <plurals name="bulk_redo_not_started">
+        <item quantity="one">%d wurde nicht gestartet (App im Hintergrund)</item>
+        <item quantity="other">%d wurden nicht gestartet (App im Hintergrund)</item>
+    </plurals>
 </resources>

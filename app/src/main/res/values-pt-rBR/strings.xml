@@ -53,12 +53,21 @@
     <string name="logs_select_all">Selecionar tudo</string>
     <string name="logs_deselect_all">Desmarcar tudo</string>
     <string name="logs_entries_selected">%d selecionados</string>
+    <string name="logs_selection_hidden_by_search">· %d ocultas pela busca</string>
     <string name="logs_no_entries_selected">Nenhuma entrada selecionada</string>
     <string name="logs_cleared">Histórico limpo</string>
     <string name="logs_entry_deleted">Entrada excluída</string>
     <plurals name="logs_entries_deleted">
         <item quantity="one">%d entrada excluída</item>
         <item quantity="other">%d entradas excluídas</item>
+    </plurals>
+    <plurals name="logs_delete_selected_confirm">
+        <item quantity="one">Excluir %d entrada?</item>
+        <item quantity="other">Excluir %d entradas?</item>
+    </plurals>
+    <plurals name="logs_entries_skipped_processing">
+        <item quantity="one">%d ignorada (ainda em processamento)</item>
+        <item quantity="other">%d ignoradas (ainda em processamento)</item>
     </plurals>
     <string name="logs_undo">Desfazer</string>
     <string name="logs_cancel">Cancelar</string>
@@ -1340,4 +1349,61 @@
     <string name="sender_rules_note">As regras correspondem ao nome que o WhatsApp mostra ou a quem ligou, no nome do arquivo de uma gravação. Renomear um contato faz a regra dele parar de valer. As regras são incluídas nos backups.</string>
     <string name="sender_rules_empty">Ainda não há regras de remetente. Mantenha pressionado um remetente no Histórico para adicionar uma.</string>
     <string name="sender_rules_section_calls">Gravações de chamadas</string>
+    <string name="bulk_redo_single_pass_hint">O modo de duas passagens está desativado para esta repetição: uma passagem com o modelo escolhido.</string>
+    <string name="bulk_redo_preparing">Preparando %1$d de %2$d</string>
+    <string name="bulk_redo_all">Refazer todas</string>
+    <string name="bulk_redo_skip_long">Pular as longas</string>
+    <string name="history_select_with_subfolders">Selecionar com subpastas</string>
+    <plurals name="bulk_redo_title">
+        <item quantity="one">Refazer %d gravação</item>
+        <item quantity="other">Refazer %d gravações</item>
+    </plurals>
+    <plurals name="bulk_redo_summary_ready">
+        <item quantity="one">%1$d gravação será refeita com %2$s</item>
+        <item quantity="other">%1$d gravações serão refeitas com %2$s</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_not_audio">
+        <item quantity="one">%d ignorada: não é áudio</item>
+        <item quantity="other">%d ignoradas: não é áudio</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_in_flight">
+        <item quantity="one">%d ignorada: ainda em processamento</item>
+        <item quantity="other">%d ignoradas: ainda em processamento</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_file_gone">
+        <item quantity="one">%d ignorada: o arquivo não está mais disponível</item>
+        <item quantity="other">%d ignoradas: o arquivo não está mais disponível</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_folder_unavailable">
+        <item quantity="one">%d ignorada: pasta monitorada indisponível</item>
+        <item quantity="other">%d ignoradas: pasta monitorada indisponível</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_not_found_in_folder">
+        <item quantity="one">%d ignorada: ausente na pasta monitorada</item>
+        <item quantity="other">%d ignoradas: ausente na pasta monitorada</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_ambiguous">
+        <item quantity="one">%d ignorada: mais de um arquivo correspondente na pasta</item>
+        <item quantity="other">%d ignoradas: mais de um arquivo correspondente na pasta</item>
+    </plurals>
+    <plurals name="bulk_redo_long">
+        <item quantity="one">%1$d é longa (a mais longa %2$s)</item>
+        <item quantity="other">%1$d são longas (a mais longa %2$s)</item>
+    </plurals>
+    <plurals name="bulk_redo_queued">
+        <item quantity="one">%d na fila</item>
+        <item quantity="other">%d na fila</item>
+    </plurals>
+    <plurals name="bulk_redo_failed_to_start">
+        <item quantity="one">%d não pôde iniciar</item>
+        <item quantity="other">%d não puderam iniciar</item>
+    </plurals>
+    <plurals name="bulk_redo_deferred">
+        <item quantity="one">%d precisa de um toque para iniciar</item>
+        <item quantity="other">%d precisam de um toque para iniciar</item>
+    </plurals>
+    <plurals name="bulk_redo_not_started">
+        <item quantity="one">%d não foi iniciada (o app foi para segundo plano)</item>
+        <item quantity="other">%d não foram iniciadas (o app foi para segundo plano)</item>
+    </plurals>
 </resources>

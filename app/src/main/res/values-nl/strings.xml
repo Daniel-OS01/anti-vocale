@@ -67,12 +67,21 @@
     <string name="logs_select_all">Alles selecteren</string>
     <string name="logs_deselect_all">Selectie opheffen</string>
     <string name="logs_entries_selected">%d geselecteerd</string>
+    <string name="logs_selection_hidden_by_search">· %d verborgen door de zoekopdracht</string>
     <string name="logs_no_entries_selected">Geen items geselecteerd</string>
     <string name="logs_cleared">Geschiedenis gewist</string>
     <string name="logs_entry_deleted">Logitem verwijderd</string>
     <plurals name="logs_entries_deleted">
         <item quantity="one">%d item verwijderd</item>
         <item quantity="other">%d items verwijderd</item>
+    </plurals>
+    <plurals name="logs_delete_selected_confirm">
+        <item quantity="one">%d item verwijderen?</item>
+        <item quantity="other">%d items verwijderen?</item>
+    </plurals>
+    <plurals name="logs_entries_skipped_processing">
+        <item quantity="one">%d overgeslagen (wordt nog verwerkt)</item>
+        <item quantity="other">%d overgeslagen (worden nog verwerkt)</item>
     </plurals>
     <string name="logs_undo">Ongedaan maken</string>
     <string name="logs_cancel">Annuleren</string>
@@ -1488,4 +1497,61 @@
     <string name="sender_rules_note">Regels komen overeen met de naam die WhatsApp toont, of met de beller in de bestandsnaam van een opname. Als je een contact hernoemt, werkt zijn regel niet meer. Regels zijn opgenomen in back-ups.</string>
     <string name="sender_rules_empty">Nog geen afzenderregels. Houd in de Geschiedenis een afzender ingedrukt om er een toe te voegen.</string>
     <string name="sender_rules_section_calls">Gespreksopnamen</string>
+    <string name="bulk_redo_single_pass_hint">Twee-pass staat uit voor deze herhaling: één pass met het gekozen model.</string>
+    <string name="bulk_redo_preparing">Voorbereiden %1$d van %2$d</string>
+    <string name="bulk_redo_all">Alles opnieuw</string>
+    <string name="bulk_redo_skip_long">Lange overslaan</string>
+    <string name="history_select_with_subfolders">Selecteren met submappen</string>
+    <plurals name="bulk_redo_title">
+        <item quantity="one">%d opname opnieuw doen</item>
+        <item quantity="other">%d opnames opnieuw doen</item>
+    </plurals>
+    <plurals name="bulk_redo_summary_ready">
+        <item quantity="one">%1$d opname wordt opnieuw gedaan met %2$s</item>
+        <item quantity="other">%1$d opnames worden opnieuw gedaan met %2$s</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_not_audio">
+        <item quantity="one">%d overgeslagen: geen audio</item>
+        <item quantity="other">%d overgeslagen: geen audio</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_in_flight">
+        <item quantity="one">%d overgeslagen: nog in verwerking</item>
+        <item quantity="other">%d overgeslagen: nog in verwerking</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_file_gone">
+        <item quantity="one">%d overgeslagen: bestand niet meer beschikbaar</item>
+        <item quantity="other">%d overgeslagen: bestand niet meer beschikbaar</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_folder_unavailable">
+        <item quantity="one">%d overgeslagen: bewaakte map niet beschikbaar</item>
+        <item quantity="other">%d overgeslagen: bewaakte map niet beschikbaar</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_not_found_in_folder">
+        <item quantity="one">%d overgeslagen: niet gevonden in de bewaakte map</item>
+        <item quantity="other">%d overgeslagen: niet gevonden in de bewaakte map</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_ambiguous">
+        <item quantity="one">%d overgeslagen: meerdere overeenkomende bestanden in de map</item>
+        <item quantity="other">%d overgeslagen: meerdere overeenkomende bestanden in de map</item>
+    </plurals>
+    <plurals name="bulk_redo_long">
+        <item quantity="one">%1$d is lang (langste %2$s)</item>
+        <item quantity="other">%1$d zijn lang (langste %2$s)</item>
+    </plurals>
+    <plurals name="bulk_redo_queued">
+        <item quantity="one">%d in wachtrij</item>
+        <item quantity="other">%d in wachtrij</item>
+    </plurals>
+    <plurals name="bulk_redo_failed_to_start">
+        <item quantity="one">%d kon niet starten</item>
+        <item quantity="other">%d konden niet starten</item>
+    </plurals>
+    <plurals name="bulk_redo_deferred">
+        <item quantity="one">%d moet met een tik worden gestart</item>
+        <item quantity="other">%d moeten met een tik worden gestart</item>
+    </plurals>
+    <plurals name="bulk_redo_not_started">
+        <item quantity="one">%d is niet gestart (app ging naar de achtergrond)</item>
+        <item quantity="other">%d zijn niet gestart (app ging naar de achtergrond)</item>
+    </plurals>
 </resources>

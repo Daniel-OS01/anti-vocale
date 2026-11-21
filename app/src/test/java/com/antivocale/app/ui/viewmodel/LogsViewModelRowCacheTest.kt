@@ -58,7 +58,7 @@ class LogsViewModelRowCacheTest : ViewModelTeardownTest() {
         every { logDao.getFirstPass(any()) } returns firstPassSource
         every { logDao.getSegments(any()) } returns segmentsSource
         every { logDao.getResult(any()) } returns resultSource
-        viewModel = register(LogsViewModel(mockk(relaxed = true), logDao, stubPreferencesManager(), staticRegistry(), mockk(relaxed = true), mockk(relaxed = true), mockk(relaxed = true), mockk(relaxed = true), orchestrator = mockk(relaxed = true), duplicateGuard = mockk(relaxed = true), scheduledFolderStore = mockk(relaxed = true), profileOutcomeSource = mockk(relaxed = true), scopeProfileStore = mockk(relaxed = true), appScope = appScope))
+        viewModel = register(LogsViewModel(mockk(relaxed = true), logDao, stubPreferencesManager(), staticRegistry(), mockk(relaxed = true), mockk(relaxed = true), mockk(relaxed = true), mockk(relaxed = true), orchestrator = mockk(relaxed = true), duplicateGuard = mockk(relaxed = true), scheduledFolderStore = mockk(relaxed = true), profileOutcomeSource = mockk(relaxed = true), historyBulkRedo = mockk(relaxed = true), scopeProfileStore = mockk(relaxed = true), appScope = appScope))
     }
 
     @Test

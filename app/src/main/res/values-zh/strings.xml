@@ -54,6 +54,7 @@
     <string name="logs_select_all">全选</string>
     <string name="logs_deselect_all">取消全选</string>
     <string name="logs_entries_selected">已选择 %d 项</string>
+    <string name="logs_selection_hidden_by_search">· %d 项被搜索隐藏</string>
     <string name="logs_no_entries_selected">未选择任何条目</string>
     <string name="logs_cleared">历史记录已清空</string>
     <string name="logs_entry_deleted">日志条目已删除</string>
@@ -1162,6 +1163,12 @@
     <plurals name="logs_entries_deleted">
         <item quantity="other">已删除 %d 条记录</item>
     </plurals>
+    <plurals name="logs_delete_selected_confirm">
+        <item quantity="other">删除 %d 个条目？</item>
+    </plurals>
+    <plurals name="logs_entries_skipped_processing">
+        <item quantity="other">已跳过 %d 项（仍在处理中）</item>
+    </plurals>
     <plurals name="settings_search_matches">
         <item quantity="other">%1$d 个匹配项</item>
     </plurals>
@@ -1298,4 +1305,48 @@
     <string name="sender_rules_note">规则会匹配 WhatsApp 显示的名称，或录音文件名中的来电者。重命名联系人会使其规则失效。规则会包含在备份中。</string>
     <string name="sender_rules_empty">还没有发件人规则。在历史中长按发件人即可添加。</string>
     <string name="sender_rules_section_calls">通话录音</string>
+    <string name="bulk_redo_single_pass_hint">本次重做关闭双遍模式：使用所选模型单遍转写。</string>
+    <string name="bulk_redo_preparing">正在准备 %1$d / %2$d</string>
+    <string name="bulk_redo_all">全部重做</string>
+    <string name="bulk_redo_skip_long">跳过较长的</string>
+    <string name="history_select_with_subfolders">连同子文件夹选择</string>
+    <plurals name="bulk_redo_title">
+        <item quantity="other">重做 %d 条录音</item>
+    </plurals>
+    <plurals name="bulk_redo_summary_ready">
+        <item quantity="other">%1$d 条录音将使用 %2$s 重做</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_not_audio">
+        <item quantity="other">已跳过 %d 条：不是音频</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_in_flight">
+        <item quantity="other">已跳过 %d 条：仍在处理中</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_file_gone">
+        <item quantity="other">已跳过 %d 条：文件已不可用</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_folder_unavailable">
+        <item quantity="other">已跳过 %d 条：监视的文件夹不可用</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_not_found_in_folder">
+        <item quantity="other">已跳过 %d 条：在监视的文件夹中未找到</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_ambiguous">
+        <item quantity="other">已跳过 %d 条：文件夹中有多个匹配的文件</item>
+    </plurals>
+    <plurals name="bulk_redo_long">
+        <item quantity="other">%1$d 条较长（最长 %2$s）</item>
+    </plurals>
+    <plurals name="bulk_redo_queued">
+        <item quantity="other">已排队 %d 条</item>
+    </plurals>
+    <plurals name="bulk_redo_failed_to_start">
+        <item quantity="other">%d 条无法启动</item>
+    </plurals>
+    <plurals name="bulk_redo_deferred">
+        <item quantity="other">%d 条需点按通知才能开始</item>
+    </plurals>
+    <plurals name="bulk_redo_not_started">
+        <item quantity="other">%d 条未启动（应用已转入后台）</item>
+    </plurals>
 </resources>

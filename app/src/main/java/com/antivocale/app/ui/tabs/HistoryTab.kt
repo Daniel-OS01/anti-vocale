@@ -28,6 +28,8 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.state.ToggleableState
+import androidx.activity.compose.BackHandler
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
@@ -64,6 +66,7 @@ import com.antivocale.app.data.local.FailureContextJson
 import com.antivocale.app.data.local.ProcessingContextConverter
 import com.antivocale.app.util.AppInfoUtils
 import com.antivocale.app.util.AudioDurationFormat
+import com.antivocale.app.ui.dialogs.BulkRedoDialogs
 import com.antivocale.app.util.ClipboardWriter
 import com.antivocale.app.util.DecodedOfTotalFormat
 import com.antivocale.app.util.SharedAudioHandler
@@ -806,6 +809,23 @@ fun HistoryTab(
     val loadedWatchedFolders by viewModel.watchedFolders.collectAsState()
     val watchedFolders = loadedWatchedFolders.orEmpty()
 
+    // History multi-select: the state lives in the ViewModel; Back leaves
+    // the mode before it leaves the tab.
+    val selectionMode by viewModel.selectionMode.collectAsState()
+    val selection by viewModel.selection.collectAsStateWithLifecycle()
+    BackHandler(enabled = selectionMode) { viewModel.exitSelection() }
+    var showBulkDeleteDialog by remember { mutableStateOf(false) }
+    // Published by the VM once the delete ran (the DAO's count, not the selection's).
+    val bulkDeleteResult by viewModel.bulkDeleteResult.collectAsState()
+    // Bulk redo: the picker is tab-local; the prepare/summary/done flow is the VM's.
+    var showBulkRedoPicker by remember { mutableStateOf(false) }
+    val bulkRedoState by viewModel.bulkRedoState.collectAsState()
+    // The bar lives in the non-empty branch: an emptied history must not
+    // leave an invisible mode holding the Back key.
+    LaunchedEffect(selectionMode, logs.isEmpty()) {
+        if (selectionMode && logs.isEmpty()) viewModel.exitSelection()
+    }
+
     // Lifted expanded state — tracks which taskIds are expanded
     var expandedTaskIds by remember { mutableStateOf<Set<String>>(emptySet()) }
     var expandedConversationGroups by remember { mutableStateOf<Set<String>>(emptySet()) }
@@ -955,6 +975,27 @@ fun HistoryTab(
         )
     }
 
+    if (showBulkRedoPicker) {
+        val bulkRedoBackends by produceState(initialValue = emptyList<LogsViewModel.BackendOption>()) {
+            value = viewModel.getAvailableAudioBackendsWithModels(context)
+        }
+        RetranscribeDialog(
+            availableBackends = bulkRedoBackends,
+            onProfileSelected = { profile ->
+                showBulkRedoPicker = false
+                viewModel.redoSelected(profile)
+            },
+            onDismiss = { showBulkRedoPicker = false },
+            rowCount = selection.size,
+            offeredLanguages = viewModel::offeredLanguagesFor,
+        )
+    }
+    BulkRedoDialogs(
+        state = bulkRedoState,
+        onConfirm = viewModel::confirmBulkRedo,
+        onCancel = viewModel::cancelBulkRedo,
+    )
+
     // Long-audio advisory (TASK-432): renders only after the retranscribe gate
     // decides a warning is warranted; state lives in the view model so
     // Confirm/Cancel survive recomposition.
@@ -991,6 +1032,42 @@ fun HistoryTab(
         }
         recentlyDeletedEntry = null
     }
+    // Bulk delete outcome: the deleted count, plus the in-flight rows the
+    // delete skipped. The counts are only known at result time, so the
+    // plurals resolve here (no undo: the rows are gone in one statement).
+    // Consumed AFTER the snackbar, as the bulk redo's Done below.
+    LaunchedEffect(bulkDeleteResult) {
+        val outcome = bulkDeleteResult ?: return@LaunchedEffect
+        val res = context.resources
+        val message = listOfNotNull(
+            outcome.deleted.takeIf { it > 0 }
+                ?.let { res.getQuantityString(R.plurals.logs_entries_deleted, it, it) },
+            outcome.skipped.takeIf { it > 0 }
+                ?.let { res.getQuantityString(R.plurals.logs_entries_skipped_processing, it, it) },
+        ).joinToString(" · ")
+        if (message.isNotEmpty()) snackbarHostState.showSnackbar(message)
+        viewModel.consumeBulkDeleteResult()
+    }
+    // Bulk redo outcome: queued, plus the requests that could not start,
+    // the one waiting on a tap-to-start notification, and those never started.
+    // Dismissed AFTER the snackbar: dismissing first would change this
+    // effect's key and cancel it before the snackbar shows.
+    val bulkRedoDone = bulkRedoState as? LogsViewModel.BulkRedoUiState.Done
+    LaunchedEffect(bulkRedoDone) {
+        val report = bulkRedoDone?.report ?: return@LaunchedEffect
+        val res = context.resources
+        val message = listOfNotNull(
+            res.getQuantityString(R.plurals.bulk_redo_queued, report.queued, report.queued),
+            report.failedToStart.takeIf { it > 0 }
+                ?.let { res.getQuantityString(R.plurals.bulk_redo_failed_to_start, it, it) },
+            report.deferred.takeIf { it > 0 }
+                ?.let { res.getQuantityString(R.plurals.bulk_redo_deferred, it, it) },
+            report.notStarted.takeIf { it > 0 }
+                ?.let { res.getQuantityString(R.plurals.bulk_redo_not_started, it, it) },
+        ).joinToString(" · ")
+        snackbarHostState.showSnackbar(message)
+        viewModel.dismissBulkRedoResult()
+    }
 
     // TASK-750: the flat render model both the LazyColumn and the scroll
     // math consume (see buildHistoryRows). remember, not a bare derivation:
@@ -1003,6 +1080,27 @@ fun HistoryTab(
             historyGroupsFor(filteredLogs, groupByConversation, watchedFolders, context),
             isSectionExpanded = { it in expandedConversationGroups },
             isSenderExpanded = { it in expandedSenderGroups },
+        )
+    }
+
+    if (showBulkDeleteDialog) {
+        val count = selection.size
+        AlertDialog(
+            onDismissRequest = { showBulkDeleteDialog = false },
+            title = { Text(pluralStringResource(R.plurals.logs_delete_selected_confirm, count, count)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    showBulkDeleteDialog = false
+                    viewModel.deleteSelected()
+                }) {
+                    Text(stringResource(R.string.logs_delete_selected))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showBulkDeleteDialog = false }) {
+                    Text(stringResource(R.string.logs_cancel))
+                }
+            }
         )
     }
 
@@ -1197,42 +1295,59 @@ fun HistoryTab(
                     }
                 }
             } else {
-                OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = { viewModel.onSearchQueryChanged(it) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    placeholder = { Text(stringResource(R.string.logs_search_placeholder)) },
-                    leadingIcon = {
-                        Icon(Icons.Default.Search, contentDescription = null)
-                    },
-                    shape = MaterialTheme.shapes.medium,
-                    trailingIcon = {
-                        // Search-clear when a query is active; history-clear
-                        // otherwise, sharing the trailing slot. isBlank like
-                        // the chip below: a whitespace-only query is still a
-                        // query, and offering the destructive sweep under it
-                        // is the affordance mismatch TASK-911 review named.
-                        if (!searchQuery.isBlank()) {
-                            IconButton(onClick = { viewModel.clearSearch() }) {
-                                Icon(
-                                    Icons.Default.Clear,
-                                    contentDescription = stringResource(R.string.clear_search)
-                                )
+                if (selectionMode) {
+                    val visibleIds = remember(filteredLogs) { filteredLogs.mapTo(HashSet()) { it.id } }
+                    HistorySelectionBar(
+                        selectedCount = selection.size,
+                        hiddenCount = HistorySelection.hiddenCount(selection, visibleIds),
+                        allVisibleSelected = visibleIds.isNotEmpty() && selection.containsAll(visibleIds),
+                        onExit = viewModel::exitSelection,
+                        onSelectAllVisible = { on -> viewModel.setGroupSelected(visibleIds, on) },
+                        onDelete = { showBulkDeleteDialog = true },
+                        extraActions = {
+                            IconButton(onClick = { showBulkRedoPicker = true }, enabled = selection.isNotEmpty()) {
+                                Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.retranscribe))
                             }
-                        } else {
-                            IconButton(onClick = { showClearDialog = true }) {
-                                Icon(
-                                    Icons.Default.DeleteSweep,
-                                    contentDescription = stringResource(R.string.logs_clear),
-                                    modifier = Modifier.size(20.dp)
-                                )
+                        },
+                    )
+                } else {
+                    OutlinedTextField(
+                        value = searchQuery,
+                        onValueChange = { viewModel.onSearchQueryChanged(it) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        placeholder = { Text(stringResource(R.string.logs_search_placeholder)) },
+                        leadingIcon = {
+                            Icon(Icons.Default.Search, contentDescription = null)
+                        },
+                        shape = MaterialTheme.shapes.medium,
+                        trailingIcon = {
+                            // Search-clear when a query is active; history-clear
+                            // otherwise, sharing the trailing slot. isBlank like
+                            // the chip below: a whitespace-only query is still a
+                            // query, and offering the destructive sweep under it
+                            // is the affordance mismatch TASK-911 review named.
+                            if (!searchQuery.isBlank()) {
+                                IconButton(onClick = { viewModel.clearSearch() }) {
+                                    Icon(
+                                        Icons.Default.Clear,
+                                        contentDescription = stringResource(R.string.clear_search)
+                                    )
+                                }
+                            } else {
+                                IconButton(onClick = { showClearDialog = true }) {
+                                    Icon(
+                                        Icons.Default.DeleteSweep,
+                                        contentDescription = stringResource(R.string.logs_clear),
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
                             }
-                        }
-                    },
-                    singleLine = true
-                )
+                        },
+                        singleLine = true
+                    )
+                }
                 // TASK-911: the similar-words mode is offered only while a
                 // query is active. isBlank, not isNotEmpty: the ViewModel's
                 // blank arm serves the unfiltered list regardless of mode,
@@ -1361,6 +1476,10 @@ fun HistoryTab(
                         minuteTick = minuteTick,
                         onNavigateToSettings = onNavigateToSettings,
                         onOpenLanguageSetting = onOpenLanguageSetting,
+                        selectionMode = selectionMode,
+                        selected = log.id in selection,
+                        onSelectToggle = { viewModel.toggleSelected(log.id) },
+                        onEnterSelection = { viewModel.enterSelection(log.id) },
                     )
                     HorizontalDivider(
                         modifier = Modifier.padding(horizontal = 16.dp),
@@ -1524,6 +1643,9 @@ fun HistoryTab(
                                     HistoryGroupScope.parse(row.groupKey)
                                         .takeIf { it.watchedFolderIn(watchedFolders) != null }
                                 }
+                                // The section's rows in the CURRENT filtered list
+                                // (the groups are built from filteredLogs).
+                                val groupIds = row.group.logs.map { it.id }
                                 ConversationGroupHeader(
                                     title = row.group.title,
                                     count = row.group.logs.size,
@@ -1536,7 +1658,9 @@ fun HistoryTab(
                                             expandedConversationGroups + row.groupKey
                                         }
                                     },
-                                    onLongPress = ruleScope?.let { scope -> { ruleEditorScope = scope } },
+                                    onLongPress = if (selectionMode) null else ruleScope?.let { scope -> { ruleEditorScope = scope } },
+                                    selectionState = if (selectionMode) HistorySelection.triState(groupIds, selection) else null,
+                                    onSelectionToggle = { viewModel.toggleGroupSelected(groupIds) },
                                 )
                             }
                             is HistoryRow.SenderHeaderRow -> {
@@ -1560,6 +1684,7 @@ fun HistoryTab(
                                     }
                                     else -> null
                                 }
+                                val subGroupIds = row.sender.logs.map { it.id }
                                 SenderGroupHeader(
                                     senderName = row.sender.label,
                                     count = row.sender.logs.size,
@@ -1572,7 +1697,23 @@ fun HistoryTab(
                                             expandedSenderGroups + row.senderKey
                                         }
                                     },
-                                    onLongPress = onSenderLongPress,
+                                    onLongPress = if (selectionMode) null else onSenderLongPress,
+                                    selectionState = if (selectionMode) HistorySelection.triState(subGroupIds, selection) else null,
+                                    onSelectionToggle = { viewModel.toggleGroupSelected(subGroupIds) },
+                                    // Selection mode only, folder sub-groups only: the
+                                    // section's visible sub-groups at or below this path.
+                                    onSelectWithSubfolders = if (selectionMode && folderSubPathOf(row.sender.key) != null) {
+                                        {
+                                            val sectionSubGroups = historyRows
+                                                .filterIsInstance<HistoryRow.SenderHeaderRow>()
+                                                .filter { it.groupKey == row.groupKey }
+                                                .map { it.sender }
+                                            viewModel.setGroupSelected(
+                                                HistorySelection.subfolderTreeIds(row.sender.key, sectionSubGroups),
+                                                on = true,
+                                            )
+                                        }
+                                    } else null,
                                 )
                             }
                             is HistoryRow.DateHeaderRow -> DateGroupHeader(label = row.label, count = row.count)
@@ -1656,6 +1797,65 @@ private fun HistorySenderRuleEditor(
             onClose()
         },
     )
+}
+
+/**
+ * History multi-select: replaces the search field while the mode is on.
+ * Select all / Deselect all act on the rows the current search shows;
+ * [hiddenCount] reports selected rows the search hides (they stay selected).
+ * [extraActions] is the slot for further bulk actions (bulk re-transcribe).
+ */
+@Composable
+internal fun HistorySelectionBar(
+    selectedCount: Int,
+    hiddenCount: Int,
+    allVisibleSelected: Boolean,
+    onExit: () -> Unit,
+    onSelectAllVisible: (Boolean) -> Unit,
+    onDelete: () -> Unit,
+    modifier: Modifier = Modifier,
+    extraActions: @Composable RowScope.() -> Unit = {},
+) {
+    Surface(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        color = MaterialTheme.colorScheme.secondaryContainer,
+        shape = MaterialTheme.shapes.medium
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = onExit) {
+                Icon(Icons.Default.Close, contentDescription = stringResource(R.string.logs_cancel))
+            }
+            val title = stringResource(R.string.logs_entries_selected, selectedCount)
+            val hidden = if (hiddenCount > 0) {
+                " " + stringResource(R.string.logs_selection_hidden_by_search, hiddenCount)
+            } else {
+                ""
+            }
+            Text(
+                text = title + hidden,
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f)
+            )
+            TextButton(onClick = { onSelectAllVisible(!allVisibleSelected) }) {
+                Text(
+                    stringResource(if (allVisibleSelected) R.string.logs_deselect_all else R.string.logs_select_all),
+                    maxLines = 1
+                )
+            }
+            extraActions()
+            IconButton(onClick = onDelete, enabled = selectedCount > 0) {
+                Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.logs_delete_selected))
+            }
+        }
+    }
 }
 
 @Composable
@@ -1854,6 +2054,13 @@ fun LogEntryItem(
      *  remember so the label refreshes at most once a minute. No default,
      *  like its siblings. */
     minuteTick: Long,
+    /** History multi-select: taps toggle [selected] instead of expanding,
+     *  a leading checkbox shows the state, and the row menu hides. */
+    selectionMode: Boolean = false,
+    selected: Boolean = false,
+    onSelectToggle: () -> Unit = {},
+    /** The long-press outside selection mode (enters it with this row). */
+    onEnterSelection: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val rowScope = rememberCoroutineScope()
@@ -1871,69 +2078,19 @@ fun LogEntryItem(
             .fillMaxWidth()
             .padding(horizontal = 12.dp, vertical = 6.dp)
             .combinedClickable(
-                onClick = { onExpandChange(!expanded) },
-                onLongClick = { contextMenuExpanded = true }
+                onClick = { if (selectionMode) onSelectToggle() else onExpandChange(!expanded) },
+                onLongClick = { if (selectionMode) onSelectToggle() else onEnterSelection() }
             ),
         // TASK-564: the Models-tab container idiom (the app-wide style
         // reference); matches SectionCard and the curated model cards.
+        // A selected row takes the secondary container so the pick reads
+        // without hunting for the checkbox.
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
+            containerColor = if (selectionMode && selected) MaterialTheme.colorScheme.secondaryContainer
+            else MaterialTheme.colorScheme.surfaceVariant
         )
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
-            // Long-press context menu (GH #52), anchored to the card's top-start.
-            // Composed only while open: idle rows carry just the boolean flag.
-            if (contextMenuExpanded) DropdownMenu(
-                expanded = true,
-                onDismissRequest = { contextMenuExpanded = false }
-            ) {
-                menuActions.forEach { action ->
-                    DropdownMenuItem(
-                        text = {
-                            Text(
-                                stringResource(
-                                    when (action) {
-                                        ContextMenuAction.RETRANSCRIBE -> R.string.retranscribe
-                                        ContextMenuAction.CANCEL -> R.string.logs_cancel
-                                        ContextMenuAction.COPY -> R.string.copy
-                                        ContextMenuAction.SENDER_RULE -> R.string.history_row_sender_rule
-                                        ContextMenuAction.REPORT -> R.string.feedback_report_transcription
-                                        ContextMenuAction.DELETE -> R.string.logs_delete_entry
-                                    }
-                                )
-                            )
-                        },
-                        leadingIcon = {
-                            Icon(
-                                when (action) {
-                                    ContextMenuAction.RETRANSCRIBE -> Icons.Default.Refresh
-                                    ContextMenuAction.CANCEL -> Icons.Default.Close
-                                    ContextMenuAction.COPY -> Icons.Default.ContentCopy
-                                    ContextMenuAction.SENDER_RULE -> Icons.Default.Person
-                                    ContextMenuAction.REPORT -> Icons.Default.Mail
-                                    ContextMenuAction.DELETE -> Icons.Default.Delete
-                                },
-                                contentDescription = null,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        },
-                        onClick = {
-                            contextMenuExpanded = false
-                            when (action) {
-                                ContextMenuAction.RETRANSCRIBE -> onRetranscribe?.invoke()
-                                ContextMenuAction.CANCEL -> onCancel?.invoke()
-                                ContextMenuAction.COPY -> copyTranscriptionToClipboard(
-                                    // GH #107/TASK-598 F3: the stateless row
-                                    // already receives the annotated text.
-                                    context, speakerAnnotated ?: log.result)
-                                ContextMenuAction.SENDER_RULE -> onSenderRule?.invoke()
-                                ContextMenuAction.REPORT -> reportTranscription(context, log)
-                                ContextMenuAction.DELETE -> onDelete?.invoke()
-                            }
-                        }
-                    )
-                }
-            }
             // === COLLAPSED VIEW ===
             // Header row: Audio duration + Status icon + Relative time
             Row(
@@ -1948,6 +2105,13 @@ fun LogEntryItem(
                     modifier = Modifier.weight(1f),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    if (selectionMode) {
+                        Checkbox(
+                            checked = selected,
+                            onCheckedChange = { onSelectToggle() },
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                    }
                     Icon(
                         Icons.Default.Mic,
                         contentDescription = null,
@@ -2041,7 +2205,89 @@ fun LogEntryItem(
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    if (!selectionMode) {
+                        // The row menu (GH #52): the long-press enters
+                        // multi-select now, so the menu moved to this
+                        // overflow button; the menu anchors to it and is
+                        // composed only while open.
+                        Box {
+                            IconButton(
+                                onClick = { contextMenuExpanded = true },
+                                modifier = Modifier.size(32.dp),
+                            ) {
+                                Icon(
+                                    Icons.Default.MoreVert,
+                                    contentDescription = stringResource(R.string.variant_more_actions),
+                                    modifier = Modifier.size(18.dp),
+                                )
+                            }
+                            if (contextMenuExpanded) DropdownMenu(
+                                expanded = true,
+                                onDismissRequest = { contextMenuExpanded = false }
+                            ) {
+                                menuActions.forEach { action ->
+                                    DropdownMenuItem(
+                                        text = {
+                                            Text(
+                                                stringResource(
+                                                    when (action) {
+                                                        ContextMenuAction.RETRANSCRIBE -> R.string.retranscribe
+                                                        ContextMenuAction.CANCEL -> R.string.logs_cancel
+                                                        ContextMenuAction.COPY -> R.string.copy
+                                                        ContextMenuAction.SENDER_RULE -> R.string.history_row_sender_rule
+                                                        ContextMenuAction.REPORT -> R.string.feedback_report_transcription
+                                                        ContextMenuAction.DELETE -> R.string.logs_delete_entry
+                                                    }
+                                                )
+                                            )
+                                        },
+                                        leadingIcon = {
+                                            Icon(
+                                                when (action) {
+                                                    ContextMenuAction.RETRANSCRIBE -> Icons.Default.Refresh
+                                                    ContextMenuAction.CANCEL -> Icons.Default.Close
+                                                    ContextMenuAction.COPY -> Icons.Default.ContentCopy
+                                                    ContextMenuAction.SENDER_RULE -> Icons.Default.Person
+                                                    ContextMenuAction.REPORT -> Icons.Default.Mail
+                                                    ContextMenuAction.DELETE -> Icons.Default.Delete
+                                                },
+                                                contentDescription = null,
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                        },
+                                        onClick = {
+                                            contextMenuExpanded = false
+                                            when (action) {
+                                                ContextMenuAction.RETRANSCRIBE -> onRetranscribe?.invoke()
+                                                ContextMenuAction.CANCEL -> onCancel?.invoke()
+                                                ContextMenuAction.COPY -> copyTranscriptionToClipboard(
+                                                    // GH #107/TASK-598 F3: the stateless row
+                                                    // already receives the annotated text.
+                                                    context, speakerAnnotated ?: log.result)
+                                                ContextMenuAction.SENDER_RULE -> onSenderRule?.invoke()
+                                                ContextMenuAction.REPORT -> reportTranscription(context, log)
+                                                ContextMenuAction.DELETE -> onDelete?.invoke()
+                                            }
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
+            }
+
+            // Multi-select: the model that produced the row, so an old run
+            // and its re-transcription can be told apart before deleting.
+            if (selectionMode && log.modelName != null) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = stringResource(R.string.logs_model_label, log.modelName),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.secondary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
             }
 
             // Preview text (transcription preview for successful audio)
@@ -2769,6 +3015,11 @@ private fun LogEntryWithSwipe(
     minuteTick: Long = 0L,
     onNavigateToSettings: (() -> Unit)? = null,
     onOpenLanguageSetting: (() -> Unit)? = null,
+    /** History multi-select (see LogEntryItem); swipes are off while on. */
+    selectionMode: Boolean = false,
+    selected: Boolean = false,
+    onSelectToggle: () -> Unit = {},
+    onEnterSelection: () -> Unit = {},
 ) {
     val context = LocalContext.current
     // TASK-546/546-AC3/616 + TASK-898: the three tab-wide flags arrive as
@@ -2814,7 +3065,38 @@ private fun LogEntryWithSwipe(
     } else {
         ""
     }
-    if (SwipeActionMode.from(swipeActionMode) == SwipeActionMode.REVEAL) {
+    if (selectionMode) {
+        // Multi-select: no swipe wrapper, so a sideways drag cannot delete
+        // or reveal actions on a row the user is picking.
+        LogEntryItem(
+            log = log,
+            speakerAnnotated = speakerAnnotated,
+            firstPassLabel = firstPassLabel,
+            firstPassTranscript = firstPassTranscript,
+            rowSegmentsJson = rowSegmentsJson,
+            searchQuery = searchQuery,
+            expanded = isExpandedProvider(),
+            onExpandChange = onExpandChange,
+            playback = playback,
+            onRetranscribe = onRetranscribe,
+            onCancel = { cancelTask(context, log.taskId) },
+            onDelete = { onDeleted(log); onDeleteLog(log.id) },
+            compactActions = compactActions,
+            advancedShareFormats = advancedShareFormats,
+            onNavigateToSettings = onNavigateToSettings,
+            onOpenLanguageSetting = onOpenLanguageSetting,
+            showLanguageChip = showLanguageChip,
+            reRunLanguages = reRunLanguages,
+            onReRunWithLanguage = { code -> viewModel.reTranscribeWithLanguage(log, code, context) },
+            showTechnicalDetails = showTechnicalDetails,
+            wordTapSeek = wordTapSeek,
+            minuteTick = minuteTick,
+            selectionMode = true,
+            selected = selected,
+            onSelectToggle = onSelectToggle,
+            onEnterSelection = onEnterSelection,
+        )
+    } else if (SwipeActionMode.from(swipeActionMode) == SwipeActionMode.REVEAL) {
         val revealState = rememberSwipeToRevealState()
 
         LaunchedEffect(log.id, revealState.isRevealed) {
@@ -2884,6 +3166,10 @@ private fun LogEntryWithSwipe(
                 showTechnicalDetails = showTechnicalDetails,
                 wordTapSeek = wordTapSeek,
                         minuteTick = minuteTick,
+                selectionMode = selectionMode,
+                selected = selected,
+                onSelectToggle = onSelectToggle,
+                onEnterSelection = onEnterSelection,
             )
         }
     } else {
@@ -2946,6 +3232,10 @@ private fun LogEntryWithSwipe(
                 showTechnicalDetails = showTechnicalDetails,
                 wordTapSeek = wordTapSeek,
                         minuteTick = minuteTick,
+                selectionMode = selectionMode,
+                selected = selected,
+                onSelectToggle = onSelectToggle,
+                onEnterSelection = onEnterSelection,
             )
         }
     }
@@ -2959,6 +3249,9 @@ private fun ConversationGroupHeader(
     expanded: Boolean,
     onToggle: () -> Unit,
     onLongPress: (() -> Unit)? = null,
+    /** Multi-select: the section's visible rows; null outside selection mode. */
+    selectionState: GroupSelection? = null,
+    onSelectionToggle: () -> Unit = {},
 ) {
     // TASK-566 follow-up: the brand ramp step shared with the date
     // headers, so a collapsed conversation group reads as a section.
@@ -2972,6 +3265,8 @@ private fun ConversationGroupHeader(
         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
         metaColor = MaterialTheme.colorScheme.onSecondaryContainer,
         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+        selectionState = selectionState,
+        onSelectionToggle = onSelectionToggle,
     )
 }
 
@@ -3015,6 +3310,10 @@ private fun CollapsibleGroupHeader(
     rowVerticalPadding: Dp = 8.dp,
     /** R6: the header's long-press (null = none): the rule editor for a watched folder or subfolder. */
     onLongPress: (() -> Unit)? = null,
+    selectionState: GroupSelection? = null,
+    onSelectionToggle: () -> Unit = {},
+    /** An optional end-of-row control (the sub-group's ⋮ menu). */
+    trailing: (@Composable () -> Unit)? = null,
 ) {
     val context = LocalContext.current
     // TASK-384: clickable Surface has no role; announce expand/collapse state to talkback
@@ -3047,6 +3346,20 @@ private fun CollapsibleGroupHeader(
                 .fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            if (selectionState != null) {
+                // The checkbox takes its own tap (select or clear the
+                // group's visible rows); the rest of the header still
+                // expands and collapses.
+                TriStateCheckbox(
+                    state = when (selectionState) {
+                        GroupSelection.ON -> ToggleableState.On
+                        GroupSelection.OFF -> ToggleableState.Off
+                        GroupSelection.PARTIAL -> ToggleableState.Indeterminate
+                    },
+                    onClick = onSelectionToggle,
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+            }
             Icon(
                 if (expanded) Icons.Default.KeyboardArrowDown else Icons.AutoMirrored.Filled.KeyboardArrowRight,
                 contentDescription = null,
@@ -3082,6 +3395,7 @@ private fun CollapsibleGroupHeader(
                 color = metaColor
             )
             Spacer(modifier = Modifier.width(4.dp))
+            trailing?.invoke()
         }
     }
 }
@@ -3099,6 +3413,11 @@ private fun SenderGroupHeader(
     expanded: Boolean,
     onToggle: () -> Unit,
     onLongPress: (() -> Unit)? = null,
+    /** Multi-select: the sub-group's visible rows; null outside selection mode. */
+    selectionState: GroupSelection? = null,
+    onSelectionToggle: () -> Unit = {},
+    /** Non-null = a ⋮ menu offering "Select with subfolders". */
+    onSelectWithSubfolders: (() -> Unit)? = null,
 ) {
     CollapsibleGroupHeader(
         title = senderName,
@@ -3112,7 +3431,36 @@ private fun SenderGroupHeader(
         modifier = Modifier.padding(start = 24.dp, top = 2.dp, bottom = 2.dp, end = 8.dp),
         iconSize = 18.dp,
         rowVerticalPadding = 6.dp,
+        selectionState = selectionState,
+        onSelectionToggle = onSelectionToggle,
+        trailing = if (onSelectWithSubfolders != null) {
+            { SubfolderSelectMenu(onSelectWithSubfolders) }
+        } else null,
     )
+}
+
+/** The folder sub-group's ⋮ menu (selection mode): "Select with subfolders". */
+@Composable
+private fun SubfolderSelectMenu(onSelect: () -> Unit) {
+    var menuOpen by remember { mutableStateOf(false) }
+    Box {
+        IconButton(onClick = { menuOpen = true }, modifier = Modifier.size(32.dp)) {
+            Icon(
+                Icons.Default.MoreVert,
+                contentDescription = stringResource(R.string.history_select_with_subfolders),
+                modifier = Modifier.size(18.dp),
+            )
+        }
+        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.history_select_with_subfolders)) },
+                onClick = {
+                    menuOpen = false
+                    onSelect()
+                },
+            )
+        }
+    }
 }
 
 /**

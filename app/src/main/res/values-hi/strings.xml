@@ -67,6 +67,7 @@
     <string name="logs_select_all">सभी चुनें</string>
     <string name="logs_deselect_all">सभी को चुनने से हटाएं</string>
     <string name="logs_entries_selected">%d चुनी गईं</string>
+    <string name="logs_selection_hidden_by_search">· खोज से छिपी: %d</string>
     <string name="logs_no_entries_selected">कोई एंट्री नहीं चुनी गई</string>
     <string name="logs_cleared">इतिहास साफ़ कर दिया गया</string>
     <string name="logs_entry_deleted">लॉग एंट्री मिटाई गई</string>
@@ -1096,6 +1097,14 @@
         <item quantity="one">%d प्रविष्टि मिटाई गई</item>
         <item quantity="other">%d प्रविष्टियां मिटाई गईं</item>
     </plurals>
+    <plurals name="logs_delete_selected_confirm">
+        <item quantity="one">%d प्रविष्टि हटाएँ?</item>
+        <item quantity="other">%d प्रविष्टियाँ हटाएँ?</item>
+    </plurals>
+    <plurals name="logs_entries_skipped_processing">
+        <item quantity="one">%d छोड़ी गई (अभी प्रोसेस हो रही है)</item>
+        <item quantity="other">%d छोड़ी गईं (अभी प्रोसेस हो रही हैं)</item>
+    </plurals>
     <plurals name="queued_count">
         <item quantity="one">%1$d क़तार में</item>
         <item quantity="other">%1$d क़तार में</item>
@@ -1471,4 +1480,61 @@
     <string name="sender_rules_note">नियम उस नाम से मेल खाते हैं जो WhatsApp दिखाता है, या रिकॉर्डिंग के फ़ाइल नाम में कॉल करने वाले से। संपर्क का नाम बदलने पर उसका नियम काम करना बंद कर देता है। नियम बैकअप में शामिल होते हैं।</string>
     <string name="sender_rules_empty">अभी कोई प्रेषक नियम नहीं है। जोड़ने के लिए इतिहास में किसी प्रेषक को देर तक दबाएँ।</string>
     <string name="sender_rules_section_calls">कॉल रिकॉर्डिंग</string>
+    <string name="bulk_redo_single_pass_hint">इस बार दोबारा करने में दो-पास बंद है: चुने गए मॉडल के साथ एक पास।</string>
+    <string name="bulk_redo_preparing">तैयारी: %2$d में से %1$d</string>
+    <string name="bulk_redo_all">सभी दोबारा करें</string>
+    <string name="bulk_redo_skip_long">लंबी वाली छोड़ें</string>
+    <string name="history_select_with_subfolders">सबफ़ोल्डर सहित चुनें</string>
+    <plurals name="bulk_redo_title">
+        <item quantity="one">%d रिकॉर्डिंग दोबारा करें</item>
+        <item quantity="other">%d रिकॉर्डिंग दोबारा करें</item>
+    </plurals>
+    <plurals name="bulk_redo_summary_ready">
+        <item quantity="one">%1$d रिकॉर्डिंग %2$s के साथ दोबारा की जाएगी</item>
+        <item quantity="other">%1$d रिकॉर्डिंग %2$s के साथ दोबारा की जाएँगी</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_not_audio">
+        <item quantity="one">%d छोड़ी गई: ऑडियो नहीं</item>
+        <item quantity="other">%d छोड़ी गई: ऑडियो नहीं</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_in_flight">
+        <item quantity="one">%d छोड़ी गई: अभी प्रोसेस हो रही है</item>
+        <item quantity="other">%d छोड़ी गई: अभी प्रोसेस हो रही है</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_file_gone">
+        <item quantity="one">%d छोड़ी गई: फ़ाइल अब उपलब्ध नहीं</item>
+        <item quantity="other">%d छोड़ी गई: फ़ाइल अब उपलब्ध नहीं</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_folder_unavailable">
+        <item quantity="one">%d छोड़ी गई: निगरानी वाला फ़ोल्डर उपलब्ध नहीं</item>
+        <item quantity="other">%d छोड़ी गई: निगरानी वाला फ़ोल्डर उपलब्ध नहीं</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_not_found_in_folder">
+        <item quantity="one">%d छोड़ी गई: निगरानी वाले फ़ोल्डर में नहीं मिली</item>
+        <item quantity="other">%d छोड़ी गई: निगरानी वाले फ़ोल्डर में नहीं मिली</item>
+    </plurals>
+    <plurals name="bulk_redo_skip_ambiguous">
+        <item quantity="one">%d छोड़ी गई: फ़ोल्डर में एक से ज़्यादा मिलती-जुलती फ़ाइलें</item>
+        <item quantity="other">%d छोड़ी गई: फ़ोल्डर में एक से ज़्यादा मिलती-जुलती फ़ाइलें</item>
+    </plurals>
+    <plurals name="bulk_redo_long">
+        <item quantity="one">%1$d लंबी है (सबसे लंबी %2$s)</item>
+        <item quantity="other">%1$d लंबी हैं (सबसे लंबी %2$s)</item>
+    </plurals>
+    <plurals name="bulk_redo_queued">
+        <item quantity="one">%d कतार में</item>
+        <item quantity="other">%d कतार में</item>
+    </plurals>
+    <plurals name="bulk_redo_failed_to_start">
+        <item quantity="one">%d शुरू नहीं हो सकी</item>
+        <item quantity="other">%d शुरू नहीं हो सकीं</item>
+    </plurals>
+    <plurals name="bulk_redo_deferred">
+        <item quantity="one">%d को शुरू करने के लिए टैप करना होगा</item>
+        <item quantity="other">%d को शुरू करने के लिए टैप करना होगा</item>
+    </plurals>
+    <plurals name="bulk_redo_not_started">
+        <item quantity="one">%d शुरू नहीं की गई (ऐप बैकग्राउंड में चला गया)</item>
+        <item quantity="other">%d शुरू नहीं की गईं (ऐप बैकग्राउंड में चला गया)</item>
+    </plurals>
 </resources>
