@@ -138,4 +138,12 @@ class FolderScanPlannerTest {
         assertFalse(fourth.morePending)
     }
 
+    @Test
+    fun `hidden pending and trashed files are never planned`() {
+        val names = listOf(".pending-1700000000-note.aac", ".trashed-1700000000-old.aac", "note.aac")
+        val first = plan(names.map { child(it) })
+        assertEquals(listOf("note.aac"), first.awaitingStability.map { it.name })
+        val second = plan(names.map { child(it) }, first.nextSnapshot, now = 2000)
+        assertEquals(listOf("note.aac"), second.toEnqueue.map { it.name })
+    }
 }
