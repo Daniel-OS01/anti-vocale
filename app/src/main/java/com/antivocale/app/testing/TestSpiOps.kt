@@ -183,6 +183,8 @@ internal class TestSpiOps(
             // TASK-588.1: the advanced-reveal state (the conformance test
             // pins every flow exposed, keyed by its flow name).
             .put("settingsTranscriptionAdvancedExpanded", preferences.settingsTranscriptionAdvancedExpanded.first())
+            // The persisted section open/closed state (`<id>` -> open), read-only here.
+            .put("disclosureState", JSONObject(preferences.disclosureState.first().toSortedMap()))
             .put("punctuationMode", preferences.punctuationMode.first())
             .put("punctuationPrompt", preferences.punctuationPrompt.first())
             .put("threadCount", preferences.threadCount.first())

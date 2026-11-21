@@ -44,12 +44,18 @@ fun CollapsibleSection(
     expandSignal: Int = 0,
     /** TASK-542: when false the section renders nothing (search filter). */
     visible: Boolean = true,
+    persistId: String? = null,
+    forceExpand: Boolean = false,
     content: @Composable () -> Unit
 ) {
-    var expanded by rememberSaveable { mutableStateOf(initiallyExpanded) }
-    LaunchedEffect(expandSignal) {
-        if (expandSignal > 0) expanded = true
+    val persisted = if (persistId != null) rememberPersistedExpanded(persistId, initiallyExpanded) else null
+    var saveableExpanded by rememberSaveable { mutableStateOf(initiallyExpanded) }
+    LaunchedEffect(expandSignal, forceExpand, persisted) {
+        if (expandSignal > 0 || forceExpand) {
+            if (persisted != null) persisted.forceOpen() else saveableExpanded = true
+        }
     }
+    val expanded = persisted?.expanded ?: saveableExpanded
     if (!visible) return
     val stateDescriptionText = stringResource(
         if (expanded) R.string.a11y_collapse else R.string.a11y_expand
@@ -60,7 +66,9 @@ fun CollapsibleSection(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable(role = Role.Button) { expanded = !expanded }
+                .clickable(role = Role.Button) {
+                    if (persisted != null) persisted.toggle() else saveableExpanded = !saveableExpanded
+                }
                 .semantics { stateDescription = stateDescriptionText },
             verticalAlignment = Alignment.CenterVertically
         ) {

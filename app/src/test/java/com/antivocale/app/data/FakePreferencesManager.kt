@@ -319,6 +319,16 @@ internal class FakePreferencesManager : PreferencesManager {
 
     // TASK-588.1: the advanced-reveal state (default collapsed, like prod).
     val _transcriptionAdvancedExpanded = MutableStateFlow(false)
+    private val _disclosureState = MutableStateFlow<Map<String, Boolean>>(emptyMap())
+    override val cachedDisclosureState: Map<String, Boolean>
+        get() = _disclosureState.value
+    override val disclosureState: Flow<Map<String, Boolean>> = _disclosureState
+
+    override suspend fun setDisclosure(id: String, open: Boolean) {
+        requireDisclosureId(id)
+        _disclosureState.value = _disclosureState.value + (id to open)
+    }
+
     override val settingsTranscriptionAdvancedExpanded: Flow<Boolean> = _transcriptionAdvancedExpanded
     override suspend fun saveSettingsTranscriptionAdvancedExpanded(expanded: Boolean) {
         _transcriptionAdvancedExpanded.value = expanded

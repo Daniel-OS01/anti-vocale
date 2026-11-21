@@ -91,7 +91,9 @@ import com.antivocale.app.transcription.audioLimitForCatalogEntry
 import com.antivocale.app.transcription.ModelVariant
 import com.antivocale.app.transcription.SherpaModelDownloader
 import androidx.compose.ui.text.style.TextOverflow
+import com.antivocale.app.ui.components.DisclosureIds
 import com.antivocale.app.ui.components.ReadOnlyDropdownField
+import com.antivocale.app.ui.components.rememberPersistedExpanded
 import com.antivocale.app.ui.components.DownloadButtonState
 import com.antivocale.app.ui.components.DownloadProgressView
 import com.antivocale.app.ui.components.InfoIconButton
@@ -622,10 +624,9 @@ fun ModelTab(
         // Collapsed leaves this one toggle row; expanded is everything as
         // before. The state survives tab switches and process death like
         // the filter itself.
-        var modelsHeaderExpanded by rememberSaveable { mutableStateOf(true) }
-        ModelHeaderCollapseToggle(expanded = modelsHeaderExpanded) {
-            modelsHeaderExpanded = !modelsHeaderExpanded
-        }
+        val modelsHeader = rememberPersistedExpanded(DisclosureIds.MODELS_HEADER, default = true)
+        val modelsHeaderExpanded = modelsHeader.expanded
+        ModelHeaderCollapseToggle(expanded = modelsHeaderExpanded, onToggle = modelsHeader::toggle)
         // GH #70: curated "For your language" elevation. The language comes
         // from the UI configuration (the per-app locale when one is set, else
         // the system one): the reactive equivalent of
@@ -930,7 +931,8 @@ fun ModelTab(
         // SAF (OpenDocument) grants its own URI access, so no storage permission
         // Advanced section: manual model imports, collapsed by default to hide
         // complexity from users who just want the curated backends above.
-        var advancedExpanded by remember { mutableStateOf(false) }
+        val advanced = rememberPersistedExpanded(DisclosureIds.MODELS_ADVANCED, default = false)
+        val advancedExpanded = advanced.expanded
         // TASK-486: models:import must compose the import UI first: the
         // Advanced section renders its content only when expanded, so this
         // effect expands it and the section's own effect opens the catalog
@@ -963,7 +965,7 @@ fun ModelTab(
                     browseAllModels = true
                     onNavConsumed()
                 } else {
-                    advancedExpanded = true
+                    advanced.forceOpen()
                 }
             }
         }
@@ -974,7 +976,7 @@ fun ModelTab(
         // the transition only; the user can collapse again freely.
         Column(modifier = Modifier.fillMaxWidth()) {
             OutlinedButton(
-                onClick = { advancedExpanded = !advancedExpanded },
+                onClick = advanced::toggle,
                 modifier = Modifier.fillMaxWidth(),
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(start = 16.dp, end = 16.dp)
             ) {
@@ -2349,8 +2351,9 @@ private fun ExternalModelsSection(
             // one flow that still consumes this hidden selection (plus a
             // folder pick whose detection stays Unknown, which falls back
             // to the selector's default).
-            var familyAdvanced by remember { mutableStateOf(false) }
-            TextButton(onClick = { familyAdvanced = !familyAdvanced }) {
+            val importFamily = rememberPersistedExpanded(DisclosureIds.MODELS_IMPORT_FAMILY, default = false)
+            val familyAdvanced = importFamily.expanded
+            TextButton(onClick = importFamily::toggle) {
                 Icon(
                     // AutoMirrored: the collapsed chevron must flip in RTL
                     // like the Gemma entry arrow (review F2).
@@ -3207,7 +3210,8 @@ private fun ModelHeaderCollapseToggle(expanded: Boolean, onToggle: () -> Unit) {
  */
 @Composable
 private fun WipedImportsBanner(names: List<String>, onRecover: () -> Unit, onForget: () -> Unit) {
-    var expanded by rememberSaveable { mutableStateOf(false) }
+    val wipedImports = rememberPersistedExpanded(DisclosureIds.MODELS_WIPED_IMPORTS, default = false)
+    val expanded = wipedImports.expanded
     val expandStateText = stringResource(
         if (expanded) R.string.a11y_collapse else R.string.a11y_expand)
     Card(
@@ -3224,7 +3228,7 @@ private fun WipedImportsBanner(names: List<String>, onRecover: () -> Unit, onFor
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable(role = Role.Button) { expanded = !expanded }
+                    .clickable(role = Role.Button, onClick = wipedImports::toggle)
                     .semantics { stateDescription = expandStateText },
                 verticalAlignment = Alignment.CenterVertically,
             ) {

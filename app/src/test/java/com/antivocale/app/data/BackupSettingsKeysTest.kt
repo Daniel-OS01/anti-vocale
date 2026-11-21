@@ -17,6 +17,7 @@ class BackupSettingsKeysTest {
 
     /** Keys deliberately excluded from the backup, with the reason class. */
     private val excluded = mapOf(
+        "ui_disclosure_state" to "device-local UI state",
         "output_folder_uri" to "device-bound (per-install SAF grant)",
             // TASK-994 knob: the archive codec carries no Float tag and a
             // String restore under the same key name poisons the float

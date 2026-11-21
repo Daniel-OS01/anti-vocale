@@ -29,6 +29,11 @@ interface PreferencesManager {
     /** GH #43: two-pass transcription (fast streaming preview, then refine). */
     val refinementEnabled: Flow<Boolean>
 
+    /** Synchronous snapshot for the first frame, before the flow is collected. */
+    val cachedDisclosureState: Map<String, Boolean>
+    val disclosureState: Flow<Map<String, Boolean>>
+    suspend fun setDisclosure(id: String, open: Boolean)
+
     /**
      * TASK-588.1: whether the TRANSCRIPTION section's advanced card block
      * is expanded (the persisted progressive-disclosure reveal state).

@@ -89,6 +89,7 @@ import com.antivocale.app.ui.components.languageOptionLabel
 import com.antivocale.app.ui.components.titleRes
 import com.antivocale.app.ui.components.transcriptionSentinelLabels
 import com.antivocale.app.ui.components.CollapsibleSection
+import com.antivocale.app.ui.components.DisclosureIds
 import com.antivocale.app.ui.components.GroupHeader
 import com.antivocale.app.ui.components.HF_TOKEN_SETTINGS_URL
 import com.antivocale.app.ui.components.OAuthLoginSection
@@ -654,7 +655,9 @@ fun SettingsTab(
         CollapsibleSection(
             title = stringResource(R.string.settings_section_transcription),
             icon = Icons.Default.Mic,
-            expandSignal = (expandCounters["transcription"] ?: 0) + if (searchActive) 1 else 0,
+            expandSignal = expandCounters["transcription"] ?: 0,
+            forceExpand = searchActive,
+            persistId = DisclosureIds.SETTINGS_TRANSCRIPTION,
             visible = transcriptionVisible,
             modifier = Modifier.onGloballyPositioned {
                 sectionOffsets["transcription"] = it.positionInRoot().y.toInt()
@@ -1373,7 +1376,9 @@ fun SettingsTab(
         CollapsibleSection(
             title = stringResource(R.string.settings_section_appearance),
             icon = Icons.Default.Palette,
-            expandSignal = (expandCounters["appearance"] ?: 0) + if (searchActive) 1 else 0,
+            expandSignal = expandCounters["appearance"] ?: 0,
+            forceExpand = searchActive,
+            persistId = DisclosureIds.SETTINGS_APPEARANCE,
             visible = appearanceVisible,
             modifier = Modifier.onGloballyPositioned {
                 sectionOffsets["appearance"] = it.positionInRoot().y.toInt()
@@ -1654,7 +1659,9 @@ fun SettingsTab(
         CollapsibleSection(
             title = stringResource(R.string.settings_section_advanced),
             icon = Icons.Default.Settings,
-            expandSignal = (expandCounters["advanced"] ?: 0) + if (searchActive) 1 else 0,
+            expandSignal = expandCounters["advanced"] ?: 0,
+            forceExpand = searchActive,
+            persistId = DisclosureIds.SETTINGS_ADVANCED,
             visible = advancedVisible,
             modifier = Modifier.onGloballyPositioned {
                 sectionOffsets["advanced"] = it.positionInRoot().y.toInt()

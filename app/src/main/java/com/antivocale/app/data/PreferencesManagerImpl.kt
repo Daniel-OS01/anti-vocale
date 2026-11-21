@@ -19,6 +19,8 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(
     name = "localai_preferences",
@@ -38,6 +40,8 @@ class PreferencesManagerImpl(
 
     private val dataStore: DataStore<Preferences> = injectedDataStore ?: context.dataStore
 
+    private val disclosureMutex = Mutex()
+
     companion object {
         private val MODEL_PATH = stringPreferencesKey("model_path")
         private val KEEP_ALIVE_TIMEOUT = intPreferencesKey("keep_alive_timeout_v2")
@@ -47,6 +51,7 @@ class PreferencesManagerImpl(
         private val THEME_PREFERENCE = stringPreferencesKey("theme_preference")
         private val TEXT_SCALE = stringPreferencesKey("text_scale")
         private val REFINEMENT_ENABLED = booleanPreferencesKey("refinement_enabled")
+        private val UI_DISCLOSURE_STATE = stringSetPreferencesKey("ui_disclosure_state")
         private val SETTINGS_TRANSCRIPTION_ADVANCED_EXPANDED =
             booleanPreferencesKey("settings_transcription_advanced_expanded")
         private val SPEAKER_LABELS_ENABLED = booleanPreferencesKey("speaker_labels_enabled")
@@ -173,6 +178,7 @@ class PreferencesManagerImpl(
     private val cache = AtomicReference(CachedPreferences())
 
     private data class CachedPreferences(
+        val disclosureState: Map<String, Boolean> = emptyMap(),
         val modelPath: String? = null,
         val keepAliveTimeout: Int = PreferencesManager.DEFAULT_KEEP_ALIVE_TIMEOUT,
         val subtitleChoiceTimeout: Int = PreferencesManager.DEFAULT_SUBTITLE_CHOICE_TIMEOUT_MINUTES,
@@ -247,6 +253,7 @@ class PreferencesManagerImpl(
     )
 
     private fun Preferences.toCached() = CachedPreferences(
+        disclosureState = decodeDisclosureState(this[UI_DISCLOSURE_STATE].orEmpty()),
         modelPath = this[MODEL_PATH],
         keepAliveTimeout = this[KEEP_ALIVE_TIMEOUT]
             ?: this[KEEP_ALIVE_TIMEOUT_LEGACY]?.toIntOrNull()
@@ -423,6 +430,27 @@ class PreferencesManagerImpl(
     override suspend fun saveRefinementEnabled(enabled: Boolean) {
         dataStore.edit { preferences ->
             preferences[REFINEMENT_ENABLED] = enabled
+        }
+    }
+
+    override val cachedDisclosureState: Map<String, Boolean>
+        get() = cache.get().disclosureState
+
+    override val disclosureState: Flow<Map<String, Boolean>> = dataStore.data
+        .map { decodeDisclosureState(it[UI_DISCLOSURE_STATE].orEmpty()) }
+        .onStart { emit(cachedDisclosureState) }
+        .distinctUntilChanged()
+
+    override suspend fun setDisclosure(id: String, open: Boolean) {
+        requireDisclosureId(id)
+        disclosureMutex.withLock {
+            dataStore.edit { prefs ->
+                val entries = prefs[UI_DISCLOSURE_STATE].orEmpty()
+                prefs[UI_DISCLOSURE_STATE] =
+                    entries.filterNot { it.startsWith("$id=") }.toSet() + "$id=${if (open) 1 else 0}"
+            }
+            val saved = decodeDisclosureState(dataStore.data.first()[UI_DISCLOSURE_STATE].orEmpty())
+            cache.updateAndGet { it.copy(disclosureState = saved) }
         }
     }
 
@@ -1446,6 +1474,8 @@ class PreferencesManagerImpl(
                 prefs[SUMMARY_PRESET] = SummaryPreset.CUSTOM.key
             }
         }
-        cache.set(dataStore.data.first().toCached())
+        disclosureMutex.withLock {
+            cache.set(dataStore.data.first().toCached())
+        }
     }
 }
